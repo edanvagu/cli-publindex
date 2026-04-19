@@ -1,94 +1,95 @@
 import inquirer from 'inquirer';
 import { execSync } from 'child_process';
 import * as fs from 'fs';
-import { Fasciculo, ModoEjecucion } from '../data/types';
-import { formatFasciculo } from '../api/fasciculos';
-import { formatearTiempo } from '../pipeline/runner';
+import { Issue } from '../entities/issues/types';
+import { ExecutionMode } from '../entities/articles/types';
+import { formatIssue } from '../entities/issues/api';
+import { formatDuration } from '../utils/time';
 
-export async function pedirCredenciales(): Promise<{ usuario: string; contrasena: string }> {
-  const { usuario } = await inquirer.prompt([
+export async function promptCredentials(): Promise<{ username: string; password: string }> {
+  const { username } = await inquirer.prompt([
     {
       type: 'input',
-      name: 'usuario',
+      name: 'username',
       message: 'Usuario de Publindex:',
       validate: (v: string) => v.trim() ? true : 'El usuario es obligatorio',
     },
   ]);
 
-  const { contrasena } = await inquirer.prompt([
+  const { password } = await inquirer.prompt([
     {
       type: 'password',
-      name: 'contrasena',
+      name: 'password',
       message: 'Contraseña:',
       mask: '•',
       validate: (v: string) => v ? true : 'La contraseña es obligatoria',
     },
   ]);
 
-  const { confirmado } = await inquirer.prompt([
+  const { confirmed } = await inquirer.prompt([
     {
       type: 'confirm',
-      name: 'confirmado',
-      message: `¿Es correcto el usuario "${usuario}"?`,
+      name: 'confirmed',
+      message: `¿Es correcto el usuario "${username}"?`,
       default: true,
     },
   ]);
 
-  if (!confirmado) {
-    return pedirCredenciales();
+  if (!confirmed) {
+    return promptCredentials();
   }
 
-  return { usuario: usuario.trim(), contrasena };
+  return { username: username.trim(), password };
 }
 
-export async function seleccionarFasciculo(fasciculos: Fasciculo[]): Promise<Fasciculo> {
-  const choices = fasciculos.map(f => ({
-    name: formatFasciculo(f),
+export async function selectIssue(issues: Issue[]): Promise<Issue> {
+  const choices = issues.map(f => ({
+    name: formatIssue(f),
     value: f,
   }));
 
-  const { fasciculo } = await inquirer.prompt([
+  const { issue } = await inquirer.prompt([
     {
       type: 'list',
-      name: 'fasciculo',
+      name: 'issue',
       message: 'Seleccione el fascículo:',
       choices,
       pageSize: 15,
     },
   ]);
 
-  const { confirmado } = await inquirer.prompt([
+  const { confirmed } = await inquirer.prompt([
     {
       type: 'confirm',
-      name: 'confirmado',
-      message: `¿Confirma ${formatFasciculo(fasciculo)}?`,
+      name: 'confirmed',
+      message: `¿Confirma ${formatIssue(issue)}?`,
       default: true,
     },
   ]);
 
-  if (!confirmado) {
-    return seleccionarFasciculo(fasciculos);
+  if (!confirmed) {
+    return selectIssue(issues);
   }
 
-  return fasciculo;
+  return issue;
 }
 
-const EXTENSIONES_ARTICULOS = ['.xlsx', '.xls', '.csv'];
-const EXTENSIONES_OJS = ['.xml'];
+const ARTICLE_EXTENSIONS = ['.xlsx', '.xls', '.csv'];
+const OJS_EXTENSIONS = ['.xml'];
 
-export async function pedirArchivo(): Promise<string> {
-  return pedirArchivoConExtensiones(EXTENSIONES_ARTICULOS, 'Seleccionar archivo de artículos');
+export async function promptFilePath(): Promise<string> {
+  return promptFileWithExtensions(ARTICLE_EXTENSIONS, 'Seleccionar archivo de artículos');
 }
 
-export async function pedirArchivoOjs(): Promise<string> {
-  return pedirArchivoConExtensiones(EXTENSIONES_OJS, 'Seleccionar export XML de OJS');
+export async function promptOjsFilePath(): Promise<string> {
+  return promptFileWithExtensions(OJS_EXTENSIONS, 'Seleccionar export XML de OJS');
 }
 
-async function pedirArchivoConExtensiones(extensiones: string[], titulo: string): Promise<string> {
-  const { metodo } = await inquirer.prompt([
+async function promptFileWithExtensions(extensions: string[], title: string): Promise<string> {
+  const { method } = await inquirer.prompt([
     {
       type: 'list',
-      name: 'metodo',
+      name: 'method',
       message: '¿Cómo desea seleccionar el archivo?',
       choices: [
         { name: 'Abrir explorador de archivos', value: 'explorador' },
@@ -97,96 +98,96 @@ async function pedirArchivoConExtensiones(extensiones: string[], titulo: string)
     },
   ]);
 
-  if (metodo === 'explorador') {
-    return abrirExploradorArchivos(extensiones, titulo);
+  if (method === 'explorador') {
+    return openFileDialog(extensions, title);
   }
 
-  return pedirArchivoManual(extensiones);
+  return promptFileManual(extensions);
 }
 
-function ejecutarDialogoPowerShell(psScript: string): string | null {
+function runPowerShellDialog(psScript: string): string | null {
   try {
-    const linea = psScript.trim().replace(/\n/g, '; ');
-    const resultado = execSync(`powershell -Command "${linea}"`, {
+    const line = psScript.trim().replace(/\n/g, '; ');
+    const result = execSync(`powershell -Command "${line}"`, {
       encoding: 'utf-8',
       timeout: 60000,
     }).trim();
-    return resultado || null;
+    return result || null;
   } catch {
     return null;
   }
 }
 
-function abrirExploradorArchivos(extensiones: string[], titulo: string): Promise<string> {
-  const filtro = extensiones.map(e => `*${e}`).join(';');
-  const resultado = ejecutarDialogoPowerShell(`
+function openFileDialog(extensions: string[], title: string): Promise<string> {
+  const filter = extensions.map(e => `*${e}`).join(';');
+  const result = runPowerShellDialog(`
 Add-Type -AssemblyName System.Windows.Forms
 $dialog = New-Object System.Windows.Forms.OpenFileDialog
-$dialog.Filter = 'Archivos (${filtro})|${filtro}|Todos los archivos (*.*)|*.*'
-$dialog.Title = '${titulo}'
+$dialog.Filter = 'Archivos (${filter})|${filter}|Todos los archivos (*.*)|*.*'
+$dialog.Title = '${title}'
 $dialog.InitialDirectory = [Environment]::GetFolderPath('Desktop')
 if ($dialog.ShowDialog() -eq 'OK') { $dialog.FileName } else { '' }
 `);
 
-  if (resultado && fs.existsSync(resultado)) {
-    return Promise.resolve(resultado);
+  if (result && fs.existsSync(result)) {
+    return Promise.resolve(result);
   }
 
   console.log('');
   console.log('  No se pudo abrir el explorador. Escriba la ruta manualmente.');
-  return pedirArchivoManual(extensiones);
+  return promptFileManual(extensions);
 }
 
-async function pedirArchivoManual(extensiones: string[]): Promise<string> {
-  const { archivo } = await inquirer.prompt([
+async function promptFileManual(extensions: string[]): Promise<string> {
+  const { file } = await inquirer.prompt([
     {
       type: 'input',
-      name: 'archivo',
+      name: 'file',
       message: 'Ruta del archivo (puede arrastrar el archivo aquí):',
-      validate: (v: string) => validarRutaArchivo(v, extensiones),
+      validate: (v: string) => validateFilePath(v, extensions),
     },
   ]);
 
-  return limpiarRuta(archivo);
+  return cleanPath(file);
 }
 
-function limpiarRuta(ruta: string): string {
+function cleanPath(filePath: string): string {
   // Quitar comillas que Windows agrega al arrastrar archivos con espacios
-  return ruta.trim().replace(/^["']|["']$/g, '');
+  return filePath.trim().replace(/^["']|["']$/g, '');
 }
 
-function validarRutaArchivo(v: string, extensiones: string[]): string | true {
-  const ruta = limpiarRuta(v);
-  if (!ruta) return 'La ruta del archivo es obligatoria';
-  const lower = ruta.toLowerCase();
-  if (!extensiones.some(e => lower.endsWith(e))) {
-    return `El archivo debe ser ${extensiones.join(' o ')}`;
+function validateFilePath(v: string, extensions: string[]): string | true {
+  const filePath = cleanPath(v);
+  if (!filePath) return 'La ruta del archivo es obligatoria';
+  const lower = filePath.toLowerCase();
+  if (!extensions.some(e => lower.endsWith(e))) {
+    return `El archivo debe ser ${extensions.join(' o ')}`;
   }
-  if (!fs.existsSync(ruta)) {
-    return `Archivo no encontrado: ${ruta}`;
+  if (!fs.existsSync(filePath)) {
+    return `Archivo no encontrado: ${filePath}`;
   }
   return true;
 }
 
-export async function confirmarContinuar(msg: string): Promise<boolean> {
-  const { continuar } = await inquirer.prompt([
+export async function confirmContinue(msg: string): Promise<boolean> {
+  const { shouldContinue } = await inquirer.prompt([
     {
       type: 'confirm',
-      name: 'continuar',
+      name: 'shouldContinue',
       message: msg,
       default: true,
     },
   ]);
-  return continuar;
+  return shouldContinue;
 }
 
-export async function pedirRutaGuardado(defaultDir: string, defaultName: string): Promise<string> {
+export async function promptSavePath(defaultDir: string, defaultName: string): Promise<string> {
   const defaultFull = `${defaultDir.replace(/[\\/]+$/, '')}\\${defaultName}`;
 
-  const { metodo } = await inquirer.prompt([
+  const { method } = await inquirer.prompt([
     {
       type: 'list',
-      name: 'metodo',
+      name: 'method',
       message: '¿Dónde desea guardar la plantilla?',
       choices: [
         { name: `Usar ruta por defecto (${defaultFull})`, value: 'default' },
@@ -196,18 +197,18 @@ export async function pedirRutaGuardado(defaultDir: string, defaultName: string)
     },
   ]);
 
-  if (metodo === 'default') return defaultFull;
-  if (metodo === 'dialog') {
-    const elegida = abrirDialogoGuardado(defaultDir, defaultName);
-    if (elegida) return elegida;
+  if (method === 'default') return defaultFull;
+  if (method === 'dialog') {
+    const chosen = openSaveDialog(defaultDir, defaultName);
+    if (chosen) return chosen;
     console.log('');
     console.log('  No se pudo abrir el diálogo. Escriba la ruta manualmente.');
   }
-  return pedirRutaManual(defaultFull);
+  return promptPathManual(defaultFull);
 }
 
-function abrirDialogoGuardado(defaultDir: string, defaultName: string): string | null {
-  return ejecutarDialogoPowerShell(`
+function openSaveDialog(defaultDir: string, defaultName: string): string | null {
+  return runPowerShellDialog(`
 Add-Type -AssemblyName System.Windows.Forms
 $dialog = New-Object System.Windows.Forms.SaveFileDialog
 $dialog.Filter = 'Excel (*.xlsx)|*.xlsx'
@@ -218,20 +219,20 @@ if ($dialog.ShowDialog() -eq 'OK') { $dialog.FileName } else { '' }
 `);
 }
 
-async function pedirRutaManual(defaultFull: string): Promise<string> {
-  const { ruta } = await inquirer.prompt([
+async function promptPathManual(defaultFull: string): Promise<string> {
+  const { filePath } = await inquirer.prompt([
     {
       type: 'input',
-      name: 'ruta',
+      name: 'filePath',
       message: 'Ruta completa del archivo .xlsx:',
       default: defaultFull,
       validate: (v: string) => v.trim().toLowerCase().endsWith('.xlsx') ? true : 'La ruta debe terminar en .xlsx',
     },
   ]);
-  return limpiarRuta(ruta);
+  return cleanPath(filePath);
 }
 
-export async function pedirUrlBaseRevista(): Promise<string | null> {
+export async function promptJournalBaseUrl(): Promise<string | null> {
   const { base } = await inquirer.prompt([
     {
       type: 'input',
@@ -243,43 +244,43 @@ export async function pedirUrlBaseRevista(): Promise<string | null> {
   return trimmed ? trimmed : null;
 }
 
-export async function menuPrincipal(): Promise<ModoEjecucion> {
-  const { opcion } = await inquirer.prompt([
+export async function mainMenu(): Promise<ExecutionMode> {
+  const { option } = await inquirer.prompt([
     {
       type: 'list',
-      name: 'opcion',
+      name: 'option',
       message: '¿Qué desea hacer?',
       choices: [
-        { name: 'Validar archivo de artículos', value: 'validar' as ModoEjecucion },
-        { name: 'Validar y cargar artículos', value: 'cargar' as ModoEjecucion },
-        { name: 'Descargar plantilla de ejemplo para rellenar', value: 'plantilla' as ModoEjecucion },
-        { name: 'Importar desde OJS (genera plantilla prellena)', value: 'importar-ojs' as ModoEjecucion },
-        { name: 'Salir', value: 'salir' as ModoEjecucion },
+        { name: 'Validar archivo de artículos', value: 'validate' as ExecutionMode },
+        { name: 'Validar y cargar artículos', value: 'upload' as ExecutionMode },
+        { name: 'Descargar plantilla de ejemplo para rellenar', value: 'template' as ExecutionMode },
+        { name: 'Importar desde OJS (genera plantilla prellena)', value: 'import-ojs' as ExecutionMode },
+        { name: 'Salir', value: 'exit' as ExecutionMode },
       ],
     },
   ]);
-  return opcion;
+  return option;
 }
 
-export async function confirmarReanudar(yaSubidos: number, pendientes: number): Promise<'omitir' | 'todo'> {
-  const { accion } = await inquirer.prompt([
+export async function confirmResume(alreadyUploaded: number, pending: number): Promise<'omitir' | 'todo'> {
+  const { action } = await inquirer.prompt([
     {
       type: 'list',
-      name: 'accion',
-      message: `Se detectaron ${yaSubidos} artículos ya cargados previamente. ¿Qué desea hacer?`,
+      name: 'action',
+      message: `Se detectaron ${alreadyUploaded} artículos ya cargados previamente. ¿Qué desea hacer?`,
       choices: [
-        { name: `Omitirlos y procesar solo los ${pendientes} pendientes (recomendado)`, value: 'omitir' },
+        { name: `Omitirlos y procesar solo los ${pending} pendientes (recomendado)`, value: 'omitir' },
         { name: 'Procesar TODOS de nuevo (puede crear duplicados en Publindex)', value: 'todo' },
       ],
       default: 'omitir',
     },
   ]);
-  return accion;
+  return action;
 }
 
-export async function confirmarEstimadoTiempo(cantidad: number, segundos: number): Promise<boolean> {
+export async function confirmTimeEstimate(cantidad: number, segundos: number): Promise<boolean> {
   console.log('');
-  console.log(`  ⏱  Tiempo estimado: ~${formatearTiempo(segundos)} (${cantidad} artículos × ~9s promedio)`);
+  console.log(`  ⏱  Tiempo estimado: ~${formatDuration(segundos)} (${cantidad} artículos × ~9s promedio)`);
   console.log(`  ℹ  Se aplicará una pausa aleatoria de 4-9s entre cada artículo para no saturar el servidor`);
   console.log('');
 

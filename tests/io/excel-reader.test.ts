@@ -1,0 +1,216 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+import * as XLSX from 'xlsx';
+import { readArticles, normalizeHeader } from '../../src/io/excel-reader';
+
+// === Helper para crear archivos temporales ===
+let tempDir: string;
+
+beforeEach(() => {
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'publindex-test-'));
+});
+
+afterEach(() => {
+  fs.rmSync(tempDir, { recursive: true, force: true });
+});
+
+function crearXlsx(rows: Record<string, string>[], headers?: string[]): string {
+  const filePath = path.join(tempDir, 'test.xlsx');
+  const wb = XLSX.utils.book_new();
+  const hdrs = headers || (rows.length > 0 ? Object.keys(rows[0]) : []);
+  const data = [hdrs, ...rows.map(f => hdrs.map(h => f[h] ?? ''))];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  XLSX.utils.book_append_sheet(wb, ws, 'Hoja1');
+  XLSX.writeFile(wb, filePath);
+  return filePath;
+}
+
+function crearCsv(contenido: string): string {
+  const filePath = path.join(tempDir, 'test.csv');
+  fs.writeFileSync(filePath, contenido, 'utf-8');
+  return filePath;
+}
+
+describe('normalizeHeader', () => {
+  it('convierte a lowercase', () => {
+    expect(normalizeHeader('TITULO')).toBe('titulo');
+  });
+
+  it('quita acentos', () => {
+    expect(normalizeHeader('título')).toBe('titulo');
+    expect(normalizeHeader('gran_área')).toBe('gran_area');
+  });
+
+  it('reemplaza espacios por underscore', () => {
+    expect(normalizeHeader('gran area')).toBe('gran_area');
+  });
+
+  it('remueve caracteres especiales', () => {
+    expect(normalizeHeader('palabras-clave!')).toBe('palabrasclave');
+  });
+
+  it('maneja string vacío', () => {
+    expect(normalizeHeader('')).toBe('');
+  });
+});
+
+describe('readArticles - XLSX', () => {
+  it('lee un archivo xlsx válido', () => {
+    const file = crearXlsx([
+      {
+        titulo: 'Artículo de prueba',
+        url: 'https://example.com',
+        gran_area: '6',
+        area: '6A',
+        tipo_documento: '1',
+        palabras_clave: 'test',
+        titulo_ingles: 'Test Article',
+        resumen: 'Resumen de prueba',
+      },
+    ]);
+
+    const result = readArticles(file);
+    expect(result.articles).toHaveLength(1);
+    expect(result.articles[0].titulo).toBe('Artículo de prueba');
+    expect(result.articles[0]._fila).toBe(2);
+  });
+
+  it('lee múltiples filas', () => {
+    const file = crearXlsx([
+      { titulo: 'Art 1', url: 'https://a.com', gran_area: '1', area: '1A', tipo_documento: '1', palabras_clave: 'a', titulo_ingles: 'A', resumen: 'r' },
+      { titulo: 'Art 2', url: 'https://b.com', gran_area: '2', area: '2A', tipo_documento: '2', palabras_clave: 'b', titulo_ingles: 'B', resumen: 's' },
+      { titulo: 'Art 3', url: 'https://c.com', gran_area: '3', area: '3A', tipo_documento: '3', palabras_clave: 'c', titulo_ingles: 'C', resumen: 't' },
+    ]);
+
+    const result = readArticles(file);
+    expect(result.articles).toHaveLength(3);
+    expect(result.articles.map(a => a._fila)).toEqual([2, 3, 4]);
+  });
+
+  it('filtra filas completamente vacías', () => {
+    const file = crearXlsx([
+      { titulo: 'Art 1', url: 'https://a.com' },
+      { titulo: '', url: '' },
+      { titulo: 'Art 3', url: 'https://c.com' },
+    ]);
+
+    const result = readArticles(file);
+    expect(result.articles).toHaveLength(2);
+  });
+
+  it('normaliza headers con acentos y mayúsculas', () => {
+    const file = crearXlsx(
+      [{ Título: 'Con acento', URL: 'https://x.com', titulo_ingles: 'Title' }],
+    );
+
+    const result = readArticles(file);
+    expect(result.articles[0].titulo).toBe('Con acento');
+    expect(result.articles[0].url).toBe('https://x.com');
+  });
+});
+
+describe('readArticles - CSV', () => {
+  it('lee un archivo CSV válido', () => {
+    const file = crearCsv(
+      'titulo,url,gran_area,area,tipo_documento,palabras_clave,titulo_ingles,resumen\n' +
+      '"Artículo CSV",https://example.com,5,5A,1,test,English Title,Resumen\n'
+    );
+
+    const result = readArticles(file);
+    expect(result.articles).toHaveLength(1);
+    expect(result.articles[0].titulo).toBe('Artículo CSV');
+  });
+
+  it('maneja BOM al inicio del archivo', () => {
+    const file = crearCsv(
+      '\uFEFFtitulo,url\n"Con BOM",https://example.com\n'
+    );
+
+    const result = readArticles(file);
+    expect(result.articles[0].titulo).toBe('Con BOM');
+  });
+});
+
+describe('readArticles - errores', () => {
+  it('lanza error si el archivo no existe', () => {
+    expect(() => readArticles('/ruta/no/existe.xlsx'))
+      .toThrow('Archivo no encontrado');
+  });
+
+  it('lanza error si el formato no es soportado', () => {
+    const file = path.join(tempDir, 'test.txt');
+    fs.writeFileSync(file, 'contenido');
+
+    expect(() => readArticles(file))
+      .toThrow('Formato no soportado');
+  });
+});
+
+describe('readArticles - clasificación por estado', () => {
+  it('clasifica artículos sin estado como pendientes', () => {
+    const file = crearXlsx([
+      { titulo: 'Art 1', url: 'https://a.com' },
+      { titulo: 'Art 2', url: 'https://b.com' },
+    ]);
+
+    const result = readArticles(file);
+    expect(result.pending).toHaveLength(2);
+    expect(result.alreadyUploaded).toHaveLength(0);
+    expect(result.withError).toHaveLength(0);
+  });
+
+  it('clasifica artículos con estado "subido"', () => {
+    const file = crearXlsx([
+      { titulo: 'Art 1', url: 'https://a.com', estado: 'subido' },
+      { titulo: 'Art 2', url: 'https://b.com', estado: 'pendiente' },
+      { titulo: 'Art 3', url: 'https://c.com', estado: 'error' },
+    ]);
+
+    const result = readArticles(file);
+    expect(result.alreadyUploaded).toHaveLength(1);
+    expect(result.pending).toHaveLength(1);
+    expect(result.withError).toHaveLength(1);
+  });
+
+  it('reconoce estado en mayúsculas', () => {
+    const file = crearXlsx([
+      { titulo: 'Art 1', url: 'https://a.com', estado: 'SUBIDO' },
+    ]);
+
+    const result = readArticles(file);
+    expect(result.alreadyUploaded).toHaveLength(1);
+  });
+});
+
+describe('readArticles - headers desconocidos', () => {
+  it('detecta columnas no reconocidas', () => {
+    const file = crearXlsx([
+      { titulo: 'Art', url: 'https://a.com', columna_rara: 'X' },
+    ]);
+
+    const result = readArticles(file);
+    expect(result.unknownHeaders).toContain('columna_rara');
+  });
+
+  it('no reporta columnas de estado como desconocidas', () => {
+    const file = crearXlsx([
+      { titulo: 'Art', url: 'https://a.com', estado: '', fecha_subida: '', ultimo_error: '' },
+    ]);
+
+    const result = readArticles(file);
+    expect(result.unknownHeaders).not.toContain('estado');
+    expect(result.unknownHeaders).not.toContain('fecha_subida');
+    expect(result.unknownHeaders).not.toContain('ultimo_error');
+  });
+
+  it('retorna array vacío si todos los headers son conocidos', () => {
+    const file = crearXlsx([
+      { titulo: 'Art', url: 'https://a.com' },
+    ]);
+
+    const result = readArticles(file);
+    expect(result.unknownHeaders).toEqual([]);
+  });
+});

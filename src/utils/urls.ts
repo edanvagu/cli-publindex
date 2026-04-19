@@ -1,9 +1,9 @@
-export function normalizarBaseUrl(base: string): string {
+export function normalizeBaseUrl(base: string): string {
   const trimmed = base.trim();
   const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
   return withScheme.replace(/\/+$/, '');
 }
 
-export function construirUrlArticulo(base: string, submissionId: string): string {
-  return `${normalizarBaseUrl(base)}/article/view/${submissionId}`;
+export function buildArticleUrl(base: string, submissionId: string): string {
+  return `${normalizeBaseUrl(base)}/article/view/${submissionId}`;
 }

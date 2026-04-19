@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import ora, { Ora } from 'ora';
-import { ValidationResult, UploadResult } from '../data/types';
+import { ValidationResult, UploadResult } from '../entities/articles/types';
+import { formatDuration } from '../utils/time';
 
 export function banner() {
   console.log('');
@@ -15,7 +16,7 @@ export function spinner(text: string): Ora {
   return ora({ text, color: 'yellow' }).start();
 }
 
-export function exito(msg: string) {
+export function success(msg: string) {
   console.log(chalk.green('  ✓ ') + msg);
 }
 
@@ -23,7 +24,7 @@ export function error(msg: string) {
   console.log(chalk.red('  ✗ ') + msg);
 }
 
-export function advertencia(msg: string) {
+export function warning(msg: string) {
   console.log(chalk.yellow('  ⚠ ') + msg);
 }
 
@@ -31,45 +32,45 @@ export function info(msg: string) {
   console.log(chalk.cyan('  ℹ ') + msg);
 }
 
-export function mostrarValidacion(result: ValidationResult) {
+export function showValidation(result: ValidationResult) {
   console.log('');
   console.log(chalk.bold('  ═══════════════════════════════════════════════'));
-  console.log(chalk.bold(`  Validación de ${result.validos.length + result.errores.length} artículos`));
+  console.log(chalk.bold(`  Validación de ${result.valid.length + result.errors.length} artículos`));
   console.log(chalk.bold('  ═══════════════════════════════════════════════'));
   console.log('');
 
-  if (result.validos.length > 0) {
-    exito(`${result.validos.length} artículos válidos`);
+  if (result.valid.length > 0) {
+    success(`${result.valid.length} artículos válidos`);
   }
 
-  if (result.errores.length > 0) {
+  if (result.errors.length > 0) {
     console.log('');
-    error(`${new Set(result.errores.map(e => e.fila)).size} artículos con errores:`);
+    error(`${new Set(result.errors.map(e => e.row)).size} artículos con errores:`);
     console.log('');
 
-    const porFila = new Map<number, typeof result.errores>();
-    for (const err of result.errores) {
-      const lista = porFila.get(err.fila) || [];
+    const porFila = new Map<number, typeof result.errors>();
+    for (const err of result.errors) {
+      const lista = porFila.get(err.row) || [];
       lista.push(err);
-      porFila.set(err.fila, lista);
+      porFila.set(err.row, lista);
     }
 
-    for (const [fila, errores] of porFila) {
-      console.log(chalk.red(`  Fila ${fila}:`));
-      for (const err of errores) {
-        console.log(chalk.gray(`    - ${err.campo}: `) + err.mensaje);
-        if (err.sugerencia) {
-          console.log(chalk.gray(`      ${err.sugerencia}`));
+    for (const [row, errors] of porFila) {
+      console.log(chalk.red(`  Fila ${row}:`));
+      for (const err of errors) {
+        console.log(chalk.gray(`    - ${err.field}: `) + err.message);
+        if (err.suggestion) {
+          console.log(chalk.gray(`      ${err.suggestion}`));
         }
       }
       console.log('');
     }
   }
 
-  if (result.advertencias.length > 0) {
+  if (result.warnings.length > 0) {
     console.log(chalk.yellow('  Advertencias:'));
-    for (const adv of result.advertencias) {
-      advertencia(adv.mensaje);
+    for (const adv of result.warnings) {
+      warning(adv.message);
     }
     console.log('');
   }
@@ -77,7 +78,7 @@ export function mostrarValidacion(result: ValidationResult) {
   console.log(chalk.bold('  ═══════════════════════════════════════════════'));
 }
 
-export function mostrarProgreso(current: number, total: number, titulo: string, ok: boolean, timeMs: number, errorMsg?: string) {
+export function showProgress(current: number, total: number, titulo: string, ok: boolean, timeMs: number, errorMsg?: string) {
   const idx = `[${current}/${total}]`;
   const tituloCorto = titulo.length > 55 ? titulo.substring(0, 52) + '...' : titulo;
   const tiempo = `(${(timeMs / 1000).toFixed(1)}s)`;
@@ -89,40 +90,31 @@ export function mostrarProgreso(current: number, total: number, titulo: string, 
   }
 }
 
-export function mostrarPausa(segundos: number) {
+export function showPause(segundos: number) {
   console.log(chalk.gray(`        ⏸  Pausando ${segundos}s antes del siguiente...`));
 }
 
-export function mostrarTiempoRestante(segundos: number, procesados: number, total: number) {
-  const restantes = total - procesados;
-  console.log(chalk.gray(`        ⏱  Tiempo restante estimado: ~${formatearDuracion(segundos)} (${restantes} artículos por procesar)`));
+export function showRemainingTime(segundos: number, processed: number, total: number) {
+  const remainingCount = total - processed;
+  console.log(chalk.gray(`        ⏱  Tiempo restante estimado: ~${formatDuration(segundos)} (${remainingCount} artículos por procesar)`));
 }
 
-function formatearDuracion(segundos: number): string {
-  if (segundos < 60) return `${segundos}s`;
-  const min = Math.floor(segundos / 60);
-  const seg = segundos % 60;
-  if (min < 60) return seg > 0 ? `${min}m ${seg}s` : `${min}m`;
-  const horas = Math.floor(min / 60);
-  const minRest = min % 60;
-  return minRest > 0 ? `${horas}h ${minRest}m` : `${horas}h`;
-}
 
-export function mostrarResumen(result: UploadResult) {
-  const tiempoSeg = (result.tiempoTotal / 1000).toFixed(1);
+export function showSummary(result: UploadResult) {
+  const tiempoSeg = (result.totalTimeMs / 1000).toFixed(1);
 
   console.log('');
   console.log(chalk.bold('  ═══════════════════════════════════════════════'));
-  console.log(chalk.green(`  Completados: ${result.exitosos.length}`) + chalk.gray(' | ') + chalk.red(`Fallidos: ${result.fallidos.length}`));
+  console.log(chalk.green(`  Completados: ${result.successful.length}`) + chalk.gray(' | ') + chalk.red(`Fallidos: ${result.failed.length}`));
   console.log(chalk.gray(`  Tiempo total: ${tiempoSeg}s`));
   console.log(chalk.bold('  ═══════════════════════════════════════════════'));
 
-  if (result.fallidos.length > 0) {
+  if (result.failed.length > 0) {
     console.log('');
     console.log(chalk.red('  Artículos fallidos:'));
-    for (const f of result.fallidos) {
+    for (const f of result.failed) {
       const tituloCorto = f.titulo.length > 45 ? f.titulo.substring(0, 42) + '...' : f.titulo;
-      console.log(chalk.gray(`    Fila ${f.fila}: `) + chalk.white(`"${tituloCorto}"`) + chalk.red(` - ${f.error}`));
+      console.log(chalk.gray(`    Fila ${f.row}: `) + chalk.white(`"${tituloCorto}"`) + chalk.red(` - ${f.error}`));
     }
   }
   console.log('');

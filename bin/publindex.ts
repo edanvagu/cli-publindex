@@ -2,8 +2,8 @@
 
 import { Command } from 'commander';
 import { run } from '../src/cli/index';
-import { generarPlantilla } from '../src/data/template';
-import { ModoEjecucion } from '../src/data/types';
+import { generateTemplate } from '../src/io/excel-writer';
+import { ExecutionMode } from '../src/entities/articles/types';
 
 const program = new Command();
 
@@ -16,15 +16,15 @@ program
   .option('--cargar', 'Forzar modo validar y cargar (sin menú)')
   .action(async (options) => {
     if (options.plantilla) {
-      generarPlantilla();
+      generateTemplate();
       return;
     }
 
-    let modoForzado: ModoEjecucion | undefined;
-    if (options.soloValidar) modoForzado = 'validar';
-    else if (options.cargar) modoForzado = 'cargar';
+    let forcedMode: ExecutionMode | undefined;
+    if (options.soloValidar) forcedMode = 'validate';
+    else if (options.cargar) forcedMode = 'upload';
 
-    await run({ modoForzado });
+    await run({ forcedMode });
   });
 
 program.parse();

@@ -2,8 +2,8 @@ export const BASE_URL = 'https://scienti.minciencias.gov.co/publindex/api';
 
 export const ENDPOINTS = {
   LOGIN: `${BASE_URL}/autenticacion/autenticarEditor`,
-  FASCICULOS: `${BASE_URL}/fasciculos`,
-  ARTICULOS: `${BASE_URL}/articulos`,
+  ISSUES: `${BASE_URL}/issues`,
+  ARTICULOS: `${BASE_URL}/articles`,
 } as const;
 
 export const DEFAULTS = {
@@ -12,24 +12,24 @@ export const DEFAULTS = {
   RETRY_BACKOFF: 1.5,
   REQUEST_TIMEOUT_MS: 30000,
   TOKEN_REFRESH_MARGIN_MIN: 5,
-  PAUSA_MIN_MS: 4000,
-  PAUSA_MAX_MS: 9000,
-  TIEMPO_ESTIMADO_POR_ARTICULO_S: 8.5,
+  PAUSE_MIN_MS: 4000,
+  PAUSE_MAX_MS: 9000,
+  ESTIMATED_SECONDS_PER_ARTICLE: 8.5,
 } as const;
 
-export const COLUMNAS_ESTADO = {
-  ESTADO: 'estado',
-  FECHA_SUBIDA: 'fecha_subida',
-  ULTIMO_ERROR: 'ultimo_error',
+export const STATE_COLUMNS = {
+  STATE: 'estado',
+  UPLOAD_DATE: 'fecha_subida',
+  LAST_ERROR: 'ultimo_error',
 } as const;
 
-export const ESTADOS_ARTICULO = {
-  PENDIENTE: 'pendiente',
-  SUBIDO: 'subido',
+export const ARTICLE_STATES = {
+  PENDING: 'pendiente',
+  UPLOADED: 'subido',
   ERROR: 'error',
 } as const;
 
-export const TIPOS_DOCUMENTO: Record<string, string> = {
+export const DOCUMENT_TYPES: Record<string, string> = {
   '1': 'Artículo de investigación científica y tecnológica',
   '2': 'Artículo de reflexión',
   '3': 'Artículo de revisión',
@@ -44,20 +44,20 @@ export const TIPOS_DOCUMENTO: Record<string, string> = {
   '12': 'Otros',
 };
 
-export const TIPOS_RESUMEN: Record<string, string> = {
+export const SUMMARY_TYPES: Record<string, string> = {
   'A': 'Analítico',
   'D': 'Descriptivo',
   'S': 'Analítico sintético',
 };
 
-export const TIPOS_ESPECIALISTA: Record<string, string> = {
+export const SPECIALIST_TYPES: Record<string, string> = {
   'A': 'Autor',
   'E': 'Editor',
   'B': 'Bibliotecólogo',
   'S': 'Especialista en el área',
 };
 
-export const IDIOMAS: Record<string, string> = {
+export const LANGUAGES: Record<string, string> = {
   'ES': 'Español',
   'EN': 'Inglés',
   'PT': 'Portugués',
@@ -66,7 +66,7 @@ export const IDIOMAS: Record<string, string> = {
   'IT': 'Italiano',
 };
 
-export const HEADERS_EXCEL = [
+export const EXCEL_HEADERS = [
   'titulo',
   'doi',
   'url',
