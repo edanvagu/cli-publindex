@@ -90,6 +90,10 @@ export function mostrarProgreso(current: number, total: number, titulo: string, 
   }
 }
 
+export function mostrarPausa(segundos: number) {
+  console.log(chalk.gray(`        ⏸  Pausando ${segundos}s antes del siguiente...`));
+}
+
 export function mostrarResumen(result: UploadResult) {
   const tiempoSeg = (result.tiempoTotal / 1000).toFixed(1);
 

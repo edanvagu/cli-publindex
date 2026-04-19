@@ -102,8 +102,17 @@ export interface ArticuloRow {
   resumen: string;
   resumen_otro_idioma?: string;
   resumen_idioma_adicional?: string;
+  // Campos de estado (columnas añadidas por la herramienta)
+  estado?: string;
+  fecha_subida?: string;
+  ultimo_error?: string;
   _fila: number;
 }
+
+export type EstadoArticulo = 'pendiente' | 'subido' | 'error';
+
+// === Modo de ejecución seleccionado en el menú ===
+export type ModoEjecucion = 'validar' | 'cargar' | 'plantilla' | 'salir';
 
 // === Resultado de validación ===
 export interface ValidationError {

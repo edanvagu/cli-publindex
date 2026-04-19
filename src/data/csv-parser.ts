@@ -48,6 +48,9 @@ export function parseCsv(filePath: string): ArticuloRow[] {
         resumen: normalized['resumen'] || '',
         resumen_otro_idioma: normalized['resumen_otro_idioma'] || undefined,
         resumen_idioma_adicional: normalized['resumen_idioma_adicional'] || undefined,
+        estado: normalized['estado'] || undefined,
+        fecha_subida: normalized['fecha_subida'] || undefined,
+        ultimo_error: normalized['ultimo_error'] || undefined,
         _fila: index + 2,
       } as ArticuloRow;
     })

@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import { ArticuloRow } from './types';
 import { parseXlsx } from './xlsx-parser';
 import { parseCsv } from './csv-parser';
-import { HEADERS_EXCEL } from '../config/constants';
+import { HEADERS_EXCEL, COLUMNAS_ESTADO, ESTADOS_ARTICULO } from '../config/constants';
 
 export function normalizeHeader(header: string): string {
   return header
@@ -18,6 +18,9 @@ export function normalizeHeader(header: string): string {
 export interface ReadResult {
   articulos: ArticuloRow[];
   headersDesconocidos: string[];
+  yaSubidos: ArticuloRow[];
+  pendientes: ArticuloRow[];
+  conError: ArticuloRow[];
 }
 
 export function readArticulos(filePath: string): ReadResult {
@@ -41,11 +44,33 @@ export function readArticulos(filePath: string): ReadResult {
   // Detectar headers desconocidos
   const headersDesconocidos = detectHeadersDesconocidos(absolutePath, ext);
 
-  return { articulos, headersDesconocidos };
+  // Clasificar por estado
+  const yaSubidos: ArticuloRow[] = [];
+  const pendientes: ArticuloRow[] = [];
+  const conError: ArticuloRow[] = [];
+
+  for (const art of articulos) {
+    const estado = (art.estado || '').toLowerCase().trim();
+    if (estado === ESTADOS_ARTICULO.SUBIDO) {
+      yaSubidos.push(art);
+    } else if (estado === ESTADOS_ARTICULO.ERROR) {
+      conError.push(art);
+    } else {
+      pendientes.push(art);
+    }
+  }
+
+  return { articulos, headersDesconocidos, yaSubidos, pendientes, conError };
 }
 
 function detectHeadersDesconocidos(filePath: string, ext: string): string[] {
-  const known = new Set(HEADERS_EXCEL as readonly string[]);
+  // Incluir columnas de estado como conocidas
+  const known = new Set<string>([
+    ...(HEADERS_EXCEL as readonly string[]),
+    COLUMNAS_ESTADO.ESTADO,
+    COLUMNAS_ESTADO.FECHA_SUBIDA,
+    COLUMNAS_ESTADO.ULTIMO_ERROR,
+  ]);
   let fileHeaders: string[] = [];
 
   if (ext === '.xlsx' || ext === '.xls') {

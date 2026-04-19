@@ -7,12 +7,26 @@ export const ENDPOINTS = {
 } as const;
 
 export const DEFAULTS = {
-  CONCURRENCY: 1,
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY_MS: 2000,
   RETRY_BACKOFF: 1.5,
   REQUEST_TIMEOUT_MS: 30000,
   TOKEN_REFRESH_MARGIN_MIN: 5,
+  PAUSA_MIN_MS: 4000,
+  PAUSA_MAX_MS: 9000,
+  TIEMPO_ESTIMADO_POR_ARTICULO_S: 8.5,
+} as const;
+
+export const COLUMNAS_ESTADO = {
+  ESTADO: 'estado',
+  FECHA_SUBIDA: 'fecha_subida',
+  ULTIMO_ERROR: 'ultimo_error',
+} as const;
+
+export const ESTADOS_ARTICULO = {
+  PENDIENTE: 'pendiente',
+  SUBIDO: 'subido',
+  ERROR: 'error',
 } as const;
 
 export const TIPOS_DOCUMENTO: Record<string, string> = {

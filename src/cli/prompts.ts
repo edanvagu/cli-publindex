@@ -1,8 +1,9 @@
 import inquirer from 'inquirer';
 import { execSync } from 'child_process';
 import * as fs from 'fs';
-import { Fasciculo } from '../data/types';
+import { Fasciculo, ModoEjecucion } from '../data/types';
 import { formatFasciculo } from '../api/fasciculos';
+import { formatearTiempo } from '../pipeline/runner';
 
 export async function pedirCredenciales(): Promise<{ usuario: string; contrasena: string }> {
   const { usuario } = await inquirer.prompt([
@@ -176,18 +177,52 @@ export async function confirmarContinuar(msg: string): Promise<boolean> {
   return continuar;
 }
 
-export async function pedirConcurrencia(): Promise<number> {
-  const { concurrency } = await inquirer.prompt([
+export async function menuPrincipal(): Promise<ModoEjecucion> {
+  const { opcion } = await inquirer.prompt([
     {
-      type: 'number',
-      name: 'concurrency',
-      message: 'Nivel de concurrencia (1 = secuencial):',
-      default: 1,
-      validate: (v: number) => {
-        if (!v || v < 1 || v > 20) return 'Debe ser un número entre 1 y 20';
-        return true;
-      },
+      type: 'list',
+      name: 'opcion',
+      message: '¿Qué desea hacer?',
+      choices: [
+        { name: 'Validar archivo de artículos', value: 'validar' as ModoEjecucion },
+        { name: 'Validar y cargar artículos', value: 'cargar' as ModoEjecucion },
+        { name: 'Generar plantilla Excel', value: 'plantilla' as ModoEjecucion },
+        { name: 'Salir', value: 'salir' as ModoEjecucion },
+      ],
     },
   ]);
-  return concurrency;
+  return opcion;
+}
+
+export async function confirmarReanudar(yaSubidos: number, pendientes: number): Promise<'omitir' | 'todo'> {
+  const { accion } = await inquirer.prompt([
+    {
+      type: 'list',
+      name: 'accion',
+      message: `Se detectaron ${yaSubidos} artículos ya cargados previamente. ¿Qué desea hacer?`,
+      choices: [
+        { name: `Omitirlos y procesar solo los ${pendientes} pendientes (recomendado)`, value: 'omitir' },
+        { name: 'Procesar TODOS de nuevo (puede crear duplicados en Publindex)', value: 'todo' },
+      ],
+      default: 'omitir',
+    },
+  ]);
+  return accion;
+}
+
+export async function confirmarEstimadoTiempo(cantidad: number, segundos: number): Promise<boolean> {
+  console.log('');
+  console.log(`  ⏱  Tiempo estimado: ~${formatearTiempo(segundos)} (${cantidad} artículos × ~9s promedio)`);
+  console.log(`  ℹ  Se aplicará una pausa aleatoria de 4-9s entre cada artículo para no saturar el servidor`);
+  console.log('');
+
+  const { proceder } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'proceder',
+      message: '¿Desea proceder con la carga?',
+      default: true,
+    },
+  ]);
+  return proceder;
 }

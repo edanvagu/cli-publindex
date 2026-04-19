@@ -1,13 +1,18 @@
 import * as XLSX from 'xlsx';
 import * as path from 'path';
-import { HEADERS_EXCEL, TIPOS_DOCUMENTO, TIPOS_RESUMEN, TIPOS_ESPECIALISTA, IDIOMAS } from '../config/constants';
+import { HEADERS_EXCEL, TIPOS_DOCUMENTO, TIPOS_RESUMEN, TIPOS_ESPECIALISTA, IDIOMAS, COLUMNAS_ESTADO } from '../config/constants';
 import { AREAS_TREE } from './areas';
 
 export function generarPlantilla(outputDir: string = '.') {
   const wb = XLSX.utils.book_new();
 
-  // === Hoja 1: Artículos (headers + fila de ejemplo) ===
-  const headers = [...HEADERS_EXCEL];
+  // === Hoja 1: Artículos (headers + fila de ejemplo + columnas de estado) ===
+  const headers = [
+    ...HEADERS_EXCEL,
+    COLUMNAS_ESTADO.ESTADO,
+    COLUMNAS_ESTADO.FECHA_SUBIDA,
+    COLUMNAS_ESTADO.ULTIMO_ERROR,
+  ];
   const ejemplo = [
     'Título del artículo de ejemplo para Publindex',     // titulo
     'https://doi.org/10.1234/ejemplo',                    // doi
@@ -37,6 +42,9 @@ export function generarPlantilla(outputDir: string = '.') {
     'Resumen del artículo de ejemplo con más de diez caracteres.',  // resumen
     'Abstract of the example article with more than ten characters.', // resumen_otro_idioma
     '',                                                   // resumen_idioma_adicional
+    '',                                                   // estado (se llena automáticamente)
+    '',                                                   // fecha_subida
+    '',                                                   // ultimo_error
   ];
 
   const articulosData = [headers, ejemplo];
@@ -78,6 +86,11 @@ export function generarPlantilla(outputDir: string = '.') {
     ['resumen', 'Sí', 'Resumen del artículo (mínimo 10 caracteres)', 'Resumen del artículo...'],
     ['resumen_otro_idioma', 'No', 'Resumen en segundo idioma', 'Abstract of the article...'],
     ['resumen_idioma_adicional', 'No', 'Resumen en tercer idioma', ''],
+    ['', '', '', ''],
+    ['Columnas de estado (NO EDITAR - son automáticas)', '', '', ''],
+    ['estado', 'Auto', 'Se llena automáticamente: pendiente, subido o error', 'subido'],
+    ['fecha_subida', 'Auto', 'Fecha/hora en que el artículo se cargó exitosamente', '2026-04-19T10:30:00.000Z'],
+    ['ultimo_error', 'Auto', 'Mensaje de error si la carga falló', ''],
   ];
 
   const wsInstrucciones = XLSX.utils.aoa_to_sheet(instrucciones);
