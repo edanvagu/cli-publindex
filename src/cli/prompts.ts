@@ -186,7 +186,7 @@ export async function menuPrincipal(): Promise<ModoEjecucion> {
       choices: [
         { name: 'Validar archivo de artículos', value: 'validar' as ModoEjecucion },
         { name: 'Validar y cargar artículos', value: 'cargar' as ModoEjecucion },
-        { name: 'Generar plantilla Excel', value: 'plantilla' as ModoEjecucion },
+        { name: 'Descargar plantilla de ejemplo para rellenar', value: 'plantilla' as ModoEjecucion },
         { name: 'Salir', value: 'salir' as ModoEjecucion },
       ],
     },
