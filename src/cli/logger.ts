@@ -47,7 +47,6 @@ export function mostrarValidacion(result: ValidationResult) {
     error(`${new Set(result.errores.map(e => e.fila)).size} artículos con errores:`);
     console.log('');
 
-    // Agrupar errores por fila
     const porFila = new Map<number, typeof result.errores>();
     for (const err of result.errores) {
       const lista = porFila.get(err.fila) || [];

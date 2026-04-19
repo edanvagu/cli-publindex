@@ -1,4 +1,5 @@
 import { DEFAULTS } from '../config/constants';
+import { sleep } from '../utils/async';
 
 export interface RetryOptions {
   maxIntentos?: number;
@@ -35,8 +36,4 @@ export async function withRetry<T>(
   }
 
   throw lastError;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
 }

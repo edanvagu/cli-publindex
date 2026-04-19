@@ -1,4 +1,5 @@
-// === Respuesta del login ===
+import { ESTADOS_ARTICULO } from '../config/constants';
+
 export interface LoginResponse {
   tablaUsuario: string;
   idUsuario: string;
@@ -17,7 +18,6 @@ export interface LoginResponse {
   accountNonLocked: boolean;
 }
 
-// === Fascículo ===
 export interface Fasciculo {
   id: number;
   idRevista: number;
@@ -36,9 +36,7 @@ export interface Fasciculo {
   editor: unknown | null;
 }
 
-// === Payload del artículo (lo que envía el POST) ===
 export interface ArticuloPayload {
-  // Obligatorios
   idFasciculo: number;
   txtTituloArticulo: string;
   txtUrl: string;
@@ -48,8 +46,6 @@ export interface ArticuloPayload {
   txtPalabraClave: string;
   txtTituloParalelo: string;
   txtResumen: string;
-
-  // Opcionales
   txtDoi: string | null;
   nroPaginaInicial: string | null;
   nroPaginaFinal: string | null;
@@ -72,7 +68,6 @@ export interface ArticuloPayload {
   txtResumenOtro: string | null;
 }
 
-// === Fila cruda leída del Excel/CSV (antes de transformar) ===
 export interface ArticuloRow {
   titulo: string;
   doi?: string;
@@ -102,19 +97,16 @@ export interface ArticuloRow {
   resumen: string;
   resumen_otro_idioma?: string;
   resumen_idioma_adicional?: string;
-  // Campos de estado (columnas añadidas por la herramienta)
   estado?: string;
   fecha_subida?: string;
   ultimo_error?: string;
   _fila: number;
 }
 
-export type EstadoArticulo = 'pendiente' | 'subido' | 'error';
+export type EstadoArticulo = typeof ESTADOS_ARTICULO[keyof typeof ESTADOS_ARTICULO];
 
-// === Modo de ejecución seleccionado en el menú ===
 export type ModoEjecucion = 'validar' | 'cargar' | 'plantilla' | 'salir';
 
-// === Resultado de validación ===
 export interface ValidationError {
   fila: number;
   campo: string;
@@ -132,14 +124,12 @@ export interface ValidationResult {
   advertencias: ValidationWarning[];
 }
 
-// === Resultado de carga ===
 export interface UploadResult {
   exitosos: { fila: number; titulo: string }[];
   fallidos: { fila: number; titulo: string; error: string }[];
   tiempoTotal: number;
 }
 
-// === Sesión activa ===
 export interface Session {
   token: string;
   idRevista: number;

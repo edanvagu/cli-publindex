@@ -7,12 +7,11 @@ import { validarLote } from '../data/validator';
 import { ejecutarCarga, estimarTiempoSegundos } from '../pipeline/runner';
 import { GestorProgreso } from '../data/progreso';
 import { generarPlantilla } from '../data/template';
-import { Session, ArticuloRow, ValidationResult, ModoEjecucion } from '../data/types';
+import { Session, ArticuloRow, ModoEjecucion } from '../data/types';
 
 export async function run(options: { modoForzado?: ModoEjecucion } = {}) {
   banner();
 
-  // 1. Menú principal
   const modo = options.modoForzado ?? await menuPrincipal();
 
   if (modo === 'salir') {
@@ -25,10 +24,8 @@ export async function run(options: { modoForzado?: ModoEjecucion } = {}) {
     return;
   }
 
-  // 2. Pedir archivo (común a validar y cargar)
   const archivo = await pedirArchivo();
 
-  // 3. Leer el archivo y detectar estado previo
   const readSpinner = spinner(`Leyendo ${archivo}...`);
   let readResult: ReadResult;
   try {
@@ -40,7 +37,6 @@ export async function run(options: { modoForzado?: ModoEjecucion } = {}) {
     process.exit(1);
   }
 
-  // 4. Detectar progreso previo
   let articulosAProcesar: ArticuloRow[] = readResult.articulos;
 
   if (readResult.yaSubidos.length > 0) {
@@ -58,7 +54,6 @@ export async function run(options: { modoForzado?: ModoEjecucion } = {}) {
     }
   }
 
-  // 5. Validación completa (siempre sobre los artículos a procesar)
   const validacion = validarLote(articulosAProcesar, readResult.headersDesconocidos);
   mostrarValidacion(validacion);
 
@@ -67,7 +62,6 @@ export async function run(options: { modoForzado?: ModoEjecucion } = {}) {
     process.exit(1);
   }
 
-  // 6. Si es modo "solo validar", terminar aquí
   if (modo === 'validar') {
     exito('Validación completada.');
     if (validacion.errores.length > 0) {
@@ -78,7 +72,6 @@ export async function run(options: { modoForzado?: ModoEjecucion } = {}) {
     return;
   }
 
-  // 7. Modo "cargar": confirmar si hay errores parciales
   if (validacion.errores.length > 0) {
     const continuar = await confirmarContinuar(
       `¿Continuar con los ${validacion.validos.length} artículos válidos?`
@@ -89,10 +82,8 @@ export async function run(options: { modoForzado?: ModoEjecucion } = {}) {
     }
   }
 
-  // 8. Credenciales
   const { usuario, contrasena } = await pedirCredenciales();
 
-  // 9. Login
   const loginSpinner = spinner('Iniciando sesión...');
   let session: Session;
   try {
@@ -105,7 +96,6 @@ export async function run(options: { modoForzado?: ModoEjecucion } = {}) {
     process.exit(1);
   }
 
-  // 10. Listar fascículos
   const fascSpinner = spinner('Obteniendo fascículos...');
   let fasciculos;
   try {
@@ -122,11 +112,9 @@ export async function run(options: { modoForzado?: ModoEjecucion } = {}) {
     process.exit(1);
   }
 
-  // 11. Seleccionar fascículo
   const fasciculo = await seleccionarFasciculo(fasciculos);
   exito(`Fascículo seleccionado: ${formatFasciculo(fasciculo)} (ID: ${fasciculo.id})`);
 
-  // 12. Estimado de tiempo
   const tiempoEstimado = estimarTiempoSegundos(validacion.validos.length);
   const procederCarga = await confirmarEstimadoTiempo(validacion.validos.length, tiempoEstimado);
   if (!procederCarga) {
@@ -134,39 +122,19 @@ export async function run(options: { modoForzado?: ModoEjecucion } = {}) {
     return;
   }
 
-  // 13. Verificar token
   if (!tokenVigente(session)) {
     advertencia('El token de sesión está próximo a expirar. Considere reiniciar el proceso.');
   }
 
-  // 14. Carga secuencial
   info(`Iniciando carga de ${validacion.validos.length} artículos...`);
   console.log('');
 
   const gestorProgreso = new GestorProgreso(archivo);
 
-  const resultado = await ejecutarCarga(session, validacion.validos, fasciculo.id, {
-    gestorProgreso,
-    onProgress: mostrarProgreso,
-    onPausa: (seg) => mostrarPausa(seg),
-    onRetry: (fila, intento, err) => {
-      advertencia(`Fila ${fila}: intento ${intento} falló (${err.message}). Reintentando...`);
-    },
-    onTokenExpiring: () => {
-      advertencia('Token próximo a expirar. Los próximos requests podrían fallar.');
-    },
-    onAdvertencia: (msg) => {
-      advertencia(msg);
-    },
-  });
-
-  // 15. Intentar sincronizar sidecar si existe
+  const resultado = await ejecutarCarga(session, validacion.validos, fasciculo.id, construirOpcionesCarga(gestorProgreso, false));
   gestorProgreso.intentarSincronizarSidecar();
-
-  // 16. Resumen
   mostrarResumen(resultado);
 
-  // 17. Reintentar fallidos
   if (resultado.fallidos.length > 0) {
     const reintentar = await confirmarContinuar('¿Reintentar los artículos fallidos?');
     if (reintentar) {
@@ -176,25 +144,28 @@ export async function run(options: { modoForzado?: ModoEjecucion } = {}) {
       info(`Reintentando ${articulosRetry.length} artículos...`);
       console.log('');
 
-      const resultadoRetry = await ejecutarCarga(session, articulosRetry, fasciculo.id, {
-        gestorProgreso,
-        onProgress: mostrarProgreso,
-        onPausa: (seg) => mostrarPausa(seg),
-        onRetry: (fila, intento, err) => {
-          advertencia(`Fila ${fila}: reintento ${intento} (${err.message})`);
-        },
-        onTokenExpiring: () => {
-          advertencia('Token próximo a expirar.');
-        },
-        onAdvertencia: (msg) => {
-          advertencia(msg);
-        },
-      });
-
+      const resultadoRetry = await ejecutarCarga(session, articulosRetry, fasciculo.id, construirOpcionesCarga(gestorProgreso, true));
       gestorProgreso.intentarSincronizarSidecar();
       mostrarResumen(resultadoRetry);
     }
   }
 
   exito('Proceso finalizado.');
+}
+
+function construirOpcionesCarga(gestorProgreso: GestorProgreso, esRetry: boolean) {
+  return {
+    gestorProgreso,
+    onProgress: mostrarProgreso,
+    onPausa: mostrarPausa,
+    onRetry: (fila: number, intento: number, err: Error) => {
+      const etiqueta = esRetry ? 'reintento' : 'intento';
+      const sufijo = esRetry ? '' : ' falló. Reintentando...';
+      advertencia(`Fila ${fila}: ${etiqueta} ${intento} (${err.message})${sufijo}`);
+    },
+    onTokenExpiring: () => {
+      advertencia('Token próximo a expirar. Los próximos requests podrían fallar.');
+    },
+    onAdvertencia: advertencia,
+  };
 }

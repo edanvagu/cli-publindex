@@ -1,6 +1,7 @@
 import { httpRequest, buildAuthHeaders } from './client';
 import { ENDPOINTS } from '../config/constants';
 import { ArticuloPayload, ArticuloRow } from '../data/types';
+import { parseFechaToISO } from '../utils/fechas';
 
 export async function crearArticulo(token: string, payload: ArticuloPayload): Promise<void> {
   const jsonStr = JSON.stringify(payload);
@@ -53,8 +54,8 @@ export function rowToPayload(row: ArticuloRow, idFasciculo: number): ArticuloPay
     codSubAreaConocimiento: row.subarea || null,
     nroReferencias: row.numero_referencias || null,
     txtPalabraClaveIdioma: row.palabras_clave_otro_idioma || null,
-    dtaRecepcion: row.fecha_recepcion ? fechaToISO(row.fecha_recepcion) : null,
-    dtaVerifFechaAceptacion: row.fecha_aceptacion ? fechaToISO(row.fecha_aceptacion) : null,
+    dtaRecepcion: row.fecha_recepcion ? parseFechaToISO(row.fecha_recepcion) : null,
+    dtaVerifFechaAceptacion: row.fecha_aceptacion ? parseFechaToISO(row.fecha_aceptacion) : null,
     codIdioma: row.idioma?.toUpperCase() || null,
     codIdiomaOtro: row.otro_idioma?.toUpperCase() || null,
     staInternoInstiTit: row.eval_interna?.toUpperCase() || null,
@@ -67,22 +68,3 @@ export function rowToPayload(row: ArticuloRow, idFasciculo: number): ArticuloPay
   };
 }
 
-function fechaToISO(fecha: string): string {
-  // Aceptar YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY
-  let match = fecha.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (match) {
-    const d = new Date(Date.UTC(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]), 5, 0, 0));
-    return d.toISOString();
-  }
-  match = fecha.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-  if (match) {
-    const d = new Date(Date.UTC(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1]), 5, 0, 0));
-    return d.toISOString();
-  }
-  // Fallback: intentar parsear directamente
-  const d = new Date(fecha);
-  if (!isNaN(d.getTime())) {
-    return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 5, 0, 0)).toISOString();
-  }
-  return fecha; // devolver tal cual, el servidor validará
-}

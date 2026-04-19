@@ -6,7 +6,6 @@ import { AREAS_TREE } from './areas';
 export function generarPlantilla(outputDir: string = '.') {
   const wb = XLSX.utils.book_new();
 
-  // === Hoja 1: Artículos (headers + fila de ejemplo + columnas de estado) ===
   const headers = [
     ...HEADERS_EXCEL,
     COLUMNAS_ESTADO.ESTADO,
@@ -50,12 +49,10 @@ export function generarPlantilla(outputDir: string = '.') {
   const articulosData = [headers, ejemplo];
   const wsArticulos = XLSX.utils.aoa_to_sheet(articulosData);
 
-  // Ancho de columnas
   wsArticulos['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 2, 18) }));
 
   XLSX.utils.book_append_sheet(wb, wsArticulos, 'Artículos');
 
-  // === Hoja 2: Instrucciones ===
   const instrucciones = [
     ['Campo', 'Obligatorio', 'Descripción', 'Ejemplo'],
     ['titulo', 'Sí', 'Título del artículo (mínimo 10 caracteres)', 'Título del artículo de ejemplo para Publindex'],
@@ -97,7 +94,6 @@ export function generarPlantilla(outputDir: string = '.') {
   wsInstrucciones['!cols'] = [{ wch: 30 }, { wch: 12 }, { wch: 55 }, { wch: 40 }];
   XLSX.utils.book_append_sheet(wb, wsInstrucciones, 'Instrucciones');
 
-  // === Hoja 3: Áreas de conocimiento ===
   const areasData: string[][] = [['Código gran área', 'Gran área', 'Código área', 'Área', 'Código subárea', 'Subárea']];
 
   for (const granArea of AREAS_TREE) {
@@ -121,7 +117,6 @@ export function generarPlantilla(outputDir: string = '.') {
   wsAreas['!cols'] = [{ wch: 16 }, { wch: 30 }, { wch: 14 }, { wch: 45 }, { wch: 16 }, { wch: 50 }];
   XLSX.utils.book_append_sheet(wb, wsAreas, 'Áreas');
 
-  // === Hoja 4: Tipos de documento ===
   const tiposData: string[][] = [['Código', 'Tipo de documento']];
   for (const [codigo, nombre] of Object.entries(TIPOS_DOCUMENTO)) {
     tiposData.push([codigo, nombre]);
@@ -149,7 +144,6 @@ export function generarPlantilla(outputDir: string = '.') {
   wsTipos['!cols'] = [{ wch: 10 }, { wch: 55 }];
   XLSX.utils.book_append_sheet(wb, wsTipos, 'Tipos y códigos');
 
-  // Escribir archivo
   const outputPath = path.join(outputDir, 'plantilla-articulos.xlsx');
   XLSX.writeFile(wb, outputPath);
 

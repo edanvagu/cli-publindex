@@ -27,8 +27,6 @@ export async function login(usuario: string, contrasena: string): Promise<Sessio
   }
 
   const data = response.data;
-
-  // Parsear expiración del JWT
   const expiraEn = parseJwtExpiration(data.token);
 
   return {

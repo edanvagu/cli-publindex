@@ -4,6 +4,7 @@ import { tokenVigente } from '../api/auth';
 import { withRetry } from './retry';
 import { DEFAULTS, ESTADOS_ARTICULO } from '../config/constants';
 import { GestorProgreso } from '../data/progreso';
+import { sleep } from '../utils/async';
 
 export interface RunnerOptions {
   gestorProgreso: GestorProgreso;
@@ -13,18 +14,6 @@ export interface RunnerOptions {
   onTokenExpiring: () => void;
   onAdvertencia: (msg: string) => void;
   abortSignal?: AbortSignal;
-}
-
-function sleep(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(resolve, ms);
-    if (signal) {
-      signal.addEventListener('abort', () => {
-        clearTimeout(timer);
-        reject(new Error('Cancelado'));
-      }, { once: true });
-    }
-  });
 }
 
 function pausaAleatoriaMs(): number {
@@ -46,7 +35,6 @@ export async function ejecutarCarga(
 
     const articulo = articulos[i];
 
-    // Verificar token antes de cada request
     if (!tokenVigente(session, 2)) {
       options.onTokenExpiring();
     }
@@ -68,7 +56,6 @@ export async function ejecutarCarga(
       exitosos.push({ fila: articulo._fila, titulo: articulo.titulo });
       options.onProgress(i + 1, articulos.length, articulo.titulo, true, elapsed);
 
-      // Guardar progreso
       options.gestorProgreso.actualizar(
         { fila: articulo._fila, estado: ESTADOS_ARTICULO.SUBIDO },
         options.onAdvertencia
@@ -79,14 +66,12 @@ export async function ejecutarCarga(
       fallidos.push({ fila: articulo._fila, titulo: articulo.titulo, error: errorMsg });
       options.onProgress(i + 1, articulos.length, articulo.titulo, false, elapsed, errorMsg);
 
-      // Guardar progreso del error
       options.gestorProgreso.actualizar(
         { fila: articulo._fila, estado: ESTADOS_ARTICULO.ERROR, error: errorMsg },
         options.onAdvertencia
       );
     }
 
-    // Pausa aleatoria entre artículos (no después del último)
     if (i < articulos.length - 1) {
       const pausa = pausaAleatoriaMs();
       options.onPausa(Math.round(pausa / 1000));

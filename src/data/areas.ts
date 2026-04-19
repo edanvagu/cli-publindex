@@ -360,9 +360,6 @@ const AREAS_TREE: AreaConocimiento[] = [
   },
 ];
 
-// === Funciones de lookup ===
-
-// Mapa plano para búsquedas rápidas: código → { nombre, padre }
 const flatMap = new Map<string, { nombre: string; padre: string | null }>();
 
 function buildFlatMap(areas: AreaConocimiento[]) {

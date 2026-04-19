@@ -1,18 +1,17 @@
 import { ArticuloRow, ValidationError, ValidationWarning, ValidationResult } from './types';
 import { existeArea, areaPerteneceAGranArea, subareaPerteneceAArea, getNombreArea, getAreasDeGranArea, getSubareasDeArea } from './areas';
 import { TIPOS_DOCUMENTO, TIPOS_RESUMEN, TIPOS_ESPECIALISTA, IDIOMAS } from '../config/constants';
+import { parseFechaToDate } from '../utils/fechas';
 
 export function validarLote(articulos: ArticuloRow[], headersDesconocidos: string[]): ValidationResult {
   const errores: ValidationError[] = [];
   const advertencias: ValidationWarning[] = [];
 
-  // === Validaciones de integridad del lote ===
   if (articulos.length === 0) {
     errores.push({ fila: 0, campo: 'archivo', mensaje: 'El archivo no contiene artículos' });
     return { validos: [], errores, advertencias };
   }
 
-  // Headers desconocidos
   for (const h of headersDesconocidos) {
     const sugerencia = buscarHeaderSimilar(h);
     advertencias.push({
@@ -20,7 +19,6 @@ export function validarLote(articulos: ArticuloRow[], headersDesconocidos: strin
     });
   }
 
-  // Detectar duplicados por título
   const tituloCount = new Map<string, number[]>();
   for (const art of articulos) {
     const key = art.titulo.toLowerCase().trim();
@@ -38,12 +36,10 @@ export function validarLote(articulos: ArticuloRow[], headersDesconocidos: strin
     }
   }
 
-  // === Validar cada artículo ===
   for (const art of articulos) {
     validarArticulo(art, errores);
   }
 
-  // Separar válidos de inválidos
   const filasConError = new Set(errores.map(e => e.fila));
   const validos = articulos.filter(a => !filasConError.has(a._fila));
 
@@ -53,7 +49,6 @@ export function validarLote(articulos: ArticuloRow[], headersDesconocidos: strin
 function validarArticulo(art: ArticuloRow, errores: ValidationError[]) {
   const fila = art._fila;
 
-  // --- Campos obligatorios ---
   if (!art.titulo) {
     errores.push({ fila, campo: 'titulo', mensaje: 'Campo obligatorio' });
   } else if (art.titulo.length < 10) {
@@ -115,7 +110,6 @@ function validarArticulo(art: ArticuloRow, errores: ValidationError[]) {
     errores.push({ fila, campo: 'resumen', mensaje: `Tiene ${art.resumen.length} caracteres (mínimo 10)` });
   }
 
-  // --- Campos opcionales con validación ---
   if (art.doi && art.doi.length < 10) {
     errores.push({ fila, campo: 'doi', mensaje: `"${art.doi}" tiene ${art.doi.length} caracteres (mínimo 10)` });
   }
@@ -133,14 +127,12 @@ function validarArticulo(art: ArticuloRow, errores: ValidationError[]) {
     }
   }
 
-  // Numéricos
   validarNumericoPositivo(art.pagina_inicial, 'pagina_inicial', fila, errores);
   validarNumericoPositivo(art.pagina_final, 'pagina_final', fila, errores);
   validarNumericoPositivo(art.numero_autores, 'numero_autores', fila, errores);
   validarNumericoPositivo(art.numero_pares_evaluadores, 'numero_pares_evaluadores', fila, errores);
   validarNumericoPositivo(art.numero_referencias, 'numero_referencias', fila, errores);
 
-  // Página final > página inicial
   if (art.pagina_inicial && art.pagina_final) {
     const ini = parseInt(art.pagina_inicial, 10);
     const fin = parseInt(art.pagina_final, 10);
@@ -149,14 +141,12 @@ function validarArticulo(art: ArticuloRow, errores: ValidationError[]) {
     }
   }
 
-  // Fechas
   validarFecha(art.fecha_recepcion, 'fecha_recepcion', fila, errores);
   validarFecha(art.fecha_aceptacion, 'fecha_aceptacion', fila, errores);
 
-  // Fecha aceptación >= fecha recepción
   if (art.fecha_recepcion && art.fecha_aceptacion) {
-    const recep = parseFecha(art.fecha_recepcion);
-    const acep = parseFecha(art.fecha_aceptacion);
+    const recep = parseFechaToDate(art.fecha_recepcion);
+    const acep = parseFechaToDate(art.fecha_aceptacion);
     if (recep && acep && acep < recep) {
       errores.push({
         fila, campo: 'fecha_aceptacion',
@@ -165,7 +155,6 @@ function validarArticulo(art: ArticuloRow, errores: ValidationError[]) {
     }
   }
 
-  // Idiomas
   if (art.idioma && !IDIOMAS[art.idioma.toUpperCase()]) {
     errores.push({
       fila, campo: 'idioma',
@@ -184,12 +173,10 @@ function validarArticulo(art: ArticuloRow, errores: ValidationError[]) {
     errores.push({ fila, campo: 'otro_idioma', mensaje: `No puede ser igual a idioma ("${art.idioma}")` });
   }
 
-  // Evaluaciones T/F
   validarTF(art.eval_interna, 'eval_interna', fila, errores);
   validarTF(art.eval_nacional, 'eval_nacional', fila, errores);
   validarTF(art.eval_internacional, 'eval_internacional', fila, errores);
 
-  // Enums
   if (art.tipo_resumen && !TIPOS_RESUMEN[art.tipo_resumen.toUpperCase()]) {
     errores.push({
       fila, campo: 'tipo_resumen',
@@ -216,25 +203,9 @@ function validarNumericoPositivo(valor: string | undefined, campo: string, fila:
 
 function validarFecha(valor: string | undefined, campo: string, fila: number, errores: ValidationError[]) {
   if (!valor) return;
-  const fecha = parseFecha(valor);
-  if (!fecha) {
+  if (!parseFechaToDate(valor)) {
     errores.push({ fila, campo, mensaje: `"${valor}" no es una fecha válida (formato esperado: YYYY-MM-DD)` });
   }
-}
-
-function parseFecha(valor: string): Date | null {
-  // Aceptar YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY
-  let match = valor.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (match) {
-    const d = new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]));
-    return isNaN(d.getTime()) ? null : d;
-  }
-  match = valor.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-  if (match) {
-    const d = new Date(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1]));
-    return isNaN(d.getTime()) ? null : d;
-  }
-  return null;
 }
 
 function validarTF(valor: string | undefined, campo: string, fila: number, errores: ValidationError[]) {

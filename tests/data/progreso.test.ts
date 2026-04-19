@@ -1,10 +1,16 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as XLSX from 'xlsx';
 import { GestorProgreso } from '../../src/data/progreso';
 import { readArticulos } from '../../src/data/reader';
+
+function simularArchivoBloqueado() {
+  return vi.spyOn(XLSX, 'writeFile').mockImplementation(() => {
+    throw new Error('EBUSY: resource busy or locked');
+  });
+}
 
 let tempDir: string;
 
@@ -144,14 +150,15 @@ describe('GestorProgreso - CSV', () => {
 });
 
 describe('GestorProgreso - fallback sidecar', () => {
-  it('cae al sidecar si el archivo no existe en el momento de escribir', () => {
-    const archivo = path.join(tempDir, 'noexiste.xlsx');
-    // Crear el archivo primero para que el constructor no falle conceptualmente
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('cae al sidecar si no se puede escribir al archivo', () => {
+    const archivo = path.join(tempDir, 'test.xlsx');
     crearXlsxBase(archivo);
     const gestor = new GestorProgreso(archivo);
-
-    // Borrar el archivo después de construir el gestor → la escritura fallará
-    fs.unlinkSync(archivo);
+    simularArchivoBloqueado();
 
     const mensajes: string[] = [];
     const ok = gestor.actualizar({ fila: 2, estado: 'subido' }, msg => mensajes.push(msg));
@@ -166,7 +173,7 @@ describe('GestorProgreso - fallback sidecar', () => {
     const archivo = path.join(tempDir, 'test.xlsx');
     crearXlsxBase(archivo);
     const gestor = new GestorProgreso(archivo);
-    fs.unlinkSync(archivo); // forzar fallback
+    simularArchivoBloqueado();
 
     gestor.actualizar({ fila: 2, estado: 'subido' });
     gestor.actualizar({ fila: 3, estado: 'error', error: 'fallo' });
@@ -181,7 +188,7 @@ describe('GestorProgreso - fallback sidecar', () => {
     const archivo = path.join(tempDir, 'test.xlsx');
     crearXlsxBase(archivo);
     const gestor = new GestorProgreso(archivo);
-    fs.unlinkSync(archivo);
+    simularArchivoBloqueado();
 
     const mensajes: string[] = [];
     gestor.actualizar({ fila: 2, estado: 'subido' }, msg => mensajes.push(msg));
@@ -212,35 +219,34 @@ describe('GestorProgreso - leerEstados', () => {
     crearXlsxBase(archivo);
     const gestor = new GestorProgreso(archivo);
     gestor.actualizar({ fila: 2, estado: 'error', error: 'e' });
-    fs.unlinkSync(archivo);
 
-    // Ahora actualizar en sidecar
+    const spy = simularArchivoBloqueado();
     gestor.actualizar({ fila: 2, estado: 'subido' });
+    spy.mockRestore();
 
-    // Restaurar el archivo
-    crearXlsxBase(archivo);
     const { articulos } = readArticulos(archivo);
     const estados = GestorProgreso.leerEstados(archivo, articulos);
 
-    // El sidecar debe ganar
     expect(estados.get(2)).toBe('subido');
   });
 });
 
 describe('GestorProgreso - sincronizarSidecar', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('mueve estados del sidecar al archivo original y borra el sidecar', () => {
     const archivo = path.join(tempDir, 'test.xlsx');
     crearXlsxBase(archivo);
     const gestor = new GestorProgreso(archivo);
-    fs.unlinkSync(archivo);
 
+    const spy = simularArchivoBloqueado();
     gestor.actualizar({ fila: 2, estado: 'subido' });
     gestor.actualizar({ fila: 3, estado: 'error', error: 'e1' });
 
     expect(fs.existsSync(archivo + '.progreso.json')).toBe(true);
-
-    // Restaurar archivo para que la sincronización funcione
-    crearXlsxBase(archivo);
+    spy.mockRestore();
 
     const ok = gestor.intentarSincronizarSidecar();
     expect(ok).toBe(true);
