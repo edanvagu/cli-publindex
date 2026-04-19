@@ -200,6 +200,23 @@ describe('validarLote - enums y formatos', () => {
     expect(result.errores.filter(e => e.campo === 'doi')).toEqual([]);
   });
 
+  it('rechaza DOI en formato URL con https://doi.org/', () => {
+    const result = validarLote([articuloValido({ doi: 'https://doi.org/10.1234/abcd' })], []);
+    const err = result.errores.find(e => e.campo === 'doi');
+    expect(err).toBeDefined();
+    expect(err?.mensaje).toContain('10.');
+  });
+
+  it('rechaza DOI que empieza con http://', () => {
+    const result = validarLote([articuloValido({ doi: 'http://dx.doi.org/10.1234/abcd' })], []);
+    expect(result.errores.some(e => e.campo === 'doi')).toBe(true);
+  });
+
+  it('rechaza DOI que no empieza con "10."', () => {
+    const result = validarLote([articuloValido({ doi: 'abc/1234567890' })], []);
+    expect(result.errores.some(e => e.campo === 'doi')).toBe(true);
+  });
+
   it('rechaza fecha con formato inválido', () => {
     const result = validarLote([articuloValido({ fecha_recepcion: 'hoy' })], []);
     expect(result.errores.some(e => e.campo === 'fecha_recepcion')).toBe(true);

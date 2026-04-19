@@ -14,7 +14,7 @@ export function generarPlantilla(outputDir: string = '.') {
   ];
   const ejemplo = [
     'Título del artículo de ejemplo para Publindex',     // titulo
-    'https://doi.org/10.1234/ejemplo',                    // doi
+    '10.1234/ejemplo-articulo',                           // doi
     'https://revistas.ejemplo.edu.co/articulo/1',         // url
     '1',                                                  // pagina_inicial
     '15',                                                 // pagina_final
@@ -56,7 +56,7 @@ export function generarPlantilla(outputDir: string = '.') {
   const instrucciones = [
     ['Campo', 'Obligatorio', 'Descripción', 'Ejemplo'],
     ['titulo', 'Sí', 'Título del artículo (mínimo 10 caracteres)', 'Título del artículo de ejemplo para Publindex'],
-    ['doi', 'No', 'DOI del artículo (mínimo 10 caracteres si se incluye)', '10.1234/abc'],
+    ['doi', 'No', 'DOI del artículo SIN URL (formato: 10.xxxx/yyyy). NO use https://doi.org/...', '10.1234/abc'],
     ['url', 'Sí', 'URL del artículo con http:// o https://', 'https://url.com/article'],
     ['pagina_inicial', 'No', 'Número de página inicial', '1'],
     ['pagina_final', 'No', 'Número de página final (debe ser mayor que pagina_inicial)', '15'],

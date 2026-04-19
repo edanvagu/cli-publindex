@@ -110,8 +110,16 @@ function validarArticulo(art: ArticuloRow, errores: ValidationError[]) {
     errores.push({ fila, campo: 'resumen', mensaje: `Tiene ${art.resumen.length} caracteres (mínimo 10)` });
   }
 
-  if (art.doi && art.doi.length < 10) {
-    errores.push({ fila, campo: 'doi', mensaje: `"${art.doi}" tiene ${art.doi.length} caracteres (mínimo 10)` });
+  if (art.doi) {
+    if (art.doi.length < 10) {
+      errores.push({ fila, campo: 'doi', mensaje: `"${art.doi}" tiene ${art.doi.length} caracteres (mínimo 10)` });
+    } else if (!/^10\.\S+\/\S+/.test(art.doi)) {
+      errores.push({
+        fila, campo: 'doi',
+        mensaje: `"${art.doi}" no es un DOI válido. Debe empezar con "10." y tener el formato 10.xxxx/yyyy`,
+        sugerencia: 'Ejemplo válido: 10.1234/abc123. NO use formato URL (https://doi.org/...).',
+      });
+    }
   }
 
   if (art.subarea) {
