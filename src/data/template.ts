@@ -58,9 +58,9 @@ export function generarPlantilla(outputDir: string = '.') {
   // === Hoja 2: Instrucciones ===
   const instrucciones = [
     ['Campo', 'Obligatorio', 'Descripción', 'Ejemplo'],
-    ['titulo', 'Sí', 'Título del artículo (mínimo 10 caracteres)', 'Los orígenes del ciclismo en Bogotá'],
-    ['doi', 'No', 'DOI del artículo (mínimo 10 caracteres si se incluye)', 'https://doi.org/10.1234/abc'],
-    ['url', 'Sí', 'URL del artículo con http:// o https://', 'https://revistas.unal.edu.co/articulo/1'],
+    ['titulo', 'Sí', 'Título del artículo (mínimo 10 caracteres)', 'Título del artículo de ejemplo para Publindex'],
+    ['doi', 'No', 'DOI del artículo (mínimo 10 caracteres si se incluye)', '10.1234/abc'],
+    ['url', 'Sí', 'URL del artículo con http:// o https://', 'https://url.com/article'],
     ['pagina_inicial', 'No', 'Número de página inicial', '1'],
     ['pagina_final', 'No', 'Número de página final (debe ser mayor que pagina_inicial)', '15'],
     ['numero_autores', 'No', 'Cantidad de autores del artículo', '3'],
@@ -73,7 +73,7 @@ export function generarPlantilla(outputDir: string = '.') {
     ['tipo_documento', 'Sí', 'Código del tipo de documento (ver hoja Tipos documento)', '1'],
     ['palabras_clave', 'Sí', 'Palabras clave separadas por punto y coma (;)', 'sociología; cultura'],
     ['palabras_clave_otro_idioma', 'No', 'Palabras clave en otro idioma, separadas por ;', 'sociology; culture'],
-    ['titulo_ingles', 'Sí', 'Título del artículo en inglés (mínimo 10 caracteres)', 'Origins of cycling in Bogotá'],
+    ['titulo_ingles', 'Sí', 'Título del artículo en inglés (mínimo 10 caracteres)', 'Title of the article in English (minimum 10 characters)'],
     ['fecha_recepcion', 'No', 'Fecha de recepción formato YYYY-MM-DD', '2026-01-15'],
     ['fecha_aceptacion', 'No', 'Fecha de aceptación (debe ser >= fecha_recepcion)', '2026-03-20'],
     ['idioma', 'No', 'Código del idioma original: ES, EN, PT, FR', 'ES'],
