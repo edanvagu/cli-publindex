@@ -10,6 +10,7 @@ export interface RunnerOptions {
   gestorProgreso: GestorProgreso;
   onProgress: (current: number, total: number, titulo: string, ok: boolean, timeMs: number, error?: string) => void;
   onPausa: (segundos: number) => void;
+  onTiempoRestante: (segundos: number, procesados: number, total: number) => void;
   onRetry: (fila: number, intento: number, error: Error) => void;
   onTokenExpiring: () => void;
   onAdvertencia: (msg: string) => void;
@@ -72,7 +73,11 @@ export async function ejecutarCarga(
       );
     }
 
-    if (i < articulos.length - 1) {
+    const procesados = i + 1;
+    if (procesados < articulos.length) {
+      const restante = estimarTiempoRestanteSegundos(procesados, articulos.length, Date.now() - inicio);
+      options.onTiempoRestante(restante, procesados, articulos.length);
+
       const pausa = pausaAleatoriaMs();
       options.onPausa(Math.round(pausa / 1000));
       try {
@@ -92,6 +97,18 @@ export async function ejecutarCarga(
 
 export function estimarTiempoSegundos(cantidad: number): number {
   return Math.round(cantidad * DEFAULTS.TIEMPO_ESTIMADO_POR_ARTICULO_S);
+}
+
+export function estimarTiempoRestanteSegundos(
+  procesados: number,
+  total: number,
+  tiempoTranscurridoMs: number,
+): number {
+  const restantes = total - procesados;
+  if (restantes <= 0) return 0;
+  if (procesados <= 0) return estimarTiempoSegundos(restantes);
+  const promedioMs = tiempoTranscurridoMs / procesados;
+  return Math.round((restantes * promedioMs) / 1000);
 }
 
 export function formatearTiempo(segundos: number): string {

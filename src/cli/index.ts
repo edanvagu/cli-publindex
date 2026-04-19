@@ -1,4 +1,4 @@
-import { banner, spinner, exito, error, info, advertencia, mostrarValidacion, mostrarProgreso, mostrarResumen, mostrarPausa } from './logger';
+import { banner, spinner, exito, error, info, advertencia, mostrarValidacion, mostrarProgreso, mostrarResumen, mostrarPausa, mostrarTiempoRestante } from './logger';
 import { pedirCredenciales, seleccionarFasciculo, pedirArchivo, confirmarContinuar, menuPrincipal, confirmarReanudar, confirmarEstimadoTiempo } from './prompts';
 import { login, tokenVigente } from '../api/auth';
 import { listarFasciculos, formatFasciculo } from '../api/fasciculos';
@@ -158,6 +158,7 @@ function construirOpcionesCarga(gestorProgreso: GestorProgreso, esRetry: boolean
     gestorProgreso,
     onProgress: mostrarProgreso,
     onPausa: mostrarPausa,
+    onTiempoRestante: mostrarTiempoRestante,
     onRetry: (fila: number, intento: number, err: Error) => {
       const etiqueta = esRetry ? 'reintento' : 'intento';
       const sufijo = esRetry ? '' : ' falló. Reintentando...';

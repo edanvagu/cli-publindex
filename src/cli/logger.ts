@@ -93,6 +93,21 @@ export function mostrarPausa(segundos: number) {
   console.log(chalk.gray(`        ⏸  Pausando ${segundos}s antes del siguiente...`));
 }
 
+export function mostrarTiempoRestante(segundos: number, procesados: number, total: number) {
+  const restantes = total - procesados;
+  console.log(chalk.gray(`        ⏱  Tiempo restante estimado: ~${formatearDuracion(segundos)} (${restantes} artículos por procesar)`));
+}
+
+function formatearDuracion(segundos: number): string {
+  if (segundos < 60) return `${segundos}s`;
+  const min = Math.floor(segundos / 60);
+  const seg = segundos % 60;
+  if (min < 60) return seg > 0 ? `${min}m ${seg}s` : `${min}m`;
+  const horas = Math.floor(min / 60);
+  const minRest = min % 60;
+  return minRest > 0 ? `${horas}h ${minRest}m` : `${horas}h`;
+}
+
 export function mostrarResumen(result: UploadResult) {
   const tiempoSeg = (result.tiempoTotal / 1000).toFixed(1);
 
