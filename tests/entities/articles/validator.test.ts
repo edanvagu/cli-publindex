@@ -7,9 +7,9 @@ function articuloValido(overrides: Partial<ArticleRow> = {}): ArticleRow {
   return {
     titulo: 'Título válido con más de diez caracteres',
     url: 'https://example.com/article',
-    gran_area: '6',
-    area: '6A',
-    tipo_documento: '1',
+    gran_area: 'Humanidades',
+    area: 'Historia y Arqueología',
+    tipo_documento: 'Artículo de investigación científica y tecnológica',
     palabras_clave: 'historia; cultura',
     titulo_ingles: 'Valid title with more than ten characters',
     resumen: 'Resumen válido con más de diez caracteres',
@@ -58,12 +58,12 @@ describe('validateBatch - campos obligatorios', () => {
   });
 
   it('rechaza gran_area inexistente', () => {
-    const result = validateBatch([articuloValido({ gran_area: '99' })], []);
+    const result = validateBatch([articuloValido({ gran_area: 'XX-invalido' })], []);
     expect(result.errors.some(e => e.field === 'gran_area')).toBe(true);
   });
 
   it('rechaza tipo_documento fuera de rango', () => {
-    const result = validateBatch([articuloValido({ tipo_documento: '99' })], []);
+    const result = validateBatch([articuloValido({ tipo_documento: 'XX-invalido' })], []);
     expect(result.errors.some(e => e.field === 'tipo_documento')).toBe(true);
   });
 
@@ -85,24 +85,24 @@ describe('validateBatch - campos obligatorios', () => {
 
 describe('validateBatch - concordancia entre campos', () => {
   it('rechaza cuando area no pertenece a gran_area', () => {
-    const result = validateBatch([articuloValido({ gran_area: '6', area: '1A' })], []);
+    const result = validateBatch([articuloValido({ gran_area: 'Humanidades', area: 'Matemática' })], []);
     const err = result.errors.find(e => e.field === 'area');
     expect(err).toBeDefined();
-    expect(err?.message).toContain('no pertenece a gran_area');
+    expect(err?.message).toContain('no pertenece a');
   });
 
   it('acepta cuando area pertenece a gran_area', () => {
-    const result = validateBatch([articuloValido({ gran_area: '6', area: '6A' })], []);
+    const result = validateBatch([articuloValido({ gran_area: 'Humanidades', area: 'Historia y Arqueología' })], []);
     expect(result.errors.filter(e => e.field === 'area')).toEqual([]);
   });
 
   it('rechaza cuando subarea no pertenece a area', () => {
-    const result = validateBatch([articuloValido({ gran_area: '6', area: '6A', subarea: '1F01' })], []);
+    const result = validateBatch([articuloValido({ gran_area: 'Humanidades', area: 'Historia y Arqueología', subarea: 'Biología Celular y Microbiología' })], []);
     expect(result.errors.some(e => e.field === 'subarea')).toBe(true);
   });
 
   it('acepta subarea correcta', () => {
-    const result = validateBatch([articuloValido({ gran_area: '6', area: '6A', subarea: '6A01' })], []);
+    const result = validateBatch([articuloValido({ gran_area: 'Humanidades', area: 'Historia y Arqueología', subarea: 'Historia' })], []);
     expect(result.errors.filter(e => e.field === 'subarea')).toEqual([]);
   });
 
@@ -142,7 +142,7 @@ describe('validateBatch - concordancia entre campos', () => {
 
   it('rechaza idioma igual a otro_idioma', () => {
     const result = validateBatch(
-      [articuloValido({ idioma: 'ES', otro_idioma: 'ES' })],
+      [articuloValido({ idioma: 'Español', otro_idioma: 'Español' })],
       []
     );
     expect(result.errors.some(e => e.field === 'otro_idioma')).toBe(true);
@@ -150,7 +150,7 @@ describe('validateBatch - concordancia entre campos', () => {
 
   it('acepta idiomas diferentes', () => {
     const result = validateBatch(
-      [articuloValido({ idioma: 'ES', otro_idioma: 'EN' })],
+      [articuloValido({ idioma: 'Español', otro_idioma: 'Inglés' })],
       []
     );
     expect(result.errors.filter(e => e.field === 'otro_idioma')).toEqual([]);
@@ -164,14 +164,14 @@ describe('validateBatch - enums y formatos', () => {
   });
 
   it('acepta tipo_resumen válido (A, D, S)', () => {
-    for (const valor of ['A', 'D', 'S']) {
+    for (const valor of ['Analítico', 'Descriptivo', 'Analítico sintético']) {
       const result = validateBatch([articuloValido({ tipo_resumen: valor, _fila: 2 })], []);
       expect(result.errors.filter(e => e.field === 'tipo_resumen')).toEqual([]);
     }
   });
 
   it('rechaza tipo_especialista inválido', () => {
-    const result = validateBatch([articuloValido({ tipo_especialista: 'Z' })], []);
+    const result = validateBatch([articuloValido({ tipo_especialista: 'ZZ-invalido' })], []);
     expect(result.errors.some(e => e.field === 'tipo_especialista')).toBe(true);
   });
 
@@ -186,7 +186,7 @@ describe('validateBatch - enums y formatos', () => {
   });
 
   it('rechaza idioma no soportado', () => {
-    const result = validateBatch([articuloValido({ idioma: 'ZZ' })], []);
+    const result = validateBatch([articuloValido({ idioma: 'ZZ-invalido' })], []);
     expect(result.errors.some(e => e.field === 'idioma')).toBe(true);
   });
 

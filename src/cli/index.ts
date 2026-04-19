@@ -15,7 +15,7 @@ export async function run(options: { forcedMode?: ExecutionMode } = {}): Promise
       info('Hasta luego.');
       return;
     case 'template':
-      runGenerateTemplate();
+      await runGenerateTemplate();
       return;
     case 'import-ojs':
       await importOjs();

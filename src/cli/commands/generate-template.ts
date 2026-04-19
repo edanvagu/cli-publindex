@@ -1,5 +1,5 @@
 import { generateTemplate } from '../../io/excel-writer';
 
-export function runGenerateTemplate(): void {
-  generateTemplate();
+export async function runGenerateTemplate(): Promise<void> {
+  await generateTemplate();
 }

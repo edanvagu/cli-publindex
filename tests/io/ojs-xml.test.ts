@@ -113,14 +113,14 @@ describe('parsePublication', () => {
     expect(art.paginaFinal).toBe('27');
   });
 
-  it('mapea locale es_ES → idioma ES', () => {
+  it('mapea locale es_ES → idioma "Español"', () => {
     const art = parsePublication(PUBLICATION_COMPLETO);
-    expect(art.idioma).toBe('ES');
+    expect(art.idioma).toBe('Español');
   });
 
-  it('infiere otro_idioma=EN cuando hay abstract en en_US', () => {
+  it('infiere otro_idioma="Inglés" cuando hay abstract en en_US', () => {
     const art = parsePublication(PUBLICATION_COMPLETO);
-    expect(art.otroIdioma).toBe('EN');
+    expect(art.otroIdioma).toBe('Inglés');
   });
 
   it('tolera publications con solo título (sin resumen, sin autores, sin referencias)', () => {
@@ -272,8 +272,8 @@ describe('ojsArticleToRow', () => {
     expect(row.numero_referencias).toBe('3');
     expect(row.pagina_inicial).toBe('10');
     expect(row.pagina_final).toBe('27');
-    expect(row.idioma).toBe('ES');
-    expect(row.otro_idioma).toBe('EN');
+    expect(row.idioma).toBe('Español');
+    expect(row.otro_idioma).toBe('Inglés');
   });
 
   it('deja vacíos los campos que OJS no provee (Minciencias, evaluación, tipos)', () => {

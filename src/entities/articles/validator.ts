@@ -1,5 +1,8 @@
 import { ArticleRow, ValidationError, ValidationWarning, ValidationResult } from './types';
-import { areaExists, areaBelongsToParent, subareaBelongsToArea, getAreaName, getChildAreas, getChildSubareas } from '../areas/tree';
+import {
+  getGranAreaCodeByName, getAreaCodeByName, getSubareaCodeByName,
+  getGranAreas, getChildAreas, getChildSubareas,
+} from '../areas/tree';
 import { DOCUMENT_TYPES, SUMMARY_TYPES, SPECIALIST_TYPES, LANGUAGES } from '../../config/constants';
 import { parseDate } from '../../utils/dates';
 
@@ -31,7 +34,7 @@ export function validateBatch(articles: ArticleRow[], unknownHeaders: string[]):
   for (const [titulo, rows] of tituloCount) {
     if (rows.length > 1) {
       warnings.push({
-        message: `Posible duplicado: rows ${rows.join(', ')} tienen el mismo título "${titulo.substring(0, 50)}..."`,
+        message: `Posible duplicado: filas ${rows.join(', ')} tienen el mismo título "${titulo.substring(0, 50)}..."`,
       });
     }
   }
@@ -40,8 +43,8 @@ export function validateBatch(articles: ArticleRow[], unknownHeaders: string[]):
     validateArticle(art, errors);
   }
 
-  const filasConError = new Set(errors.map(e => e.row));
-  const valid = articles.filter(a => !filasConError.has(a._fila));
+  const rowsWithError = new Set(errors.map(e => e.row));
+  const valid = articles.filter(a => !rowsWithError.has(a._fila));
 
   return { valid, errors, warnings };
 }
@@ -61,38 +64,50 @@ function validateArticle(art: ArticleRow, errors: ValidationError[]) {
     errors.push({ row, field: 'url', message: `"${art.url}" debe comenzar con http:// o https://` });
   }
 
+  // gran_area / area / subarea — validación en cascada sobre labels.
+  const granAreaCode = art.gran_area ? getGranAreaCodeByName(art.gran_area) : undefined;
   if (!art.gran_area) {
     errors.push({ row, field: 'gran_area', message: 'Campo obligatorio' });
-  } else if (!areaExists(art.gran_area)) {
+  } else if (!granAreaCode) {
     errors.push({
       row, field: 'gran_area',
-      message: `Código "${art.gran_area}" no existe`,
-      suggestion: 'Valores válidos: 1 (Ciencias Naturales), 2 (Ingeniería y Tecnología), 3 (Ciencias Médicas), 4 (Ciencias Agrícolas), 5 (Ciencias Sociales), 6 (Humanidades)',
+      message: `"${art.gran_area}" no es una gran área válida`,
+      suggestion: `Valores válidos: ${getGranAreas().map(g => g.nombre).join(', ')}`,
     });
   }
 
+  let areaCode: string | undefined;
   if (!art.area) {
     errors.push({ row, field: 'area', message: 'Campo obligatorio' });
-  } else if (!areaExists(art.area)) {
-    errors.push({ row, field: 'area', message: `Código "${art.area}" no existe` });
-  } else if (art.gran_area && areaExists(art.gran_area) && !areaBelongsToParent(art.area, art.gran_area)) {
-    const areasValidas = getChildAreas(art.gran_area);
-    errors.push({
-      row, field: 'area',
-      message: `"${art.area}" no pertenece a gran_area "${art.gran_area}" (${getAreaName(art.gran_area)})`,
-      suggestion: `Áreas válidas: ${areasValidas.map(a => `${a.codigo} (${a.nombre})`).join(', ')}`,
-    });
+  } else if (granAreaCode) {
+    areaCode = getAreaCodeByName(art.area, granAreaCode);
+    if (!areaCode) {
+      const validAreas = getChildAreas(granAreaCode);
+      errors.push({
+        row, field: 'area',
+        message: `"${art.area}" no pertenece a ${art.gran_area}`,
+        suggestion: `Áreas válidas bajo "${art.gran_area}": ${validAreas.map(a => a.nombre).join(', ')}`,
+      });
+    }
   }
 
-  if (!art.tipo_documento) {
-    errors.push({ row, field: 'tipo_documento', message: 'Campo obligatorio' });
-  } else if (!DOCUMENT_TYPES[art.tipo_documento]) {
-    errors.push({
-      row, field: 'tipo_documento',
-      message: `Valor "${art.tipo_documento}" no válido`,
-      suggestion: `Valores: ${Object.entries(DOCUMENT_TYPES).map(([k, v]) => `${k}=${v}`).join(', ')}`,
-    });
+  if (art.subarea && areaCode) {
+    const subCode = getSubareaCodeByName(art.subarea, areaCode);
+    if (!subCode) {
+      const validSubs = getChildSubareas(areaCode);
+      errors.push({
+        row, field: 'subarea',
+        message: `"${art.subarea}" no pertenece a ${art.area}`,
+        suggestion: `Subáreas válidas bajo "${art.area}": ${validSubs.map(s => s.nombre).join(', ')}`,
+      });
+    }
   }
+
+  validateEnumLabel(art.tipo_documento, 'tipo_documento', DOCUMENT_TYPES, true, row, errors);
+  validateEnumLabel(art.tipo_resumen, 'tipo_resumen', SUMMARY_TYPES, false, row, errors);
+  validateEnumLabel(art.tipo_especialista, 'tipo_especialista', SPECIALIST_TYPES, false, row, errors);
+  validateEnumLabel(art.idioma, 'idioma', LANGUAGES, false, row, errors);
+  validateEnumLabel(art.otro_idioma, 'otro_idioma', LANGUAGES, false, row, errors);
 
   if (!art.palabras_clave) {
     errors.push({ row, field: 'palabras_clave', message: 'Campo obligatorio' });
@@ -118,19 +133,6 @@ function validateArticle(art: ArticleRow, errors: ValidationError[]) {
         row, field: 'doi',
         message: `"${art.doi}" no es un DOI válido. Debe empezar con "10." y tener el formato 10.xxxx/yyyy`,
         suggestion: 'Ejemplo válido: 10.1234/abc123. NO use formato URL (https://doi.org/...).',
-      });
-    }
-  }
-
-  if (art.subarea) {
-    if (!areaExists(art.subarea)) {
-      errors.push({ row, field: 'subarea', message: `Código "${art.subarea}" no existe` });
-    } else if (art.area && areaExists(art.area) && !subareaBelongsToArea(art.subarea, art.area)) {
-      const subareasValidas = getChildSubareas(art.area);
-      errors.push({
-        row, field: 'subarea',
-        message: `"${art.subarea}" no pertenece a area "${art.area}" (${getAreaName(art.area)})`,
-        suggestion: `Subáreas válidas: ${subareasValidas.map(a => `${a.codigo} (${a.nombre})`).join(', ')}`,
       });
     }
   }
@@ -163,67 +165,60 @@ function validateArticle(art: ArticleRow, errors: ValidationError[]) {
     }
   }
 
-  if (art.idioma && !LANGUAGES[art.idioma.toUpperCase()]) {
-    errors.push({
-      row, field: 'idioma',
-      message: `"${art.idioma}" no válido`,
-      suggestion: `Valores: ${Object.keys(LANGUAGES).join(', ')}`,
-    });
-  }
-  if (art.otro_idioma && !LANGUAGES[art.otro_idioma.toUpperCase()]) {
-    errors.push({
-      row, field: 'otro_idioma',
-      message: `"${art.otro_idioma}" no válido`,
-      suggestion: `Valores: ${Object.keys(LANGUAGES).join(', ')}`,
-    });
-  }
-  if (art.idioma && art.otro_idioma && art.idioma.toUpperCase() === art.otro_idioma.toUpperCase()) {
+  if (art.idioma && art.otro_idioma && art.idioma === art.otro_idioma) {
     errors.push({ row, field: 'otro_idioma', message: `No puede ser igual a idioma ("${art.idioma}")` });
   }
 
-  validarTF(art.eval_interna, 'eval_interna', row, errors);
-  validarTF(art.eval_nacional, 'eval_nacional', row, errors);
-  validarTF(art.eval_internacional, 'eval_internacional', row, errors);
+  validateTF(art.eval_interna, 'eval_interna', row, errors);
+  validateTF(art.eval_nacional, 'eval_nacional', row, errors);
+  validateTF(art.eval_internacional, 'eval_internacional', row, errors);
+}
 
-  if (art.tipo_resumen && !SUMMARY_TYPES[art.tipo_resumen.toUpperCase()]) {
-    errors.push({
-      row, field: 'tipo_resumen',
-      message: `"${art.tipo_resumen}" no válido`,
-      suggestion: `Valores: ${Object.entries(SUMMARY_TYPES).map(([k, v]) => `${k}=${v}`).join(', ')}`,
-    });
+function validateEnumLabel(
+  value: string | undefined,
+  field: string,
+  dict: Record<string, string>,
+  required: boolean,
+  row: number,
+  errors: ValidationError[],
+): void {
+  if (!value) {
+    if (required) errors.push({ row, field, message: 'Campo obligatorio' });
+    return;
   }
-  if (art.tipo_especialista && !SPECIALIST_TYPES[art.tipo_especialista.toUpperCase()]) {
+  const valid = Object.values(dict);
+  if (!valid.includes(value)) {
     errors.push({
-      row, field: 'tipo_especialista',
-      message: `"${art.tipo_especialista}" no válido`,
-      suggestion: `Valores: ${Object.entries(SPECIALIST_TYPES).map(([k, v]) => `${k}=${v}`).join(', ')}`,
+      row, field,
+      message: `"${value}" no válido`,
+      suggestion: `Valores válidos: ${valid.join(', ')}`,
     });
   }
 }
 
-function validatePositiveNumber(valor: string | undefined, field: string, row: number, errors: ValidationError[]) {
-  if (!valor) return;
-  const num = parseInt(valor, 10);
+function validatePositiveNumber(value: string | undefined, field: string, row: number, errors: ValidationError[]) {
+  if (!value) return;
+  const num = parseInt(value, 10);
   if (isNaN(num) || num < 0) {
-    errors.push({ row, field, message: `"${valor}" debe ser un número entero positivo` });
+    errors.push({ row, field, message: `"${value}" debe ser un número entero positivo` });
   }
 }
 
-function validateDate(valor: string | undefined, field: string, row: number, errors: ValidationError[]) {
-  if (!valor) return;
-  if (!parseDate(valor)) {
-    errors.push({ row, field, message: `"${valor}" no es una fecha válida (formato esperado: YYYY-MM-DD)` });
+function validateDate(value: string | undefined, field: string, row: number, errors: ValidationError[]) {
+  if (!value) return;
+  if (!parseDate(value)) {
+    errors.push({ row, field, message: `"${value}" no es una fecha válida (formato esperado: YYYY-MM-DD)` });
   }
 }
 
-function validarTF(valor: string | undefined, field: string, row: number, errors: ValidationError[]) {
-  if (!valor) return;
-  if (valor.toUpperCase() !== 'T' && valor.toUpperCase() !== 'F') {
-    errors.push({ row, field, message: `"${valor}" no válido. Use T (Sí) o F (No)` });
+function validateTF(value: string | undefined, field: string, row: number, errors: ValidationError[]) {
+  if (!value) return;
+  if (value.toUpperCase() !== 'T' && value.toUpperCase() !== 'F') {
+    errors.push({ row, field, message: `"${value}" no válido. Use T (Sí) o F (No)` });
   }
 }
 
-const HEADERS_CONOCIDOS = [
+const KNOWN_HEADERS = [
   'titulo', 'doi', 'url', 'pagina_inicial', 'pagina_final', 'numero_autores',
   'numero_pares_evaluadores', 'proyecto', 'gran_area', 'area', 'subarea',
   'numero_referencias', 'tipo_documento', 'palabras_clave', 'palabras_clave_otro_idioma',
@@ -233,17 +228,17 @@ const HEADERS_CONOCIDOS = [
 ];
 
 function findSimilarHeader(header: string): string | null {
-  let mejor: string | null = null;
-  let mejorDist = Infinity;
+  let best: string | null = null;
+  let bestDist = Infinity;
 
-  for (const conocido of HEADERS_CONOCIDOS) {
-    const dist = levenshtein(header, conocido);
-    if (dist < mejorDist && dist <= 3) {
-      mejorDist = dist;
-      mejor = conocido;
+  for (const known of KNOWN_HEADERS) {
+    const dist = levenshtein(header, known);
+    if (dist < bestDist && dist <= 3) {
+      bestDist = dist;
+      best = known;
     }
   }
-  return mejor;
+  return best;
 }
 
 function levenshtein(a: string, b: string): number {

@@ -1,9 +1,12 @@
 export const BASE_URL = 'https://scienti.minciencias.gov.co/publindex/api';
 
+// Los paths de los endpoints son el contrato con el API Publindex; deben quedar
+// en español tal cual los expone Minciencias. Las keys del objeto (ISSUES,
+// ARTICLES) son identificadores internos del código, en inglés.
 export const ENDPOINTS = {
   LOGIN: `${BASE_URL}/autenticacion/autenticarEditor`,
-  ISSUES: `${BASE_URL}/issues`,
-  ARTICULOS: `${BASE_URL}/articles`,
+  ISSUES: `${BASE_URL}/fasciculos`,
+  ARTICLES: `${BASE_URL}/articulos`,
 } as const;
 
 export const DEFAULTS = {

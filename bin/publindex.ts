@@ -16,7 +16,7 @@ program
   .option('--cargar', 'Forzar modo validar y cargar (sin menú)')
   .action(async (options) => {
     if (options.plantilla) {
-      generateTemplate();
+      await generateTemplate();
       return;
     }
 

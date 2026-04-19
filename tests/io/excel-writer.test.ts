@@ -26,7 +26,7 @@ function colorFondo(cell: any): string | undefined {
 }
 
 describe('generateTemplateWithData — resaltado de obligatorios vacíos', () => {
-  it('resalta en amarillo las celdas obligatorias sin datos', () => {
+  it('resalta en amarillo las celdas obligatorias sin datos', async () => {
     const parcial: Partial<ArticleRow> = {
       titulo: 'Artículo con título',
       resumen: 'Resumen presente con más de diez caracteres.',
@@ -34,7 +34,7 @@ describe('generateTemplateWithData — resaltado de obligatorios vacíos', () =>
       titulo_ingles: 'Article title in English',
     };
     const out = path.join(tempDir, 'test.xlsx');
-    generateTemplateWithData([parcial], out);
+    await generateTemplateWithData([parcial], out);
 
     const ws = leerHojaArticulos(out);
     // Fila 2 en Excel = índice 1 (row 0 es header)
@@ -46,7 +46,7 @@ describe('generateTemplateWithData — resaltado de obligatorios vacíos', () =>
     expect(colorFondo(granAreaCell)).toBe('FFEB9C');
   });
 
-  it('no resalta celdas obligatorias que sí tienen datos', () => {
+  it('no resalta celdas obligatorias que sí tienen datos', async () => {
     const parcial: Partial<ArticleRow> = {
       titulo: 'Artículo con título',
       url: 'https://example.com/art',
@@ -58,7 +58,7 @@ describe('generateTemplateWithData — resaltado de obligatorios vacíos', () =>
       resumen: 'Resumen presente con más de diez caracteres.',
     };
     const out = path.join(tempDir, 'test.xlsx');
-    generateTemplateWithData([parcial], out);
+    await generateTemplateWithData([parcial], out);
 
     const ws = leerHojaArticulos(out);
     const tituloCell = ws[XLSX.utils.encode_cell({ r: 1, c: 0 })];
@@ -67,10 +67,10 @@ describe('generateTemplateWithData — resaltado de obligatorios vacíos', () =>
     expect(colorFondo(urlCell)).toBeUndefined();
   });
 
-  it('no resalta celdas de campos no obligatorios aunque estén vacías', () => {
+  it('no resalta celdas de campos no obligatorios aunque estén vacías', async () => {
     const parcial: Partial<ArticleRow> = { titulo: 'T' };
     const out = path.join(tempDir, 'test.xlsx');
-    generateTemplateWithData([parcial], out);
+    await generateTemplateWithData([parcial], out);
 
     const ws = leerHojaArticulos(out);
     // doi → columna B (no obligatorio)

@@ -28,8 +28,10 @@ export interface ImportOjsResult {
   warnings: string[];
 }
 
+// Mapea locale OJS → label del idioma (no código), porque el Excel ahora
+// guarda labels y el validator/mapper los traduce a código antes de enviar a Publindex.
 const LOCALE_TO_LANGUAGE: Record<string, string> = {
-  es_ES: 'ES', en_US: 'EN', pt_BR: 'PT', fr_FR: 'FR', de_DE: 'DE', it_IT: 'IT',
+  es_ES: 'Español', en_US: 'Inglés', pt_BR: 'Portugués', fr_FR: 'Francés', de_DE: 'Alemán', it_IT: 'Italiano',
 };
 
 const ARRAY_TAGS = new Set(['title', 'abstract', 'keywords', 'keyword', 'author', 'citation', 'id']);
@@ -292,7 +294,7 @@ function inferOtherLanguage(pub: any, primario: string): string | undefined {
       }
     }
   }
-  if (localesVistos.has('en_US')) return 'EN';
+  if (localesVistos.has('en_US')) return 'Inglés';
   for (const l of localesVistos) {
     if (LOCALE_TO_LANGUAGE[l]) return LOCALE_TO_LANGUAGE[l];
   }

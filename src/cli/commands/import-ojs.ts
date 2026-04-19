@@ -6,7 +6,7 @@ import { probeUrl } from '../../io/http-probe';
 import { importFromOjs, ojsArticleToRow, OjsArticle } from '../../io/ojs-xml';
 import { generateTemplateWithData } from '../../io/excel-writer';
 
-const OJS_TEMPLATE_NAME = 'plantilla-articles-ojs.xlsx';
+const OJS_TEMPLATE_NAME = 'plantilla-articulos-ojs.xlsx';
 
 export async function importOjs(): Promise<void> {
   const file = await promptOjsFilePath();
@@ -68,7 +68,7 @@ export async function importOjs(): Promise<void> {
 
   const outputPath = await promptSavePath(path.dirname(file), OJS_TEMPLATE_NAME);
   try {
-    generateTemplateWithData(rows, outputPath);
+    await generateTemplateWithData(rows, outputPath);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'EBUSY') {
       error(`No se pudo escribir ${path.basename(outputPath)} porque está abierto en Excel.`);
