@@ -73,7 +73,18 @@ export async function seleccionarFasciculo(fasciculos: Fasciculo[]): Promise<Fas
   return fasciculo;
 }
 
+const EXTENSIONES_ARTICULOS = ['.xlsx', '.xls', '.csv'];
+const EXTENSIONES_OJS = ['.xml'];
+
 export async function pedirArchivo(): Promise<string> {
+  return pedirArchivoConExtensiones(EXTENSIONES_ARTICULOS, 'Seleccionar archivo de artículos');
+}
+
+export async function pedirArchivoOjs(): Promise<string> {
+  return pedirArchivoConExtensiones(EXTENSIONES_OJS, 'Seleccionar export XML de OJS');
+}
+
+async function pedirArchivoConExtensiones(extensiones: string[], titulo: string): Promise<string> {
   const { metodo } = await inquirer.prompt([
     {
       type: 'list',
@@ -87,60 +98,52 @@ export async function pedirArchivo(): Promise<string> {
   ]);
 
   if (metodo === 'explorador') {
-    return abrirExploradorArchivos();
+    return abrirExploradorArchivos(extensiones, titulo);
   }
 
-  const { archivo } = await inquirer.prompt([
-    {
-      type: 'input',
-      name: 'archivo',
-      message: 'Ruta del archivo (puede arrastrar el archivo aquí):',
-      validate: (v: string) => validarRutaArchivo(v),
-    },
-  ]);
-
-  return limpiarRuta(archivo);
+  return pedirArchivoManual(extensiones);
 }
 
-function abrirExploradorArchivos(): Promise<string> {
+function ejecutarDialogoPowerShell(psScript: string): string | null {
   try {
-    const psScript = `
-Add-Type -AssemblyName System.Windows.Forms
-$dialog = New-Object System.Windows.Forms.OpenFileDialog
-$dialog.Filter = 'Archivos de datos (*.xlsx;*.xls;*.csv)|*.xlsx;*.xls;*.csv|Todos los archivos (*.*)|*.*'
-$dialog.Title = 'Seleccionar archivo de artículos'
-$dialog.InitialDirectory = [Environment]::GetFolderPath('Desktop')
-if ($dialog.ShowDialog() -eq 'OK') { $dialog.FileName } else { '' }
-`.trim().replace(/\n/g, '; ');
-
-    const resultado = execSync(`powershell -Command "${psScript}"`, {
+    const linea = psScript.trim().replace(/\n/g, '; ');
+    const resultado = execSync(`powershell -Command "${linea}"`, {
       encoding: 'utf-8',
       timeout: 60000,
     }).trim();
-
-    if (!resultado) {
-      throw new Error('No se seleccionó ningún archivo');
-    }
-
-    if (!fs.existsSync(resultado)) {
-      throw new Error(`Archivo no encontrado: ${resultado}`);
-    }
-
-    return Promise.resolve(resultado);
-  } catch (err) {
-    console.log('');
-    console.log('  No se pudo abrir el explorador. Escriba la ruta manualmente.');
-    return pedirArchivoManual();
+    return resultado || null;
+  } catch {
+    return null;
   }
 }
 
-async function pedirArchivoManual(): Promise<string> {
+function abrirExploradorArchivos(extensiones: string[], titulo: string): Promise<string> {
+  const filtro = extensiones.map(e => `*${e}`).join(';');
+  const resultado = ejecutarDialogoPowerShell(`
+Add-Type -AssemblyName System.Windows.Forms
+$dialog = New-Object System.Windows.Forms.OpenFileDialog
+$dialog.Filter = 'Archivos (${filtro})|${filtro}|Todos los archivos (*.*)|*.*'
+$dialog.Title = '${titulo}'
+$dialog.InitialDirectory = [Environment]::GetFolderPath('Desktop')
+if ($dialog.ShowDialog() -eq 'OK') { $dialog.FileName } else { '' }
+`);
+
+  if (resultado && fs.existsSync(resultado)) {
+    return Promise.resolve(resultado);
+  }
+
+  console.log('');
+  console.log('  No se pudo abrir el explorador. Escriba la ruta manualmente.');
+  return pedirArchivoManual(extensiones);
+}
+
+async function pedirArchivoManual(extensiones: string[]): Promise<string> {
   const { archivo } = await inquirer.prompt([
     {
       type: 'input',
       name: 'archivo',
       message: 'Ruta del archivo (puede arrastrar el archivo aquí):',
-      validate: (v: string) => validarRutaArchivo(v),
+      validate: (v: string) => validarRutaArchivo(v, extensiones),
     },
   ]);
 
@@ -152,12 +155,12 @@ function limpiarRuta(ruta: string): string {
   return ruta.trim().replace(/^["']|["']$/g, '');
 }
 
-function validarRutaArchivo(v: string): string | true {
+function validarRutaArchivo(v: string, extensiones: string[]): string | true {
   const ruta = limpiarRuta(v);
   if (!ruta) return 'La ruta del archivo es obligatoria';
-  const ext = ruta.toLowerCase();
-  if (!ext.endsWith('.xlsx') && !ext.endsWith('.xls') && !ext.endsWith('.csv')) {
-    return 'El archivo debe ser .xlsx, .xls o .csv';
+  const lower = ruta.toLowerCase();
+  if (!extensiones.some(e => lower.endsWith(e))) {
+    return `El archivo debe ser ${extensiones.join(' o ')}`;
   }
   if (!fs.existsSync(ruta)) {
     return `Archivo no encontrado: ${ruta}`;
@@ -177,6 +180,69 @@ export async function confirmarContinuar(msg: string): Promise<boolean> {
   return continuar;
 }
 
+export async function pedirRutaGuardado(defaultDir: string, defaultName: string): Promise<string> {
+  const defaultFull = `${defaultDir.replace(/[\\/]+$/, '')}\\${defaultName}`;
+
+  const { metodo } = await inquirer.prompt([
+    {
+      type: 'list',
+      name: 'metodo',
+      message: '¿Dónde desea guardar la plantilla?',
+      choices: [
+        { name: `Usar ruta por defecto (${defaultFull})`, value: 'default' },
+        { name: 'Abrir diálogo para elegir', value: 'dialog' },
+        { name: 'Escribir ruta manualmente', value: 'manual' },
+      ],
+    },
+  ]);
+
+  if (metodo === 'default') return defaultFull;
+  if (metodo === 'dialog') {
+    const elegida = abrirDialogoGuardado(defaultDir, defaultName);
+    if (elegida) return elegida;
+    console.log('');
+    console.log('  No se pudo abrir el diálogo. Escriba la ruta manualmente.');
+  }
+  return pedirRutaManual(defaultFull);
+}
+
+function abrirDialogoGuardado(defaultDir: string, defaultName: string): string | null {
+  return ejecutarDialogoPowerShell(`
+Add-Type -AssemblyName System.Windows.Forms
+$dialog = New-Object System.Windows.Forms.SaveFileDialog
+$dialog.Filter = 'Excel (*.xlsx)|*.xlsx'
+$dialog.FileName = '${defaultName}'
+$dialog.InitialDirectory = '${defaultDir.replace(/\\/g, '\\\\')}'
+$dialog.Title = 'Guardar plantilla generada'
+if ($dialog.ShowDialog() -eq 'OK') { $dialog.FileName } else { '' }
+`);
+}
+
+async function pedirRutaManual(defaultFull: string): Promise<string> {
+  const { ruta } = await inquirer.prompt([
+    {
+      type: 'input',
+      name: 'ruta',
+      message: 'Ruta completa del archivo .xlsx:',
+      default: defaultFull,
+      validate: (v: string) => v.trim().toLowerCase().endsWith('.xlsx') ? true : 'La ruta debe terminar en .xlsx',
+    },
+  ]);
+  return limpiarRuta(ruta);
+}
+
+export async function pedirUrlBaseRevista(): Promise<string | null> {
+  const { base } = await inquirer.prompt([
+    {
+      type: 'input',
+      name: 'base',
+      message: 'URL base de la revista en OJS (ej. https://revistas.ejemplo.edu.co/index.php/mi-revista). Deje vacío para omitir:',
+    },
+  ]);
+  const trimmed = (base ?? '').trim();
+  return trimmed ? trimmed : null;
+}
+
 export async function menuPrincipal(): Promise<ModoEjecucion> {
   const { opcion } = await inquirer.prompt([
     {
@@ -187,6 +253,7 @@ export async function menuPrincipal(): Promise<ModoEjecucion> {
         { name: 'Validar archivo de artículos', value: 'validar' as ModoEjecucion },
         { name: 'Validar y cargar artículos', value: 'cargar' as ModoEjecucion },
         { name: 'Descargar plantilla de ejemplo para rellenar', value: 'plantilla' as ModoEjecucion },
+        { name: 'Importar desde OJS (genera plantilla prellena)', value: 'importar-ojs' as ModoEjecucion },
         { name: 'Salir', value: 'salir' as ModoEjecucion },
       ],
     },

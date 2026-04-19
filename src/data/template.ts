@@ -1,9 +1,46 @@
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import * as path from 'path';
 import { HEADERS_EXCEL, TIPOS_DOCUMENTO, TIPOS_RESUMEN, TIPOS_ESPECIALISTA, IDIOMAS, COLUMNAS_ESTADO } from '../config/constants';
 import { AREAS_TREE } from './areas';
+import { ArticuloRow } from './types';
 
-export function generarPlantilla(outputDir: string = '.') {
+const CAMPOS_OBLIGATORIOS = ['titulo', 'url', 'gran_area', 'area', 'tipo_documento', 'palabras_clave', 'titulo_ingles', 'resumen'];
+const FILL_ALERTA = { patternType: 'solid', fgColor: { rgb: 'FFEB9C' } };
+
+const EJEMPLO_ARTICULO: Partial<ArticuloRow> = {
+  titulo: 'Título del artículo de ejemplo para Publindex',
+  doi: '10.1234/ejemplo-articulo',
+  url: 'https://revistas.ejemplo.edu.co/articulo/1',
+  pagina_inicial: '1',
+  pagina_final: '15',
+  numero_autores: '3',
+  numero_pares_evaluadores: '2',
+  gran_area: '5',
+  area: '5D',
+  subarea: '5D01',
+  numero_referencias: '30',
+  tipo_documento: '1',
+  palabras_clave: 'sociología; cultura; América Latina',
+  palabras_clave_otro_idioma: 'sociology; culture; Latin America',
+  titulo_ingles: 'Title of the example article for Publindex',
+  fecha_recepcion: '2026-01-15',
+  fecha_aceptacion: '2026-03-20',
+  idioma: 'ES',
+  otro_idioma: 'EN',
+  eval_interna: 'F',
+  eval_nacional: 'T',
+  eval_internacional: 'T',
+  tipo_resumen: 'A',
+  tipo_especialista: 'S',
+  resumen: 'Resumen del artículo de ejemplo con más de diez caracteres.',
+  resumen_otro_idioma: 'Abstract of the example article with more than ten characters.',
+};
+
+export function generarPlantilla(outputDir: string = '.'): string {
+  return generarPlantillaConDatos([EJEMPLO_ARTICULO], path.join(outputDir, 'plantilla-articulos.xlsx'));
+}
+
+export function generarPlantillaConDatos(articulos: Partial<ArticuloRow>[], outputPath: string): string {
   const wb = XLSX.utils.book_new();
 
   const headers = [
@@ -12,47 +49,40 @@ export function generarPlantilla(outputDir: string = '.') {
     COLUMNAS_ESTADO.FECHA_SUBIDA,
     COLUMNAS_ESTADO.ULTIMO_ERROR,
   ];
-  const ejemplo = [
-    'Título del artículo de ejemplo para Publindex',     // titulo
-    '10.1234/ejemplo-articulo',                           // doi
-    'https://revistas.ejemplo.edu.co/articulo/1',         // url
-    '1',                                                  // pagina_inicial
-    '15',                                                 // pagina_final
-    '3',                                                  // numero_autores
-    '2',                                                  // numero_pares_evaluadores
-    '',                                                   // proyecto
-    '5',                                                  // gran_area (Ciencias Sociales)
-    '5D',                                                 // area (Sociología)
-    '5D01',                                               // subarea (Sociología)
-    '30',                                                 // numero_referencias
-    '1',                                                  // tipo_documento
-    'sociología; cultura; América Latina',                // palabras_clave
-    'sociology; culture; Latin America',                  // palabras_clave_otro_idioma
-    'Title of the example article for Publindex',         // titulo_ingles
-    '2026-01-15',                                         // fecha_recepcion
-    '2026-03-20',                                         // fecha_aceptacion
-    'ES',                                                 // idioma
-    'EN',                                                 // otro_idioma
-    'F',                                                  // eval_interna
-    'T',                                                  // eval_nacional
-    'T',                                                  // eval_internacional
-    'A',                                                  // tipo_resumen
-    'S',                                                  // tipo_especialista
-    'Resumen del artículo de ejemplo con más de diez caracteres.',  // resumen
-    'Abstract of the example article with more than ten characters.', // resumen_otro_idioma
-    '',                                                   // resumen_idioma_adicional
-    '',                                                   // estado (se llena automáticamente)
-    '',                                                   // fecha_subida
-    '',                                                   // ultimo_error
-  ];
 
-  const articulosData = [headers, ejemplo];
-  const wsArticulos = XLSX.utils.aoa_to_sheet(articulosData);
+  const filas = articulos.map(art => headers.map(h => (art as Record<string, unknown>)[h] ?? ''));
 
+  const wsArticulos = XLSX.utils.aoa_to_sheet([headers, ...filas]);
   wsArticulos['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 2, 18) }));
-
+  resaltarObligatoriosVacios(wsArticulos, headers, filas);
   XLSX.utils.book_append_sheet(wb, wsArticulos, 'Artículos');
 
+  XLSX.utils.book_append_sheet(wb, construirHojaInstrucciones(), 'Instrucciones');
+  XLSX.utils.book_append_sheet(wb, construirHojaAreas(), 'Áreas');
+  XLSX.utils.book_append_sheet(wb, construirHojaTipos(), 'Tipos y códigos');
+
+  XLSX.writeFile(wb, outputPath);
+  console.log(`\n  ✓ Plantilla generada: ${outputPath}\n`);
+  return outputPath;
+}
+
+function resaltarObligatoriosVacios(ws: XLSX.WorkSheet, headers: string[], filas: unknown[][]): void {
+  const indicesObligatorios = headers
+    .map((h, i) => CAMPOS_OBLIGATORIOS.includes(h) ? i : -1)
+    .filter(i => i >= 0);
+
+  filas.forEach((fila, filaIdx) => {
+    for (const colIdx of indicesObligatorios) {
+      const valor = fila[colIdx];
+      if (valor !== '' && valor !== undefined && valor !== null) continue;
+      const addr = XLSX.utils.encode_cell({ r: filaIdx + 1, c: colIdx });
+      if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+      ws[addr].s = { fill: FILL_ALERTA };
+    }
+  });
+}
+
+function construirHojaInstrucciones(): XLSX.WorkSheet {
   const instrucciones = [
     ['Campo', 'Obligatorio', 'Descripción', 'Ejemplo'],
     ['titulo', 'Sí', 'Título del artículo (mínimo 10 caracteres)', 'Título del artículo de ejemplo para Publindex'],
@@ -90,10 +120,12 @@ export function generarPlantilla(outputDir: string = '.') {
     ['ultimo_error', 'Auto', 'Mensaje de error si la carga falló', ''],
   ];
 
-  const wsInstrucciones = XLSX.utils.aoa_to_sheet(instrucciones);
-  wsInstrucciones['!cols'] = [{ wch: 30 }, { wch: 12 }, { wch: 55 }, { wch: 40 }];
-  XLSX.utils.book_append_sheet(wb, wsInstrucciones, 'Instrucciones');
+  const ws = XLSX.utils.aoa_to_sheet(instrucciones);
+  ws['!cols'] = [{ wch: 30 }, { wch: 12 }, { wch: 55 }, { wch: 40 }];
+  return ws;
+}
 
+function construirHojaAreas(): XLSX.WorkSheet {
   const areasData: string[][] = [['Código gran área', 'Gran área', 'Código área', 'Área', 'Código subárea', 'Subárea']];
 
   for (const granArea of AREAS_TREE) {
@@ -113,10 +145,12 @@ export function generarPlantilla(outputDir: string = '.') {
     }
   }
 
-  const wsAreas = XLSX.utils.aoa_to_sheet(areasData);
-  wsAreas['!cols'] = [{ wch: 16 }, { wch: 30 }, { wch: 14 }, { wch: 45 }, { wch: 16 }, { wch: 50 }];
-  XLSX.utils.book_append_sheet(wb, wsAreas, 'Áreas');
+  const ws = XLSX.utils.aoa_to_sheet(areasData);
+  ws['!cols'] = [{ wch: 16 }, { wch: 30 }, { wch: 14 }, { wch: 45 }, { wch: 16 }, { wch: 50 }];
+  return ws;
+}
 
+function construirHojaTipos(): XLSX.WorkSheet {
   const tiposData: string[][] = [['Código', 'Tipo de documento']];
   for (const [codigo, nombre] of Object.entries(TIPOS_DOCUMENTO)) {
     tiposData.push([codigo, nombre]);
@@ -140,12 +174,7 @@ export function generarPlantilla(outputDir: string = '.') {
     tiposData.push([codigo, nombre]);
   }
 
-  const wsTipos = XLSX.utils.aoa_to_sheet(tiposData);
-  wsTipos['!cols'] = [{ wch: 10 }, { wch: 55 }];
-  XLSX.utils.book_append_sheet(wb, wsTipos, 'Tipos y códigos');
-
-  const outputPath = path.join(outputDir, 'plantilla-articulos.xlsx');
-  XLSX.writeFile(wb, outputPath);
-
-  console.log(`\n  ✓ Plantilla generada: ${outputPath}\n`);
+  const ws = XLSX.utils.aoa_to_sheet(tiposData);
+  ws['!cols'] = [{ wch: 10 }, { wch: 55 }];
+  return ws;
 }

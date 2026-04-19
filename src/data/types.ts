@@ -105,7 +105,7 @@ export interface ArticuloRow {
 
 export type EstadoArticulo = typeof ESTADOS_ARTICULO[keyof typeof ESTADOS_ARTICULO];
 
-export type ModoEjecucion = 'validar' | 'cargar' | 'plantilla' | 'salir';
+export type ModoEjecucion = 'validar' | 'cargar' | 'plantilla' | 'importar-ojs' | 'salir';
 
 export interface ValidationError {
   fila: number;

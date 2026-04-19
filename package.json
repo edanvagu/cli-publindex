@@ -22,10 +22,12 @@
     "chalk": "^4.1.2",
     "commander": "^11.1.0",
     "csv-parse": "^6.2.1",
+    "fast-xml-parser": "^5.7.1",
     "form-data": "^4.0.5",
     "inquirer": "^9.3.8",
     "ora": "^5.4.1",
     "xlsx": "^0.18.5",
+    "xlsx-js-style": "^1.2.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

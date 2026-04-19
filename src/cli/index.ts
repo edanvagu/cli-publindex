@@ -1,13 +1,19 @@
 import { banner, spinner, exito, error, info, advertencia, mostrarValidacion, mostrarProgreso, mostrarResumen, mostrarPausa, mostrarTiempoRestante } from './logger';
-import { pedirCredenciales, seleccionarFasciculo, pedirArchivo, confirmarContinuar, menuPrincipal, confirmarReanudar, confirmarEstimadoTiempo } from './prompts';
+import { pedirCredenciales, seleccionarFasciculo, pedirArchivo, pedirArchivoOjs, pedirUrlBaseRevista, pedirRutaGuardado, confirmarContinuar, menuPrincipal, confirmarReanudar, confirmarEstimadoTiempo } from './prompts';
+import { construirUrlArticulo } from '../utils/urls';
+import { probarUrl } from '../utils/http';
+import { importarDesdeOjs, ojsArticuloToRow, OjsArticulo } from '../data/ojs-importer';
 import { login, tokenVigente } from '../api/auth';
 import { listarFasciculos, formatFasciculo } from '../api/fasciculos';
 import { readArticulos, ReadResult } from '../data/reader';
 import { validarLote } from '../data/validator';
 import { ejecutarCarga, estimarTiempoSegundos } from '../pipeline/runner';
 import { GestorProgreso } from '../data/progreso';
-import { generarPlantilla } from '../data/template';
+import { generarPlantilla, generarPlantillaConDatos } from '../data/template';
+import * as path from 'path';
 import { Session, ArticuloRow, ModoEjecucion } from '../data/types';
+
+const NOMBRE_PLANTILLA_OJS = 'plantilla-articulos-ojs.xlsx';
 
 export async function run(options: { modoForzado?: ModoEjecucion } = {}) {
   banner();
@@ -21,6 +27,11 @@ export async function run(options: { modoForzado?: ModoEjecucion } = {}) {
 
   if (modo === 'plantilla') {
     generarPlantilla();
+    return;
+  }
+
+  if (modo === 'importar-ojs') {
+    await importarOjs();
     return;
   }
 
@@ -151,6 +162,94 @@ export async function run(options: { modoForzado?: ModoEjecucion } = {}) {
   }
 
   exito('Proceso finalizado.');
+}
+
+async function importarOjs() {
+  const archivo = await pedirArchivoOjs();
+  const parseSpinner = spinner(`Parseando ${path.basename(archivo)}...`);
+  let articulos: OjsArticulo[];
+  let advertencias: string[];
+  try {
+    const resultado = await importarDesdeOjs(archivo);
+    articulos = resultado.articulos;
+    advertencias = resultado.advertencias;
+    parseSpinner.succeed(`${articulos.length} publicaciones extraídas desde OJS`);
+  } catch (err) {
+    parseSpinner.fail('Error al parsear el XML de OJS');
+    error(err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  }
+
+  if (articulos.length === 0) {
+    error('No se encontraron publicaciones en el XML. Verifique que sea un export válido de OJS.');
+    process.exit(1);
+  }
+
+  const urlBase = await pedirUrlBaseRevista();
+  const urlsPorIndice = new Map<number, string>();
+  const urlAdvertencias: string[] = [];
+
+  if (urlBase) {
+    const conId = articulos
+      .map((art, idx) => ({ art, idx }))
+      .filter(({ art }) => art.submissionId);
+
+    if (conId.length === 0) {
+      advertencia('Ningún artículo tiene submissionId; no se construirán URLs.');
+    } else {
+      const verifySpinner = spinner(`Construyendo y verificando ${conId.length} URLs...`);
+      const resultados = await Promise.all(
+        conId.map(async ({ art, idx }) => {
+          const url = construirUrlArticulo(urlBase, art.submissionId!);
+          const resultado = await probarUrl(url);
+          return { idx, url, resultado };
+        })
+      );
+      const okCount = resultados.filter(r => r.resultado.ok).length;
+      verifySpinner.succeed(`${okCount}/${resultados.length} URLs respondieron 200`);
+
+      for (const { idx, url, resultado } of resultados) {
+        urlsPorIndice.set(idx, url);
+        if (!resultado.ok) {
+          const detalle = resultado.status ? `status ${resultado.status}` : resultado.error ?? 'sin respuesta';
+          urlAdvertencias.push(`Fila ${idx + 2}: URL ${url} no respondió 200 (${detalle}).`);
+        }
+      }
+    }
+  } else {
+    info('URL base no proporcionada; las URLs quedarán vacías para llenar manualmente.');
+  }
+
+  const rows = articulos.map((art, idx) => ojsArticuloToRow(art, urlsPorIndice.get(idx)));
+
+  const outputPath = await pedirRutaGuardado(path.dirname(archivo), NOMBRE_PLANTILLA_OJS);
+  try {
+    generarPlantillaConDatos(rows, outputPath);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'EBUSY') {
+      error(`No se pudo escribir ${path.basename(outputPath)} porque está abierto en Excel.`);
+      info('Cierre el archivo y vuelva a ejecutar "Importar desde OJS".');
+      process.exit(1);
+    }
+    throw err;
+  }
+  exito(`Plantilla prellena generada con ${rows.length} artículos en ${outputPath}.`);
+
+  if (advertencias.length > 0) {
+    console.log('');
+    advertencia(`${advertencias.length} artículos con paginación no estándar (posibles e-locators de publicación continua):`);
+    for (const a of advertencias) advertencia(`  ${a}`);
+  }
+
+  if (urlAdvertencias.length > 0) {
+    console.log('');
+    advertencia(`${urlAdvertencias.length} URLs no respondieron 200 (quedaron en la plantilla, pero revise antes de cargar):`);
+    for (const a of urlAdvertencias) advertencia(`  ${a}`);
+  }
+
+  console.log('');
+  advertencia('Las celdas resaltadas en AMARILLO son campos obligatorios que quedaron vacíos — debe completarlos antes de validar.');
+  info('Abra la plantilla en Excel, complete los campos amarillos, luego ejecute de nuevo la CLI y seleccione "Validar archivo de artículos".');
 }
 
 function construirOpcionesCarga(gestorProgreso: GestorProgreso, esRetry: boolean) {
