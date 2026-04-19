@@ -1,0 +1,193 @@
+import inquirer from 'inquirer';
+import { execSync } from 'child_process';
+import * as fs from 'fs';
+import { Fasciculo } from '../data/types';
+import { formatFasciculo } from '../api/fasciculos';
+
+export async function pedirCredenciales(): Promise<{ usuario: string; contrasena: string }> {
+  const { usuario } = await inquirer.prompt([
+    {
+      type: 'input',
+      name: 'usuario',
+      message: 'Usuario de Publindex:',
+      validate: (v: string) => v.trim() ? true : 'El usuario es obligatorio',
+    },
+  ]);
+
+  const { contrasena } = await inquirer.prompt([
+    {
+      type: 'password',
+      name: 'contrasena',
+      message: 'Contraseña:',
+      mask: '•',
+      validate: (v: string) => v ? true : 'La contraseña es obligatoria',
+    },
+  ]);
+
+  const { confirmado } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'confirmado',
+      message: `¿Es correcto el usuario "${usuario}"?`,
+      default: true,
+    },
+  ]);
+
+  if (!confirmado) {
+    return pedirCredenciales();
+  }
+
+  return { usuario: usuario.trim(), contrasena };
+}
+
+export async function seleccionarFasciculo(fasciculos: Fasciculo[]): Promise<Fasciculo> {
+  const choices = fasciculos.map(f => ({
+    name: formatFasciculo(f),
+    value: f,
+  }));
+
+  const { fasciculo } = await inquirer.prompt([
+    {
+      type: 'list',
+      name: 'fasciculo',
+      message: 'Seleccione el fascículo:',
+      choices,
+      pageSize: 15,
+    },
+  ]);
+
+  const { confirmado } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'confirmado',
+      message: `¿Confirma ${formatFasciculo(fasciculo)}?`,
+      default: true,
+    },
+  ]);
+
+  if (!confirmado) {
+    return seleccionarFasciculo(fasciculos);
+  }
+
+  return fasciculo;
+}
+
+export async function pedirArchivo(): Promise<string> {
+  const { metodo } = await inquirer.prompt([
+    {
+      type: 'list',
+      name: 'metodo',
+      message: '¿Cómo desea seleccionar el archivo?',
+      choices: [
+        { name: 'Abrir explorador de archivos', value: 'explorador' },
+        { name: 'Escribir la ruta manualmente', value: 'manual' },
+      ],
+    },
+  ]);
+
+  if (metodo === 'explorador') {
+    return abrirExploradorArchivos();
+  }
+
+  const { archivo } = await inquirer.prompt([
+    {
+      type: 'input',
+      name: 'archivo',
+      message: 'Ruta del archivo (puede arrastrar el archivo aquí):',
+      validate: (v: string) => validarRutaArchivo(v),
+    },
+  ]);
+
+  return limpiarRuta(archivo);
+}
+
+function abrirExploradorArchivos(): Promise<string> {
+  try {
+    const psScript = `
+Add-Type -AssemblyName System.Windows.Forms
+$dialog = New-Object System.Windows.Forms.OpenFileDialog
+$dialog.Filter = 'Archivos de datos (*.xlsx;*.xls;*.csv)|*.xlsx;*.xls;*.csv|Todos los archivos (*.*)|*.*'
+$dialog.Title = 'Seleccionar archivo de artículos'
+$dialog.InitialDirectory = [Environment]::GetFolderPath('Desktop')
+if ($dialog.ShowDialog() -eq 'OK') { $dialog.FileName } else { '' }
+`.trim().replace(/\n/g, '; ');
+
+    const resultado = execSync(`powershell -Command "${psScript}"`, {
+      encoding: 'utf-8',
+      timeout: 60000,
+    }).trim();
+
+    if (!resultado) {
+      throw new Error('No se seleccionó ningún archivo');
+    }
+
+    if (!fs.existsSync(resultado)) {
+      throw new Error(`Archivo no encontrado: ${resultado}`);
+    }
+
+    return Promise.resolve(resultado);
+  } catch (err) {
+    console.log('');
+    console.log('  No se pudo abrir el explorador. Escriba la ruta manualmente.');
+    return pedirArchivoManual();
+  }
+}
+
+async function pedirArchivoManual(): Promise<string> {
+  const { archivo } = await inquirer.prompt([
+    {
+      type: 'input',
+      name: 'archivo',
+      message: 'Ruta del archivo (puede arrastrar el archivo aquí):',
+      validate: (v: string) => validarRutaArchivo(v),
+    },
+  ]);
+
+  return limpiarRuta(archivo);
+}
+
+function limpiarRuta(ruta: string): string {
+  // Quitar comillas que Windows agrega al arrastrar archivos con espacios
+  return ruta.trim().replace(/^["']|["']$/g, '');
+}
+
+function validarRutaArchivo(v: string): string | true {
+  const ruta = limpiarRuta(v);
+  if (!ruta) return 'La ruta del archivo es obligatoria';
+  const ext = ruta.toLowerCase();
+  if (!ext.endsWith('.xlsx') && !ext.endsWith('.xls') && !ext.endsWith('.csv')) {
+    return 'El archivo debe ser .xlsx, .xls o .csv';
+  }
+  if (!fs.existsSync(ruta)) {
+    return `Archivo no encontrado: ${ruta}`;
+  }
+  return true;
+}
+
+export async function confirmarContinuar(msg: string): Promise<boolean> {
+  const { continuar } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'continuar',
+      message: msg,
+      default: true,
+    },
+  ]);
+  return continuar;
+}
+
+export async function pedirConcurrencia(): Promise<number> {
+  const { concurrency } = await inquirer.prompt([
+    {
+      type: 'number',
+      name: 'concurrency',
+      message: 'Nivel de concurrencia (1 = secuencial):',
+      default: 1,
+      validate: (v: number) => {
+        if (!v || v < 1 || v > 20) return 'Debe ser un número entre 1 y 20';
+        return true;
+      },
+    },
+  ]);
+  return concurrency;
+}
