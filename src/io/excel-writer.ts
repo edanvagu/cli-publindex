@@ -206,7 +206,6 @@ function buildLookupsSheet(wb: ExcelJS.Workbook): void {
   ws.getColumn(4).values = ['AREA_CODES', ...allAreaCodes];
   defineMultiColRange(wb, ws.name, 'AREA_LOOKUP', 3, 4, 4, allAreaLabels.length);
 
-  // Una columna por gran_area con los labels de sus areas hijas. Named range `AREAS_<granCode>`.
   let col = 5;
   for (const gran of AREAS_TREE) {
     const labels = (gran.areasHijas ?? []).map(a => a.txtNmeArea);
@@ -217,7 +216,6 @@ function buildLookupsSheet(wb: ExcelJS.Workbook): void {
     col++;
   }
 
-  // Una columna por area con los labels de sus subareas hijas. Named range `SUB_<areaCode>`.
   for (const gran of AREAS_TREE) {
     for (const area of gran.areasHijas ?? []) {
       const labels = (area.areasHijas ?? []).map(s => s.txtNmeArea);
