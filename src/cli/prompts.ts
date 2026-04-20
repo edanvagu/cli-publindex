@@ -118,16 +118,23 @@ function runPowerShellDialog(psScript: string): string | null {
   }
 }
 
+function runOsascript(script: string): string | null {
+  try {
+    const result = execSync(`osascript -e '${script.replace(/'/g, "'\\''")}'`, {
+      encoding: 'utf-8',
+      timeout: 60000,
+    }).trim();
+    return result || null;
+  } catch {
+    // osascript exit 1 cuando el usuario cancela — tratamos igual que "sin selección".
+    return null;
+  }
+}
+
 function openFileDialog(extensions: string[], title: string): Promise<string> {
-  const filter = extensions.map(e => `*${e}`).join(';');
-  const result = runPowerShellDialog(`
-Add-Type -AssemblyName System.Windows.Forms
-$dialog = New-Object System.Windows.Forms.OpenFileDialog
-$dialog.Filter = 'Archivos (${filter})|${filter}|Todos los archivos (*.*)|*.*'
-$dialog.Title = '${title}'
-$dialog.InitialDirectory = [Environment]::GetFolderPath('Desktop')
-if ($dialog.ShowDialog() -eq 'OK') { $dialog.FileName } else { '' }
-`);
+  const result = process.platform === 'darwin'
+    ? openFileDialogMac(extensions, title)
+    : openFileDialogWindows(extensions, title);
 
   if (result && fs.existsSync(result)) {
     return Promise.resolve(result);
@@ -136,6 +143,23 @@ if ($dialog.ShowDialog() -eq 'OK') { $dialog.FileName } else { '' }
   console.log('');
   console.log('  No se pudo abrir el explorador. Escriba la ruta manualmente.');
   return promptFileManual(extensions);
+}
+
+function openFileDialogWindows(extensions: string[], title: string): string | null {
+  const filter = extensions.map(e => `*${e}`).join(';');
+  return runPowerShellDialog(`
+Add-Type -AssemblyName System.Windows.Forms
+$dialog = New-Object System.Windows.Forms.OpenFileDialog
+$dialog.Filter = 'Archivos (${filter})|${filter}|Todos los archivos (*.*)|*.*'
+$dialog.Title = '${title}'
+$dialog.InitialDirectory = [Environment]::GetFolderPath('Desktop')
+if ($dialog.ShowDialog() -eq 'OK') { $dialog.FileName } else { '' }
+`);
+}
+
+function openFileDialogMac(extensions: string[], title: string): string | null {
+  const types = extensions.map(e => `"${e.replace(/^\./, '')}"`).join(', ');
+  return runOsascript(`POSIX path of (choose file with prompt "${title}" of type {${types}})`);
 }
 
 async function promptFileManual(extensions: string[]): Promise<string> {
@@ -182,7 +206,8 @@ export async function confirmContinue(msg: string): Promise<boolean> {
 }
 
 export async function promptSavePath(defaultDir: string, defaultName: string): Promise<string> {
-  const defaultFull = `${defaultDir.replace(/[\\/]+$/, '')}\\${defaultName}`;
+  const sep = process.platform === 'win32' ? '\\' : '/';
+  const defaultFull = `${defaultDir.replace(/[\\/]+$/, '')}${sep}${defaultName}`;
 
   const { method } = await inquirer.prompt([
     {
@@ -208,6 +233,11 @@ export async function promptSavePath(defaultDir: string, defaultName: string): P
 }
 
 function openSaveDialog(defaultDir: string, defaultName: string): string | null {
+  if (process.platform === 'darwin') {
+    return runOsascript(
+      `POSIX path of (choose file name with prompt "Guardar plantilla generada" default name "${defaultName}" default location (POSIX file "${defaultDir}"))`
+    );
+  }
   return runPowerShellDialog(`
 Add-Type -AssemblyName System.Windows.Forms
 $dialog = New-Object System.Windows.Forms.SaveFileDialog
