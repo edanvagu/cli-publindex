@@ -18,3 +18,9 @@ export function parseDateToIso(value: string): string {
   if (!d) return value;
   return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 5, 0, 0)).toISOString();
 }
+
+// Formato `YYYYMMDD-HHmmss` para sufijos de archivo (timestamps filename-safe).
+export function formatTimestampCompact(date: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+}

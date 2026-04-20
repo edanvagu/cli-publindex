@@ -71,9 +71,7 @@ export interface ArticlePayload {
 export type ArticleState = typeof ARTICLE_STATES[keyof typeof ARTICLE_STATES];
 
 export type ExecutionMode =
-  | 'validate'
   | 'upload'
-  | 'template'
   | 'import-ojs'
   | 'authors-upload'
   | 'exit';

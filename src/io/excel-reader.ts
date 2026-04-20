@@ -2,8 +2,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { ArticleRow } from '../entities/articles/types';
 import { parseXlsx } from './xlsx-parser';
-import { parseCsv } from './csv-parser';
-import { EXCEL_HEADERS, STATE_COLUMNS, ARTICLE_STATES } from '../config/constants';
+import { EXCEL_HEADERS, STATE_COLUMNS, ARTICLE_STATES, ARTICLE_ID_COLUMN } from '../config/constants';
 
 export function normalizeHeader(header: string): string {
   return header
@@ -28,6 +27,7 @@ const HEADERS_CONOCIDOS: ReadonlySet<string> = new Set<string>([
   STATE_COLUMNS.STATE,
   STATE_COLUMNS.UPLOAD_DATE,
   STATE_COLUMNS.LAST_ERROR,
+  ARTICLE_ID_COLUMN,
 ]);
 
 export function readArticles(filePath: string): ReadResult {
@@ -38,16 +38,11 @@ export function readArticles(filePath: string): ReadResult {
   }
 
   const ext = path.extname(absolutePath).toLowerCase();
-  let articles: ArticleRow[];
-  let headersNormalizados: string[];
-
-  if (ext === '.xlsx' || ext === '.xls') {
-    ({ articles, headersNormalizados } = parseXlsx(absolutePath));
-  } else if (ext === '.csv') {
-    ({ articles, headersNormalizados } = parseCsv(absolutePath));
-  } else {
-    throw new Error(`Formato no soportado: ${ext}. Use .xlsx, .xls o .csv`);
+  if (ext !== '.xlsx' && ext !== '.xls') {
+    throw new Error(`Formato no soportado: ${ext}. Use .xlsx o .xls`);
   }
+
+  const { articles, headersNormalizados } = parseXlsx(absolutePath);
 
   const unknownHeaders = headersNormalizados.filter(h => h && !HEADERS_CONOCIDOS.has(h));
 

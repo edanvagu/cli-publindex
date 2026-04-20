@@ -1,32 +1,44 @@
-import { banner, info } from './logger';
+import { banner, info, error } from './logger';
 import { mainMenu } from './prompts';
 import { ExecutionMode } from '../entities/articles/types';
 import { uploadArticles } from './commands/upload-articles';
 import { importOjs } from './commands/import-ojs';
-import { runGenerateTemplate } from './commands/generate-template';
 import { uploadAuthors } from './commands/upload-authors';
 
 export async function run(options: { forcedMode?: ExecutionMode } = {}): Promise<void> {
   banner();
 
-  const mode = options.forcedMode ?? await mainMenu();
+  // forcedMode (flags CLI): ejecuta una sola vez, sin loop — para scripts/cron.
+  if (options.forcedMode) {
+    await dispatch(options.forcedMode);
+    return;
+  }
 
-  switch (mode) {
-    case 'exit':
+  while (true) {
+    const mode = await mainMenu();
+    if (mode === 'exit') {
       info('Hasta luego.');
       return;
-    case 'template':
-      await runGenerateTemplate();
+    }
+    try {
+      await dispatch(mode);
+    } catch (err) {
+      error(err instanceof Error ? err.message : String(err));
+      info('Volviendo al menú principal...');
+    }
+    console.log('');
+  }
+}
+
+async function dispatch(mode: ExecutionMode): Promise<void> {
+  switch (mode) {
+    case 'exit':
       return;
     case 'import-ojs':
-      await importOjs();
-      return;
-    case 'validate':
+      return importOjs();
     case 'upload':
-      await uploadArticles(mode);
-      return;
+      return uploadArticles();
     case 'authors-upload':
-      await uploadAuthors();
-      return;
+      return uploadAuthors();
   }
 }

@@ -3,16 +3,16 @@ import {
   spinner, success, error, info, warning,
   showProgress, showPickerReference, showCandidatesTable,
 } from '../logger';
-import { promptCredentials, promptFilePath, selectIssue, confirmContinue, confirmAuthorsStart } from '../prompts';
-import { login } from '../../entities/auth/api';
+import { promptFilePath, confirmContinue, confirmAuthorsStart } from '../prompts';
 import { tokenValid } from '../../entities/auth/session';
-import { listIssues, formatIssue } from '../../entities/issues/api';
+import { formatIssue } from '../../entities/issues/api';
 import { readAuthors, ReadAuthorsResult } from '../../io/authors-reader';
 import { runAuthorsUpload } from '../../entities/authors/uploader';
 import { ProgressTracker } from '../../io/progress';
 import { Session } from '../../entities/auth/types';
 import { Issue } from '../../entities/issues/types';
 import { AuthorRow, PersonSearchResult } from '../../entities/authors/types';
+import { loginOrThrow, fetchAndSelectIssue } from './shared';
 
 export interface AuthorsContext {
   file: string;
@@ -20,15 +20,13 @@ export interface AuthorsContext {
   issue: Issue;
 }
 
-/** Entry point desde el menú principal — pide credenciales, archivo y fascículo. */
 export async function uploadAuthors(): Promise<void> {
   const file = await promptFilePath();
-  const session = await doLogin();
-  const issue = await doSelectIssue(session);
+  const session = await loginOrThrow();
+  const issue = await fetchAndSelectIssue(session);
   await uploadAuthorsCore({ file, session, issue });
 }
 
-/** Entry point desde el flow de artículos — reutiliza sesión + fascículo ya elegidos. */
 export async function uploadAuthorsWithContext(ctx: AuthorsContext): Promise<void> {
   await uploadAuthorsCore(ctx);
 }
@@ -131,38 +129,6 @@ async function uploadAuthorsCore(ctx: AuthorsContext): Promise<void> {
     }
   }
   success('Proceso finalizado.');
-}
-
-async function doLogin(): Promise<Session> {
-  const { username, password } = await promptCredentials();
-  const loginSpinner = spinner('Iniciando sesión...');
-  try {
-    const session = await login(username, password);
-    loginSpinner.succeed(`Sesión iniciada: ${session.nmeRevista}`);
-    return session;
-  } catch (err) {
-    loginSpinner.fail('Login fallido');
-    error(err instanceof Error ? err.message : String(err));
-    process.exit(1);
-  }
-}
-
-async function doSelectIssue(session: Session): Promise<Issue> {
-  const issuesSpinner = spinner('Obteniendo fascículos...');
-  let issues;
-  try {
-    issues = await listIssues(session.token);
-    issuesSpinner.succeed(`${issues.length} fascículos encontrados`);
-  } catch (err) {
-    issuesSpinner.fail('Error al obtener fascículos');
-    error(err instanceof Error ? err.message : String(err));
-    process.exit(1);
-  }
-  if (issues.length === 0) {
-    error('No se encontraron fascículos en esta revista.');
-    process.exit(1);
-  }
-  return selectIssue(issues);
 }
 
 function validateAuthors(authors: AuthorRow[]): string[] {

@@ -126,14 +126,26 @@ export const ARTICLE_ID_COLUMN = 'id_articulo';
 export const AUTHORS_SHEET_NAME = 'Autores';
 export const ARTICLES_SHEET_NAME = 'Artículos';
 
+export const AUTHOR_COLUMNS = {
+  TITULO_ARTICULO: 'titulo_articulo',
+  ID_ARTICULO: 'id_articulo',
+  NOMBRE: 'nombre_completo',
+  IDENTIFICACION: 'identificacion',
+  NACIONALIDAD: 'nacionalidad',
+  FILIACION: 'filiacion_institucional',
+  TIENE_CVLAC: 'tiene_cvlac',
+  ESTADO_CARGA: 'estado_carga',
+  ACCION_REQUERIDA: 'accion_requerida',
+} as const;
+
 export const AUTHORS_SHEET_HEADERS = [
-  'titulo_articulo',
-  'id_articulo',
-  'nombre_completo',
-  'identificacion',
-  'nacionalidad',
-  'filiacion_institucional',
-  'tiene_cvlac',
-  'estado_carga',
-  'accion_requerida',
+  AUTHOR_COLUMNS.TITULO_ARTICULO,
+  AUTHOR_COLUMNS.ID_ARTICULO,
+  AUTHOR_COLUMNS.NOMBRE,
+  AUTHOR_COLUMNS.IDENTIFICACION,
+  AUTHOR_COLUMNS.NACIONALIDAD,
+  AUTHOR_COLUMNS.FILIACION,
+  AUTHOR_COLUMNS.TIENE_CVLAC,
+  AUTHOR_COLUMNS.ESTADO_CARGA,
+  AUTHOR_COLUMNS.ACCION_REQUERIDA,
 ] as const;

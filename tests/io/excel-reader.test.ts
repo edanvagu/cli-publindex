@@ -27,12 +27,6 @@ function crearXlsx(rows: Record<string, string>[], headers?: string[]): string {
   return filePath;
 }
 
-function crearCsv(contenido: string): string {
-  const filePath = path.join(tempDir, 'test.csv');
-  fs.writeFileSync(filePath, contenido, 'utf-8');
-  return filePath;
-}
-
 describe('normalizeHeader', () => {
   it('convierte a lowercase', () => {
     expect(normalizeHeader('TITULO')).toBe('titulo');
@@ -108,28 +102,6 @@ describe('readArticles - XLSX', () => {
     const result = readArticles(file);
     expect(result.articles[0].titulo).toBe('Con acento');
     expect(result.articles[0].url).toBe('https://x.com');
-  });
-});
-
-describe('readArticles - CSV', () => {
-  it('lee un archivo CSV válido', () => {
-    const file = crearCsv(
-      'titulo,url,gran_area,area,tipo_documento,palabras_clave,titulo_ingles,resumen\n' +
-      '"Artículo CSV",https://example.com,5,5A,1,test,English Title,Resumen\n'
-    );
-
-    const result = readArticles(file);
-    expect(result.articles).toHaveLength(1);
-    expect(result.articles[0].titulo).toBe('Artículo CSV');
-  });
-
-  it('maneja BOM al inicio del archivo', () => {
-    const file = crearCsv(
-      '\uFEFFtitulo,url\n"Con BOM",https://example.com\n'
-    );
-
-    const result = readArticles(file);
-    expect(result.articles[0].titulo).toBe('Con BOM');
   });
 });
 

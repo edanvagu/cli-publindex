@@ -34,14 +34,6 @@ function crearXlsxBase(rutaArchivo: string, rows: number = 2) {
   XLSX.writeFile(wb, rutaArchivo);
 }
 
-function crearCsvBase(rutaArchivo: string, rows: number = 2) {
-  const lineas = ['titulo,url'];
-  for (let i = 0; i < rows; i++) {
-    lineas.push(`Título ${i + 1},https://example.com/${i + 1}`);
-  }
-  fs.writeFileSync(rutaArchivo, lineas.join('\n'), 'utf-8');
-}
-
 function leerXlsx(ruta: string): Record<string, string>[] {
   const wb = XLSX.readFile(ruta);
   const sheet = wb.Sheets[wb.SheetNames[0]];
@@ -118,34 +110,6 @@ describe('ProgressTracker - XLSX', () => {
     const data = leerXlsx(file);
     expect(data[0].estado).toBe('subido');
     expect(data[0].ultimo_error).toBe('');
-  });
-});
-
-describe('ProgressTracker - CSV', () => {
-  it('actualiza estado en CSV', () => {
-    const file = path.join(tempDir, 'test.csv');
-    crearCsvBase(file);
-
-    const gestor = new ProgressTracker(file);
-    const ok = gestor.actualizar({ row: 2, estado: 'subido' });
-
-    expect(ok).toBe(true);
-    const contenido = fs.readFileSync(file, 'utf-8');
-    expect(contenido).toContain('subido');
-    expect(contenido.split('\n')[0]).toContain('estado');
-  });
-
-  it('agrega columnas estado al header del CSV', () => {
-    const file = path.join(tempDir, 'test.csv');
-    crearCsvBase(file);
-
-    const gestor = new ProgressTracker(file);
-    gestor.actualizar({ row: 2, estado: 'subido' });
-
-    const headers = fs.readFileSync(file, 'utf-8').split('\n')[0];
-    expect(headers).toContain('estado');
-    expect(headers).toContain('fecha_subida');
-    expect(headers).toContain('ultimo_error');
   });
 });
 

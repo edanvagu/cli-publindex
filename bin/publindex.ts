@@ -2,7 +2,6 @@
 
 import { Command } from 'commander';
 import { run } from '../src/cli/index';
-import { generateTemplate } from '../src/io/excel-writer';
 import { ExecutionMode } from '../src/entities/articles/types';
 
 const program = new Command();
@@ -11,18 +10,14 @@ program
   .name('publindex')
   .description('Carga masiva de artículos en Publindex (Minciencias)')
   .version('1.0.0')
-  .option('--plantilla', 'Generar plantilla Excel de ejemplo y salir')
-  .option('--solo-validar', 'Forzar modo solo validar (sin menú)')
-  .option('--cargar', 'Forzar modo validar y cargar (sin menú)')
+  .option('--cargar', 'Forzar modo cargar artículos (sin menú)')
+  .option('--autores', 'Forzar modo vincular autores (sin menú)')
+  .option('--ojs', 'Forzar modo importar desde OJS (sin menú)')
   .action(async (options) => {
-    if (options.plantilla) {
-      await generateTemplate();
-      return;
-    }
-
     let forcedMode: ExecutionMode | undefined;
-    if (options.soloValidar) forcedMode = 'validate';
-    else if (options.cargar) forcedMode = 'upload';
+    if (options.cargar) forcedMode = 'upload';
+    else if (options.autores) forcedMode = 'authors-upload';
+    else if (options.ojs) forcedMode = 'import-ojs';
 
     await run({ forcedMode });
   });

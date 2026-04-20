@@ -74,7 +74,7 @@ export async function selectIssue(issues: Issue[]): Promise<Issue> {
   return issue;
 }
 
-const ARTICLE_EXTENSIONS = ['.xlsx', '.xls', '.csv'];
+const ARTICLE_EXTENSIONS = ['.xlsx', '.xls'];
 const OJS_EXTENSIONS = ['.xml'];
 
 export async function promptFilePath(): Promise<string> {
@@ -250,15 +250,11 @@ export async function mainMenu(): Promise<ExecutionMode> {
       type: 'list',
       name: 'option',
       message: '¿Qué desea hacer?',
-      pageSize: 10,
+      pageSize: 8,
       choices: [
-        new inquirer.Separator('── Artículos ──'),
-        { name: 'Validar archivo de artículos', value: 'validate' as ExecutionMode },
-        { name: 'Validar y cargar artículos', value: 'upload' as ExecutionMode },
-        { name: 'Descargar plantilla de ejemplo para rellenar', value: 'template' as ExecutionMode },
-        { name: 'Importar desde OJS (genera plantilla prellena)', value: 'import-ojs' as ExecutionMode },
-        new inquirer.Separator('── Autores ──'),
-        { name: 'Vincular autores a artículos cargados', value: 'authors-upload' as ExecutionMode },
+        { name: '1. Importar desde OJS (genera plantilla prellena)', value: 'import-ojs' as ExecutionMode },
+        { name: '2. Validar y cargar artículos', value: 'upload' as ExecutionMode },
+        { name: '3. Vincular autores a artículos cargados', value: 'authors-upload' as ExecutionMode },
         new inquirer.Separator(),
         { name: 'Salir', value: 'exit' as ExecutionMode },
       ],

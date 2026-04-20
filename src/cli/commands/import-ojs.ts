@@ -2,11 +2,15 @@ import * as path from 'path';
 import { spinner, success, error, info, warning } from '../logger';
 import { promptOjsFilePath, promptJournalBaseUrl, promptSavePath } from '../prompts';
 import { buildArticleUrl } from '../../utils/urls';
+import { formatTimestampCompact } from '../../utils/dates';
 import { probeUrl } from '../../io/http-probe';
 import { importFromOjs, ojsArticleToRow, articlesToAuthorRows, OjsArticle } from '../../io/ojs-xml';
 import { generateTemplateWithData } from '../../io/excel-writer';
 
-const OJS_TEMPLATE_NAME = 'plantilla-articulos-ojs.xlsx';
+function buildOutputName(inputXmlPath: string): string {
+  const base = path.basename(inputXmlPath, path.extname(inputXmlPath));
+  return `${base}_${formatTimestampCompact()}.xlsx`;
+}
 
 export async function importOjs(): Promise<void> {
   const file = await promptOjsFilePath();
@@ -14,19 +18,17 @@ export async function importOjs(): Promise<void> {
   let articles: OjsArticle[];
   let warnings: string[];
   try {
-    const result = await importFromOjs(file);
-    articles = result.articles;
-    warnings = result.warnings;
+    ({ articles, warnings } = await importFromOjs(file));
     parseSpinner.succeed(`${articles.length} publicaciones extraídas desde OJS`);
   } catch (err) {
     parseSpinner.fail('Error al parsear el XML de OJS');
     error(err instanceof Error ? err.message : String(err));
-    process.exit(1);
+    return;
   }
 
   if (articles.length === 0) {
     error('No se encontraron publicaciones en el XML. Verifique que sea un export válido de OJS.');
-    process.exit(1);
+    return;
   }
 
   const baseUrl = await promptJournalBaseUrl();
@@ -67,14 +69,14 @@ export async function importOjs(): Promise<void> {
   const rows = articles.map((art, idx) => ojsArticleToRow(art, urlsByIndex.get(idx)));
   const authorRows = articlesToAuthorRows(articles);
 
-  const outputPath = await promptSavePath(path.dirname(file), OJS_TEMPLATE_NAME);
+  const outputPath = await promptSavePath(path.dirname(file), buildOutputName(file));
   try {
     await generateTemplateWithData(rows, outputPath, authorRows);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'EBUSY') {
       error(`No se pudo escribir ${path.basename(outputPath)} porque está abierto en Excel.`);
-      info('Cierre el archivo y vuelva a ejecutar "Importar desde OJS".');
-      process.exit(1);
+      info('Cierre el archivo y vuelva a intentar desde el menú.');
+      return;
     }
     throw err;
   }

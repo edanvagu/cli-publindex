@@ -1,19 +1,16 @@
 import { spinner, success, error, info, warning, showValidation, showProgress, showSummary, showPause, showRemainingTime } from '../logger';
-import { promptCredentials, selectIssue, promptFilePath, confirmContinue, confirmResume, confirmTimeEstimate } from '../prompts';
-import { login } from '../../entities/auth/api';
+import { promptFilePath, confirmContinue, confirmResume, confirmTimeEstimate } from '../prompts';
 import { tokenValid } from '../../entities/auth/session';
-import { listIssues, formatIssue } from '../../entities/issues/api';
+import { formatIssue } from '../../entities/issues/api';
 import { readArticles, ReadResult } from '../../io/excel-reader';
 import { validateBatch } from '../../entities/articles/validator';
 import { runUpload, estimateTimeSeconds } from '../../entities/articles/uploader';
 import { ProgressTracker } from '../../io/progress';
-import { Session } from '../../entities/auth/types';
 import { ArticleRow } from '../../entities/articles/types';
 import { uploadAuthorsWithContext } from './upload-authors';
+import { loginOrThrow, fetchAndSelectIssue } from './shared';
 
-type Mode = 'validate' | 'upload';
-
-export async function uploadArticles(mode: Mode): Promise<void> {
+export async function uploadArticles(): Promise<void> {
   const file = await promptFilePath();
 
   const readSpinner = spinner(`Leyendo ${file}...`);
@@ -24,23 +21,19 @@ export async function uploadArticles(mode: Mode): Promise<void> {
   } catch (err) {
     readSpinner.fail('Error al leer archivo');
     error(err instanceof Error ? err.message : String(err));
-    process.exit(1);
+    return;
   }
 
   let articlesToProcess: ArticleRow[] = readResult.articles;
 
   if (readResult.alreadyUploaded.length > 0) {
     info(`Se detectaron ${readResult.alreadyUploaded.length} artículos ya cargados previamente.`);
-    if (mode === 'upload') {
-      const action = await confirmResume(readResult.alreadyUploaded.length, readResult.pending.length + readResult.withError.length);
-      if (action === 'omitir') {
-        articlesToProcess = [...readResult.pending, ...readResult.withError];
-        info(`Se procesarán los ${articlesToProcess.length} artículos pendientes + con error.`);
-      } else {
-        warning('Se procesarán TODOS los artículos, incluyendo los ya cargados.');
-      }
+    const action = await confirmResume(readResult.alreadyUploaded.length, readResult.pending.length + readResult.withError.length);
+    if (action === 'omitir') {
+      articlesToProcess = [...readResult.pending, ...readResult.withError];
+      info(`Se procesarán los ${articlesToProcess.length} artículos pendientes + con error.`);
     } else {
-      info('Modo solo validar: se validarán todos los artículos.');
+      warning('Se procesarán TODOS los artículos, incluyendo los ya cargados.');
     }
   }
 
@@ -48,17 +41,7 @@ export async function uploadArticles(mode: Mode): Promise<void> {
   showValidation(validation);
 
   if (validation.valid.length === 0) {
-    error('No hay artículos válidos.');
-    process.exit(1);
-  }
-
-  if (mode === 'validate') {
-    success('Validación completada.');
-    if (validation.errors.length > 0) {
-      info(`Corrija los ${new Set(validation.errors.map(e => e.row)).size} errores antes de cargar.`);
-    } else {
-      info('Todo listo para cargar. Ejecute de nuevo y seleccione "Validar y cargar artículos".');
-    }
+    error('No hay artículos válidos. Corrija el archivo y vuelva al menú principal.');
     return;
   }
 
@@ -72,37 +55,8 @@ export async function uploadArticles(mode: Mode): Promise<void> {
     }
   }
 
-  const { username, password } = await promptCredentials();
-
-  const loginSpinner = spinner('Iniciando sesión...');
-  let session: Session;
-  try {
-    session = await login(username, password);
-    loginSpinner.succeed(`Sesión iniciada: ${session.nmeRevista}`);
-  } catch (err) {
-    loginSpinner.fail('Login fallido');
-    error(err instanceof Error ? err.message : String(err));
-    error('Verifique sus credenciales. NO se reintentará para evitar bloqueo de cuenta.');
-    process.exit(1);
-  }
-
-  const issuesSpinner = spinner('Obteniendo fascículos...');
-  let issues;
-  try {
-    issues = await listIssues(session.token);
-    issuesSpinner.succeed(`${issues.length} fascículos encontrados`);
-  } catch (err) {
-    issuesSpinner.fail('Error al obtener fascículos');
-    error(err instanceof Error ? err.message : String(err));
-    process.exit(1);
-  }
-
-  if (issues.length === 0) {
-    error('No se encontraron fascículos en esta revista.');
-    process.exit(1);
-  }
-
-  const issue = await selectIssue(issues);
+  const session = await loginOrThrow();
+  const issue = await fetchAndSelectIssue(session);
   success(`Fascículo seleccionado: ${formatIssue(issue)} (ID: ${issue.id})`);
 
   const estimatedTime = estimateTimeSeconds(validation.valid.length);

@@ -79,7 +79,7 @@ export async function runAuthorsUpload(
       // Precheck Publindex: los colombianos deben tener CvLAC para poder vincularse.
       // Sin este check, el POST /autores responde con un mensaje en español; lo
       // preemptimos aquí para ahorrar un request y dar mejor feedback.
-      if (author.nacionalidad === 'Colombiana' && !tieneCvlac) {
+      if (author.nacionalidad === NATIONALITIES.C && !tieneCvlac) {
         const msg = 'Colombiano sin CvLAC';
         options.progressTracker.actualizarAutor(
           {
@@ -101,15 +101,28 @@ export async function runAuthorsUpload(
         { onRetry: (attempt, error) => options.onRetry(author._fila, attempt, error) },
       );
 
+      // Si la persona no tiene filiación institucional vigente en su trayectoria,
+      // Publindex la asume automáticamente como INTERNA (de la institución editora
+      // de la revista). El linkeo igual funciona, pero el editor debe actualizar
+      // CvLAC si la filiación real es distinta.
+      const tieneAfiliacionVigente = Array.isArray(enriched.instituciones) && enriched.instituciones.length > 0;
+      const accionRequerida = tieneAfiliacionVigente
+        ? ''
+        : 'Registrar experiencia profesional en CvLAC — sin filiación vigente, el sistema asumirá automáticamente que la filiación es interna (de la institución editora de la revista)';
+
       options.progressTracker.actualizarAutor(
         {
           row: author._fila,
           estadoCarga: AUTHOR_STATES.UPLOADED,
           tieneCvlac: tieneCvlac ? 'Sí' : 'No',
-          accionRequerida: '',
+          accionRequerida,
         },
         options.onWarning,
       );
+
+      if (!tieneAfiliacionVigente) {
+        options.onWarning(`Fila ${author._fila} (${nombre}): vinculado, pero sin filiación vigente — el sistema lo asumirá como filiación interna. Registrar experiencia en CvLAC si corresponde a otra institución.`);
+      }
 
       successful.push({ row: author._fila, nombre });
       options.onProgress(i + 1, authors.length, nombre, true, Date.now() - start);

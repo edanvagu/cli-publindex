@@ -1,5 +1,4 @@
 import ExcelJS from 'exceljs';
-import * as path from 'path';
 import {
   EXCEL_HEADERS, DOCUMENT_TYPES, SUMMARY_TYPES, SPECIALIST_TYPES, LANGUAGES, STATE_COLUMNS,
   AUTHORS_SHEET_HEADERS, AUTHORS_SHEET_NAME, ARTICLES_SHEET_NAME, ARTICLE_ID_COLUMN, NATIONALITIES,
@@ -18,45 +17,12 @@ const DATA_VALIDATION_ROWS = 500;
 // numero_autores, etc. DOIs y fechas no matchean este regex.
 const INTEGER_RE = /^\d+$/;
 
-const EXAMPLE_ARTICLE: Partial<ArticleRow> = {
-  titulo: 'Título del artículo de ejemplo para Publindex',
-  doi: '10.1234/ejemplo-article',
-  url: 'https://revistas.ejemplo.edu.co/article/1',
-  pagina_inicial: '1',
-  pagina_final: '15',
-  numero_autores: '3',
-  numero_pares_evaluadores: '2',
-  gran_area: 'Ciencias Sociales',
-  area: 'Sociología',
-  subarea: 'Sociología General',
-  numero_referencias: '30',
-  tipo_documento: 'Artículo de investigación científica y tecnológica',
-  palabras_clave: 'sociología; cultura; América Latina',
-  palabras_clave_otro_idioma: 'sociology; culture; Latin America',
-  titulo_ingles: 'Title of the example article for Publindex',
-  fecha_recepcion: '2026-01-15',
-  fecha_aceptacion: '2026-03-20',
-  idioma: 'Español',
-  otro_idioma: 'Inglés',
-  eval_interna: 'F',
-  eval_nacional: 'T',
-  eval_internacional: 'T',
-  tipo_resumen: 'Analítico',
-  tipo_especialista: 'Especialista en el área',
-  resumen: 'Resumen del artículo de ejemplo con más de diez caracteres.',
-  resumen_otro_idioma: 'Abstract of the example article with more than ten characters.',
-};
-
 export interface AuthorTemplateRow {
   titulo_articulo: string;
   nombre_completo: string;
   nacionalidad?: string;
   identificacion?: string;
   filiacion_institucional?: string;
-}
-
-export function generateTemplate(outputDir: string = '.'): Promise<string> {
-  return generateTemplateWithData([EXAMPLE_ARTICLE], path.join(outputDir, 'plantilla-articulos.xlsx'));
 }
 
 export async function generateTemplateWithData(

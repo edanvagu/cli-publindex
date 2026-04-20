@@ -202,6 +202,67 @@ describe('runAuthorsUpload', () => {
     );
   });
 
+  it('al linkear con filiación vigente (instituciones no vacía), limpia accion_requerida', async () => {
+    vi.mocked(api.searchPersons).mockResolvedValueOnce([PERSON]);
+    vi.mocked(api.getTrayectoria).mockResolvedValueOnce({
+      ...PERSON,
+      staCertificado: 'T',
+      instituciones: ['UNIVERSIDAD DE MEDELLIN'],
+    });
+    vi.mocked(api.linkAuthor).mockResolvedValueOnce();
+
+    const options = buildOptions();
+    await runAuthorsUpload(mockSession(), [buildAuthor()], options);
+
+    expect(options.progressTracker.actualizarAutor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        estadoCarga: 'subido',
+        accionRequerida: '',
+      }),
+      expect.any(Function),
+    );
+  });
+
+  it('al linkear SIN filiación vigente (instituciones vacía), avisa endogamia en accion_requerida', async () => {
+    vi.mocked(api.searchPersons).mockResolvedValueOnce([PERSON]);
+    vi.mocked(api.getTrayectoria).mockResolvedValueOnce({
+      ...PERSON,
+      staCertificado: 'T',
+      instituciones: [],
+    });
+    vi.mocked(api.linkAuthor).mockResolvedValueOnce();
+
+    const options = buildOptions();
+    await runAuthorsUpload(mockSession(), [buildAuthor()], options);
+
+    expect(options.progressTracker.actualizarAutor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        estadoCarga: 'subido',
+        accionRequerida: expect.stringMatching(/filiaci[oó]n (interna|vigente)/i),
+      }),
+      expect.any(Function),
+    );
+    expect(options.onWarning).toHaveBeenCalledWith(expect.stringMatching(/filiaci[oó]n (interna|vigente)/i));
+  });
+
+  it('al linkear con instituciones null/undefined, mismo aviso de endogamia', async () => {
+    vi.mocked(api.searchPersons).mockResolvedValueOnce([PERSON]);
+    vi.mocked(api.getTrayectoria).mockResolvedValueOnce({
+      ...PERSON,
+      staCertificado: 'T',
+      instituciones: null,
+    });
+    vi.mocked(api.linkAuthor).mockResolvedValueOnce();
+
+    const options = buildOptions();
+    await runAuthorsUpload(mockSession(), [buildAuthor()], options);
+
+    expect(options.progressTracker.actualizarAutor).toHaveBeenCalledWith(
+      expect.objectContaining({ accionRequerida: expect.stringMatching(/filiaci[oó]n (interna|vigente)/i) }),
+      expect.any(Function),
+    );
+  });
+
   it('SÍ permite vincular extranjero sin CvLAC', async () => {
     vi.mocked(api.searchPersons).mockResolvedValueOnce([PERSON]);
     vi.mocked(api.getTrayectoria).mockResolvedValueOnce({ ...PERSON, staCertificado: 'F' });
