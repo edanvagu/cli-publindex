@@ -417,9 +417,6 @@ export function subareaBelongsToArea(codSubarea: string, codArea: string): boole
   return getAreaParent(codSubarea) === codArea;
 }
 
-// Lookups por label (nombre visible). El Excel tiene dropdowns con labels;
-// estas funciones traducen label → código antes de enviar a la API de Publindex.
-
 export function getGranAreaCodeByName(name: string): string | undefined {
   const match = AREAS_TREE.find(g => g.txtNmeArea === name);
   return match?.codAreaConocimiento;

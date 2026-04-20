@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parsePublication, parseArticle, ojsArticleToRow, extractPublicationsXml, detectNonStandardPages } from '../../src/io/ojs-xml';
+import { parsePublication, parseArticle, ojsArticleToRow, extractPublicationsXml, detectNonStandardPages, articlesToAuthorRows } from '../../src/io/ojs-xml';
 
 const PUBLICATION_COMPLETO = `<publication locale="es_ES" version="1" status="3" date_published="2026-01-15" section_ref="Artículos" seq="1">
   <id type="internal" advice="ignore">2953</id>
@@ -293,5 +293,73 @@ describe('ojsArticleToRow', () => {
     expect(row.proyecto).toBeUndefined();
     expect(row.fecha_recepcion).toBeUndefined();
     expect(row.fecha_aceptacion).toBeUndefined();
+  });
+});
+
+describe('extracción de autores desde OJS', () => {
+  it('extrae nombres y marca nacionalidad Colombiana si country === CO', () => {
+    const xml = `<publication locale="es_ES">
+      <title locale="es_ES">T</title>
+      <authors>
+        <author>
+          <givenname locale="es_ES">Pablo</givenname>
+          <familyname locale="es_ES">Rodríguez</familyname>
+          <country>CO</country>
+          <affiliation locale="es_ES">Poligrán</affiliation>
+        </author>
+      </authors>
+    </publication>`;
+    const art = parsePublication(xml);
+    expect(art.autores).toHaveLength(1);
+    expect(art.autores[0].nombre_completo).toBe('Pablo Rodríguez');
+    expect(art.autores[0].nacionalidad).toBe('Colombiana');
+    expect(art.autores[0].filiacion_institucional).toBe('Poligrán');
+  });
+
+  it('marca Extranjera cuando country no es CO', () => {
+    const xml = `<publication locale="es_ES">
+      <title locale="es_ES">T</title>
+      <authors>
+        <author>
+          <givenname locale="es_ES">John</givenname>
+          <familyname locale="es_ES">Smith</familyname>
+          <country>US</country>
+        </author>
+      </authors>
+    </publication>`;
+    const art = parsePublication(xml);
+    expect(art.autores[0].nacionalidad).toBe('Extranjera');
+  });
+
+  it('marca Extranjera cuando no hay country', () => {
+    const xml = `<publication locale="es_ES">
+      <title locale="es_ES">T</title>
+      <authors>
+        <author>
+          <givenname locale="es_ES">Ana</givenname>
+          <familyname locale="es_ES">Smith</familyname>
+        </author>
+      </authors>
+    </publication>`;
+    const art = parsePublication(xml);
+    expect(art.autores[0].nacionalidad).toBe('Extranjera');
+  });
+
+  it('extrae múltiples autores por artículo', () => {
+    const art = parsePublication(PUBLICATION_COMPLETO);
+    expect(art.autores).toHaveLength(2);
+    expect(art.autores[0].nombre_completo).toBe('Carlos Díaz');
+    expect(art.autores[1].nombre_completo).toBe('Constanza Castro');
+  });
+
+  it('articlesToAuthorRows genera una fila por autor con titulo_articulo', () => {
+    const art1 = parsePublication(PUBLICATION_COMPLETO);
+    const art2 = parsePublication(PUBLICATION_MINIMO);
+    const rows = articlesToAuthorRows([art1, art2]);
+    expect(rows).toHaveLength(2); // PUBLICATION_MINIMO no tiene authors
+    expect(rows[0].titulo_articulo).toBe(art1.titulo);
+    expect(rows[0].nombre_completo).toBe('Carlos Díaz');
+    expect(rows[1].nombre_completo).toBe('Constanza Castro');
+    expect(rows[1].titulo_articulo).toBe(art1.titulo);
   });
 });

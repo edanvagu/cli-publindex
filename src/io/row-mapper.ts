@@ -39,6 +39,7 @@ export function mapRawToArticleRow(raw: Record<string, unknown>, row: number): A
     estado: normalized['estado'] || undefined,
     fecha_subida: normalized['fecha_subida'] || undefined,
     ultimo_error: normalized['ultimo_error'] || undefined,
+    id_articulo: normalized['id_articulo'] || undefined,
     _fila: row,
   };
 }

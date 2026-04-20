@@ -2,7 +2,7 @@ import { httpRequest, buildAuthHeaders } from '../../io/publindex-http';
 import { ENDPOINTS } from '../../config/constants';
 import { ArticlePayload } from './types';
 
-export async function createArticle(token: string, payload: ArticlePayload): Promise<void> {
+export async function createArticle(token: string, payload: ArticlePayload): Promise<number> {
   const jsonStr = JSON.stringify(payload);
 
   // multipart/form-data manual — el endpoint espera el campo "articulo" (en español,
@@ -32,4 +32,12 @@ export async function createArticle(token: string, payload: ArticlePayload): Pro
       : (response.data as any)?.mensaje || (response.data as any)?.message || JSON.stringify(response.data);
     throw new Error(`HTTP ${response.status}: ${msg}`);
   }
+
+  // El response del POST /articulos es un entero en texto plano, ej. "253026".
+  const raw = typeof response.data === 'string' ? response.data.trim() : String(response.data);
+  const id = parseInt(raw, 10);
+  if (isNaN(id)) {
+    throw new Error(`Response inesperado del POST /articulos (no es un entero): "${raw}"`);
+  }
+  return id;
 }

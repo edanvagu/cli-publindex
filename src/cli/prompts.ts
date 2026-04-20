@@ -250,11 +250,16 @@ export async function mainMenu(): Promise<ExecutionMode> {
       type: 'list',
       name: 'option',
       message: '¿Qué desea hacer?',
+      pageSize: 10,
       choices: [
+        new inquirer.Separator('── Artículos ──'),
         { name: 'Validar archivo de artículos', value: 'validate' as ExecutionMode },
         { name: 'Validar y cargar artículos', value: 'upload' as ExecutionMode },
         { name: 'Descargar plantilla de ejemplo para rellenar', value: 'template' as ExecutionMode },
         { name: 'Importar desde OJS (genera plantilla prellena)', value: 'import-ojs' as ExecutionMode },
+        new inquirer.Separator('── Autores ──'),
+        { name: 'Vincular autores a artículos cargados', value: 'authors-upload' as ExecutionMode },
+        new inquirer.Separator(),
         { name: 'Salir', value: 'exit' as ExecutionMode },
       ],
     },
@@ -278,9 +283,9 @@ export async function confirmResume(alreadyUploaded: number, pending: number): P
   return action;
 }
 
-export async function confirmTimeEstimate(cantidad: number, segundos: number): Promise<boolean> {
+export async function confirmTimeEstimate(quantity: number, seconds: number): Promise<boolean> {
   console.log('');
-  console.log(`  ⏱  Tiempo estimado: ~${formatDuration(segundos)} (${cantidad} artículos × ~9s promedio)`);
+  console.log(`  ⏱  Tiempo estimado: ~${formatDuration(seconds)} (${quantity} artículos × ~9s promedio)`);
   console.log(`  ℹ  Se aplicará una pausa aleatoria de 4-9s entre cada artículo para no saturar el servidor`);
   console.log('');
 
@@ -289,6 +294,22 @@ export async function confirmTimeEstimate(cantidad: number, segundos: number): P
       type: 'confirm',
       name: 'proceder',
       message: '¿Desea proceder con la carga?',
+      default: true,
+    },
+  ]);
+  return proceder;
+}
+
+export async function confirmAuthorsStart(quantity: number): Promise<boolean> {
+  console.log('');
+  console.log(`  ℹ  Se procesarán ${quantity} autor(es). El proceso es más ágil que artículos (sin pausas entre peticiones).`);
+  console.log('');
+
+  const { proceder } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'proceder',
+      message: '¿Desea proceder con la vinculación?',
       default: true,
     },
   ]);

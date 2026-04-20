@@ -3,9 +3,6 @@ import { DOCUMENT_TYPES, SUMMARY_TYPES, SPECIALIST_TYPES, LANGUAGES } from '../.
 import { getGranAreaCodeByName, getAreaCodeByName, getSubareaCodeByName } from '../areas/tree';
 import { ArticlePayload, ArticleRow } from './types';
 
-// El Excel almacena LABELS (lo que el editor ve en los dropdowns). Publindex espera
-// CÓDIGOS. Estas funciones hacen la traducción al construir el payload.
-
 function codeForLabel(label: string | undefined, dict: Record<string, string>): string | undefined {
   if (!label) return undefined;
   const match = Object.entries(dict).find(([, v]) => v === label);

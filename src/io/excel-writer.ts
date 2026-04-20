@@ -1,6 +1,9 @@
 import ExcelJS from 'exceljs';
 import * as path from 'path';
-import { EXCEL_HEADERS, DOCUMENT_TYPES, SUMMARY_TYPES, SPECIALIST_TYPES, LANGUAGES, STATE_COLUMNS } from '../config/constants';
+import {
+  EXCEL_HEADERS, DOCUMENT_TYPES, SUMMARY_TYPES, SPECIALIST_TYPES, LANGUAGES, STATE_COLUMNS,
+  AUTHORS_SHEET_HEADERS, AUTHORS_SHEET_NAME, ARTICLES_SHEET_NAME, ARTICLE_ID_COLUMN, NATIONALITIES,
+} from '../config/constants';
 import { AREAS_TREE } from '../entities/areas/tree';
 import { ArticleRow } from '../entities/articles/types';
 
@@ -44,14 +47,27 @@ const EXAMPLE_ARTICLE: Partial<ArticleRow> = {
   resumen_otro_idioma: 'Abstract of the example article with more than ten characters.',
 };
 
+export interface AuthorTemplateRow {
+  titulo_articulo: string;
+  nombre_completo: string;
+  nacionalidad?: string;
+  identificacion?: string;
+  filiacion_institucional?: string;
+}
+
 export function generateTemplate(outputDir: string = '.'): Promise<string> {
   return generateTemplateWithData([EXAMPLE_ARTICLE], path.join(outputDir, 'plantilla-articulos.xlsx'));
 }
 
-export async function generateTemplateWithData(articles: Partial<ArticleRow>[], outputPath: string): Promise<string> {
+export async function generateTemplateWithData(
+  articles: Partial<ArticleRow>[],
+  outputPath: string,
+  authors?: AuthorTemplateRow[],
+): Promise<string> {
   const wb = new ExcelJS.Workbook();
 
   buildArticlesSheet(wb, articles);
+  buildAuthorsSheet(wb, authors ?? []);
   buildLookupsSheet(wb);
   buildInstructionsSheet(wb);
 
@@ -61,8 +77,12 @@ export async function generateTemplateWithData(articles: Partial<ArticleRow>[], 
 }
 
 function buildArticlesSheet(wb: ExcelJS.Workbook, articles: Partial<ArticleRow>[]): void {
-  const ws = wb.addWorksheet('Artículos');
-  const headers = [...EXCEL_HEADERS, STATE_COLUMNS.STATE, STATE_COLUMNS.UPLOAD_DATE, STATE_COLUMNS.LAST_ERROR];
+  const ws = wb.addWorksheet(ARTICLES_SHEET_NAME);
+  const headers = [
+    ...EXCEL_HEADERS,
+    STATE_COLUMNS.STATE, STATE_COLUMNS.UPLOAD_DATE, STATE_COLUMNS.LAST_ERROR,
+    ARTICLE_ID_COLUMN,
+  ];
 
   ws.addRow(headers);
   ws.getRow(1).font = { bold: true };
@@ -75,6 +95,42 @@ function buildArticlesSheet(wb: ExcelJS.Workbook, articles: Partial<ArticleRow>[
 
   highlightEmptyRequired(ws, headers, articles);
   addDataValidations(ws, headers);
+}
+
+// `identificacion` NO es obligatoria: si está, se usa para buscar por documento;
+// si no, el CLI cae en fallback por nombre con picker interactivo.
+const AUTHORS_REQUIRED_FIELDS = ['nacionalidad'];
+
+function buildAuthorsSheet(wb: ExcelJS.Workbook, authors: AuthorTemplateRow[]): void {
+  const ws = wb.addWorksheet(AUTHORS_SHEET_NAME);
+  const headers = [...AUTHORS_SHEET_HEADERS];
+
+  ws.addRow(headers);
+  ws.getRow(1).font = { bold: true };
+
+  for (const a of authors) {
+    ws.addRow(headers.map(h => (a as unknown as Record<string, unknown>)[h] ?? ''));
+  }
+
+  ws.columns = headers.map(h => ({ width: Math.max(h.length + 2, 22) }));
+
+  // Highlight amarillo para identificacion y nacionalidad vacías.
+  authors.forEach((a, rowIdx) => {
+    for (let colIdx = 0; colIdx < headers.length; colIdx++) {
+      const header = headers[colIdx];
+      if (!AUTHORS_REQUIRED_FIELDS.includes(header)) continue;
+      const value = (a as unknown as Record<string, unknown>)[header];
+      if (value !== '' && value !== undefined && value !== null) continue;
+      ws.getCell(rowIdx + 2, colIdx + 1).fill = ALERT_FILL;
+    }
+  });
+
+  // Dropdown de nacionalidad.
+  const nacionalidadCol = headers.indexOf('nacionalidad') + 1;
+  if (nacionalidadCol > 0) {
+    const values = Object.values(NATIONALITIES);
+    applyListToColumn(ws, nacionalidadCol, `"${values.join(',')}"`);
+  }
 }
 
 function coerceCellValue(v: unknown): unknown {

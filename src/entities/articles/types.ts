@@ -1,7 +1,5 @@
 import { ARTICLE_STATES } from '../../config/constants';
 
-// Keys en español porque coinciden con los nombres de columna del Excel que el
-// editor rellena. Cambiarlos rompería la lectura del archivo.
 export interface ArticleRow {
   titulo: string;
   doi?: string;
@@ -34,10 +32,10 @@ export interface ArticleRow {
   estado?: string;
   fecha_subida?: string;
   ultimo_error?: string;
+  id_articulo?: string;
   _fila: number;
 }
 
-// Keys del payload coinciden con el contrato del API de Publindex (no traducir).
 export interface ArticlePayload {
   idFasciculo: number;
   txtTituloArticulo: string;
@@ -72,11 +70,15 @@ export interface ArticlePayload {
 
 export type ArticleState = typeof ARTICLE_STATES[keyof typeof ARTICLE_STATES];
 
-export type ExecutionMode = 'validate' | 'upload' | 'template' | 'import-ojs' | 'exit';
+export type ExecutionMode =
+  | 'validate'
+  | 'upload'
+  | 'template'
+  | 'import-ojs'
+  | 'authors-upload'
+  | 'exit';
 
-// UploadResult.successful/failed items preservan `titulo` (en español) porque es
-// un reflejo directo de la columna titulo de ArticleRow; el resto de fields de
-// estos structs internos están en inglés.
+// UploadResult.successful/failed items preservan `titulo` (en español) porque es un reflejo directo de la columna titulo de ArticleRow; el resto de fields de estos structs internos están en inglés.
 export interface ValidationError {
   row: number;
   field: string;

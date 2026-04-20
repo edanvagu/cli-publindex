@@ -16,6 +16,7 @@ export interface RunnerOptions {
   onRetry: (row: number, attempt: number, error: Error) => void;
   onTokenExpiring: () => void;
   onWarning: (msg: string) => void;
+  onArticleCreated?: (row: ArticleRow, idArticulo: number) => void;
   abortSignal?: AbortSignal;
 }
 
@@ -46,7 +47,7 @@ export async function runUpload(
     const payload = rowToPayload(article, idFasciculo);
 
     try {
-      await withRetry(
+      const idArticulo = await withRetry(
         () => createArticle(session.token, payload),
         {
           onRetry: (attempt, error) => {
@@ -60,9 +61,10 @@ export async function runUpload(
       options.onProgress(i + 1, articles.length, article.titulo, true, elapsed);
 
       options.progressTracker.actualizar(
-        { row: article._fila, estado: ARTICLE_STATES.UPLOADED },
+        { row: article._fila, estado: ARTICLE_STATES.UPLOADED, idArticulo },
         options.onWarning
       );
+      options.onArticleCreated?.(article, idArticulo);
     } catch (err) {
       const elapsed = Date.now() - start;
       const errorMsg = err instanceof Error ? err.message : String(err);
@@ -85,7 +87,7 @@ export async function runUpload(
       try {
         await sleep(pausa, options.abortSignal);
       } catch {
-        break; // cancelado
+        break;
       }
     }
   }
@@ -112,4 +114,3 @@ export function estimateRemainingTimeSeconds(
   const promedioMs = elapsedMs / processed;
   return Math.round((remainingCount * promedioMs) / 1000);
 }
-

@@ -9,6 +9,7 @@ import { runUpload, estimateTimeSeconds } from '../../entities/articles/uploader
 import { ProgressTracker } from '../../io/progress';
 import { Session } from '../../entities/auth/types';
 import { ArticleRow } from '../../entities/articles/types';
+import { uploadAuthorsWithContext } from './upload-authors';
 
 type Mode = 'validate' | 'upload';
 
@@ -139,7 +140,22 @@ export async function uploadArticles(mode: Mode): Promise<void> {
     }
   }
 
-  success('Proceso finalizado.');
+  success('Carga de artículos finalizada.');
+
+  // Si hubo al menos un artículo exitoso, ofrecemos continuar con autores
+  // reutilizando sesión + fascículo + archivo (evita re-login y re-selección).
+  if (result.successful.length > 0) {
+    console.log('');
+    const continuar = await confirmContinue('¿Continuar con la vinculación de autores?');
+    if (continuar) {
+      if (!tokenValid(session)) {
+        warning('El token está por expirar. Si el flow falla, reinicie el CLI y vaya directo a "Vincular autores".');
+      }
+      await uploadAuthorsWithContext({ file, session, issue });
+    } else {
+      info('Puede ejecutar la vinculación de autores más tarde desde el menú principal.');
+    }
+  }
 }
 
 function buildUploadOptions(progressTracker: ProgressTracker, isRetry: boolean) {
@@ -157,5 +173,11 @@ function buildUploadOptions(progressTracker: ProgressTracker, isRetry: boolean) 
       warning('Token próximo a expirar. Los próximos requests podrían fallar.');
     },
     onWarning: warning,
+    onArticleCreated: (article: ArticleRow, idArticulo: number) => {
+      const count = progressTracker.propagateArticleIdToAuthors(article.titulo, idArticulo, warning);
+      if (count > 0) {
+        console.log(`        ↳ id_articulo=${idArticulo} propagado a ${count} fila(s) de la hoja Autores`);
+      }
+    },
   };
 }

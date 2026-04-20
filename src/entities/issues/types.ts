@@ -1,5 +1,3 @@
-// Issue = fascículo en dominio Publindex. Campos en español porque vienen directo
-// del API de Publindex (contrato externo, no se puede traducir sin romper).
 export interface Issue {
   id: number;
   idRevista: number;

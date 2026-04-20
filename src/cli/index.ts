@@ -4,6 +4,7 @@ import { ExecutionMode } from '../entities/articles/types';
 import { uploadArticles } from './commands/upload-articles';
 import { importOjs } from './commands/import-ojs';
 import { runGenerateTemplate } from './commands/generate-template';
+import { uploadAuthors } from './commands/upload-authors';
 
 export async function run(options: { forcedMode?: ExecutionMode } = {}): Promise<void> {
   banner();
@@ -23,6 +24,9 @@ export async function run(options: { forcedMode?: ExecutionMode } = {}): Promise
     case 'validate':
     case 'upload':
       await uploadArticles(mode);
+      return;
+    case 'authors-upload':
+      await uploadAuthors();
       return;
   }
 }

@@ -7,7 +7,13 @@ export const ENDPOINTS = {
   LOGIN: `${BASE_URL}/autenticacion/autenticarEditor`,
   ISSUES: `${BASE_URL}/fasciculos`,
   ARTICLES: `${BASE_URL}/articulos`,
+  PERSONS_SEARCH: `${BASE_URL}/personas/criterios`,
+  AUTHORS: `${BASE_URL}/autores`,
 } as const;
+
+export function buildTrayectoriaUrl(codRh: string, anoFasciculo: number | string): string {
+  return `${BASE_URL}/personas/${codRh}/${anoFasciculo}/trayectoriaProfesional`;
+}
 
 export const DEFAULTS = {
   RETRY_ATTEMPTS: 3,
@@ -17,7 +23,9 @@ export const DEFAULTS = {
   TOKEN_REFRESH_MARGIN_MIN: 5,
   PAUSE_MIN_MS: 4000,
   PAUSE_MAX_MS: 9000,
+  SUBCALL_PAUSE_MS: 500,
   ESTIMATED_SECONDS_PER_ARTICLE: 8.5,
+  ESTIMATED_SECONDS_PER_AUTHOR: 7,
 } as const;
 
 export const STATE_COLUMNS = {
@@ -31,6 +39,17 @@ export const ARTICLE_STATES = {
   UPLOADED: 'subido',
   ERROR: 'error',
 } as const;
+
+export const AUTHOR_STATES = {
+  PENDING: 'pendiente',
+  UPLOADED: 'subido',
+  ERROR: 'error',
+} as const;
+
+export const NATIONALITIES: Record<string, string> = {
+  'C': 'Colombiana',
+  'E': 'Extranjera',
+};
 
 export const DOCUMENT_TYPES: Record<string, string> = {
   '1': 'Artículo de investigación científica y tecnológica',
@@ -98,4 +117,23 @@ export const EXCEL_HEADERS = [
   'resumen',
   'resumen_otro_idioma',
   'resumen_idioma_adicional',
+] as const;
+
+// Columna extra en la hoja Artículos (después de estado/fecha_subida/ultimo_error)
+// con el id devuelto por el POST /articulos.
+export const ARTICLE_ID_COLUMN = 'id_articulo';
+
+export const AUTHORS_SHEET_NAME = 'Autores';
+export const ARTICLES_SHEET_NAME = 'Artículos';
+
+export const AUTHORS_SHEET_HEADERS = [
+  'titulo_articulo',
+  'id_articulo',
+  'nombre_completo',
+  'identificacion',
+  'nacionalidad',
+  'filiacion_institucional',
+  'tiene_cvlac',
+  'estado_carga',
+  'accion_requerida',
 ] as const;

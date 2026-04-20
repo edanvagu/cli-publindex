@@ -3,7 +3,7 @@ import { spinner, success, error, info, warning } from '../logger';
 import { promptOjsFilePath, promptJournalBaseUrl, promptSavePath } from '../prompts';
 import { buildArticleUrl } from '../../utils/urls';
 import { probeUrl } from '../../io/http-probe';
-import { importFromOjs, ojsArticleToRow, OjsArticle } from '../../io/ojs-xml';
+import { importFromOjs, ojsArticleToRow, articlesToAuthorRows, OjsArticle } from '../../io/ojs-xml';
 import { generateTemplateWithData } from '../../io/excel-writer';
 
 const OJS_TEMPLATE_NAME = 'plantilla-articulos-ojs.xlsx';
@@ -65,10 +65,11 @@ export async function importOjs(): Promise<void> {
   }
 
   const rows = articles.map((art, idx) => ojsArticleToRow(art, urlsByIndex.get(idx)));
+  const authorRows = articlesToAuthorRows(articles);
 
   const outputPath = await promptSavePath(path.dirname(file), OJS_TEMPLATE_NAME);
   try {
-    await generateTemplateWithData(rows, outputPath);
+    await generateTemplateWithData(rows, outputPath, authorRows);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'EBUSY') {
       error(`No se pudo escribir ${path.basename(outputPath)} porque está abierto en Excel.`);
@@ -77,7 +78,7 @@ export async function importOjs(): Promise<void> {
     }
     throw err;
   }
-  success(`Plantilla prellena generada con ${rows.length} artículos en ${outputPath}.`);
+  success(`Plantilla prellena generada con ${rows.length} artículos y ${authorRows.length} autores en ${outputPath}.`);
 
   if (warnings.length > 0) {
     console.log('');
@@ -93,5 +94,7 @@ export async function importOjs(): Promise<void> {
 
   console.log('');
   warning('Las celdas resaltadas en AMARILLO son campos obligatorios que quedaron vacíos — debe completarlos antes de validar.');
-  info('Abra la plantilla en Excel, complete los campos amarillos, luego ejecute de nuevo la CLI y seleccione "Validar archivo de artículos".');
+  info('Abra la plantilla en Excel. En la hoja "Artículos" complete los campos amarillos.');
+  info('En la hoja "Autores" puede opcionalmente agregar la `identificacion` de cada autor (si la tiene). Sin identificación el CLI busca por nombre con un picker interactivo.');
+  info('Luego ejecute: (1) "Validar y cargar artículos" → (2) "Vincular autores a artículos cargados".');
 }

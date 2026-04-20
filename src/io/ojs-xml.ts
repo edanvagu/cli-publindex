@@ -3,6 +3,12 @@ import { XMLParser } from 'fast-xml-parser';
 import { ArticleRow } from '../entities/articles/types';
 import { cleanHtml } from '../utils/text';
 
+export interface OjsAuthor {
+  nombre_completo: string;
+  nacionalidad: string;              // "Colombiana" | "Extranjera"
+  filiacion_institucional?: string;
+}
+
 export interface OjsArticle {
   titulo: string;
   submissionId?: string;
@@ -21,11 +27,19 @@ export interface OjsArticle {
   idioma?: string;
   otroIdioma?: string;
   fechaPublicacion?: string;
+  autores: OjsAuthor[];
 }
 
 export interface ImportOjsResult {
   articles: OjsArticle[];
   warnings: string[];
+}
+
+export interface OjsAuthorRow {
+  titulo_articulo: string;
+  nombre_completo: string;
+  nacionalidad: string;
+  filiacion_institucional?: string;
 }
 
 // Mapea locale OJS → label del idioma (no código), porque el Excel ahora
@@ -34,7 +48,10 @@ const LOCALE_TO_LANGUAGE: Record<string, string> = {
   es_ES: 'Español', en_US: 'Inglés', pt_BR: 'Portugués', fr_FR: 'Francés', de_DE: 'Alemán', it_IT: 'Italiano',
 };
 
-const ARRAY_TAGS = new Set(['title', 'abstract', 'keywords', 'keyword', 'author', 'citation', 'id']);
+const ARRAY_TAGS = new Set([
+  'title', 'abstract', 'keywords', 'keyword', 'author', 'citation', 'id',
+  'givenname', 'familyname', 'affiliation',
+]);
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -127,6 +144,9 @@ export function parsePublication(xml: string): OjsArticle {
 
   const autoresArr = pub.authors?.author;
   const numeroAutores = Array.isArray(autoresArr) ? autoresArr.length : undefined;
+  const autores: OjsAuthor[] = Array.isArray(autoresArr)
+    ? autoresArr.map((a: any) => parseAuthor(a, localePrimario)).filter((a): a is OjsAuthor => a !== null)
+    : [];
 
   const citasArr = pub.citations?.citation;
   const numeroReferencias = Array.isArray(citasArr) ? citasArr.length : undefined;
@@ -136,7 +156,7 @@ export function parsePublication(xml: string): OjsArticle {
 
   const fechaPublicacion = pub['@_date_published'];
 
-  const art: OjsArticle = { titulo };
+  const art: OjsArticle = { titulo, autores };
   if (submissionId) art.submissionId = submissionId;
   if (tituloIngles && tituloIngles !== titulo) art.tituloIngles = tituloIngles;
   if (doi) art.doi = doi;
@@ -221,6 +241,65 @@ export async function importFromOjs(file: string): Promise<ImportOjsResult> {
   );
 
   return { articles, warnings };
+}
+
+export function articlesToAuthorRows(articles: OjsArticle[]): OjsAuthorRow[] {
+  const rows: OjsAuthorRow[] = [];
+  for (const art of articles) {
+    for (const a of art.autores) {
+      rows.push({
+        titulo_articulo: art.titulo,
+        nombre_completo: a.nombre_completo,
+        nacionalidad: a.nacionalidad,
+        filiacion_institucional: a.filiacion_institucional,
+      });
+    }
+  }
+  return rows;
+}
+
+function parseAuthor(a: any, localePrimario: string): OjsAuthor | null {
+  const given = pickLocalized(a.givenname, localePrimario);
+  const family = pickLocalized(a.familyname, localePrimario);
+  const nombre = [given, family].filter(Boolean).join(' ').trim();
+  if (!nombre) return null;
+
+  const country = typeof a.country === 'string' ? a.country.trim().toUpperCase() : undefined;
+  const nacionalidad = country === 'CO' ? 'Colombiana' : 'Extranjera';
+
+  const filiacion = pickLocalized(a.affiliation, localePrimario);
+
+  const result: OjsAuthor = { nombre_completo: nombre, nacionalidad };
+  if (filiacion) result.filiacion_institucional = filiacion;
+  return result;
+}
+
+// OJS representa campos localizados como objeto con locales como propiedades
+// (p.ej. `{es_ES: 'Texto', en_US: 'Text'}`) o como string simple, o con el
+// wrapper `@_locale`. Esta helper normaliza los 3 casos.
+function pickLocalized(node: any, locale: string): string | undefined {
+  if (node == null) return undefined;
+  if (typeof node === 'string') return node.trim() || undefined;
+
+  if (Array.isArray(node)) {
+    const match = node.find((n: any) => n['@_locale'] === locale);
+    if (match) return typeof match === 'string' ? match : (match['#text'] ?? '').toString().trim() || undefined;
+    const first = node[0];
+    if (first) return typeof first === 'string' ? first : (first['#text'] ?? '').toString().trim() || undefined;
+    return undefined;
+  }
+
+  if (typeof node === 'object') {
+    if (node[locale]) return String(node[locale]).trim() || undefined;
+    if (node['#text']) return String(node['#text']).trim() || undefined;
+    // Primer valor string disponible
+    for (const k of Object.keys(node)) {
+      if (k.startsWith('@_')) continue;
+      const v = node[k];
+      if (typeof v === 'string' && v.trim()) return v.trim();
+    }
+  }
+  return undefined;
 }
 
 export function detectNonStandardPages(

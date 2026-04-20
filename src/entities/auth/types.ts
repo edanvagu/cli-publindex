@@ -1,4 +1,3 @@
-// Campos que vienen del endpoint de login de Publindex (contrato externo).
 export interface LoginResponse {
   tablaUsuario: string;
   idUsuario: string;
