@@ -19,9 +19,6 @@ jobs:
           - os: macos-latest
             target: node20-macos-arm64
             output: publindex-macos-arm64
-          - os: macos-13
-            target: node20-macos-x64
-            output: publindex-macos-x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

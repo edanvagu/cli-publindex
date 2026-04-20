@@ -15,8 +15,9 @@ En la [página de releases](../../releases/latest) elija el archivo que correspo
 | Sistema | Archivo |
 |---|---|
 | Windows | `publindex-windows-x64.exe` |
-| Mac con chip Apple (M1/M2/M3) | `publindex-macos-arm64` |
-| Mac con procesador Intel | `publindex-macos-x64` |
+| Mac (chip Apple M1/M2/M3) | `publindex-macos-arm64` |
+
+> Macs con procesador Intel (fabricados antes de 2021) no tienen binario disponible; necesitan instalar Node.js y correr desde el código fuente — escríbame si es su caso.
 
 ### 2. Primera ejecución
 
