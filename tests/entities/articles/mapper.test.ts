@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { rowToPayload } from '../../../src/entities/articles/mapper';
 import { ArticleRow } from '../../../src/entities/articles/types';
 
-function filaBase(overrides: Partial<ArticleRow> = {}): ArticleRow {
+function baseRow(overrides: Partial<ArticleRow> = {}): ArticleRow {
   return {
     titulo: 'Título del artículo',
     url: 'https://example.com/1',
@@ -19,7 +19,7 @@ function filaBase(overrides: Partial<ArticleRow> = {}): ArticleRow {
 
 describe('rowToPayload - campos obligatorios', () => {
   it('mapea los campos obligatorios al payload', () => {
-    const row = filaBase();
+    const row = baseRow();
     const payload = rowToPayload(row, 38200);
 
     expect(payload.idFasciculo).toBe(38200);
@@ -36,7 +36,7 @@ describe('rowToPayload - campos obligatorios', () => {
 
 describe('rowToPayload - campos opcionales', () => {
   it('convierte campos vacíos a null', () => {
-    const row = filaBase();
+    const row = baseRow();
     const payload = rowToPayload(row, 38200);
 
     expect(payload.txtDoi).toBeNull();
@@ -49,7 +49,7 @@ describe('rowToPayload - campos opcionales', () => {
   });
 
   it('mapea campos opcionales cuando están presentes', () => {
-    const row = filaBase({
+    const row = baseRow({
       doi: '10.1234/abc',
       pagina_inicial: '1',
       pagina_final: '15',
@@ -70,14 +70,14 @@ describe('rowToPayload - campos opcionales', () => {
 
 describe('rowToPayload - normalización', () => {
   it('convierte idioma a mayúsculas', () => {
-    const payload = rowToPayload(filaBase({ idioma: 'es', otro_idioma: 'en' }), 38200);
+    const payload = rowToPayload(baseRow({ idioma: 'es', otro_idioma: 'en' }), 38200);
     expect(payload.codIdioma).toBe('ES');
     expect(payload.codIdiomaOtro).toBe('EN');
   });
 
   it('convierte eval_* a mayúsculas', () => {
     const payload = rowToPayload(
-      filaBase({ eval_interna: 't', eval_nacional: 'f', eval_internacional: 'T' }),
+      baseRow({ eval_interna: 't', eval_nacional: 'f', eval_internacional: 'T' }),
       38200
     );
     expect(payload.staInternoInstiTit).toBe('T');
@@ -87,7 +87,7 @@ describe('rowToPayload - normalización', () => {
 
   it('convierte tipo_resumen y tipo_especialista a mayúsculas', () => {
     const payload = rowToPayload(
-      filaBase({ tipo_resumen: 'a', tipo_especialista: 's' }),
+      baseRow({ tipo_resumen: 'a', tipo_especialista: 's' }),
       38200
     );
     expect(payload.tpoResumen).toBe('A');
@@ -97,40 +97,40 @@ describe('rowToPayload - normalización', () => {
 
 describe('rowToPayload - conversión de fechas', () => {
   it('convierte YYYY-MM-DD a ISO 8601 con offset Colombia (UTC-5)', () => {
-    const payload = rowToPayload(filaBase({ fecha_recepcion: '2026-04-15' }), 38200);
+    const payload = rowToPayload(baseRow({ fecha_recepcion: '2026-04-15' }), 38200);
     expect(payload.dtaRecepcion).toBe('2026-04-15T05:00:00.000Z');
   });
 
   it('convierte DD/MM/YYYY a ISO 8601', () => {
-    const payload = rowToPayload(filaBase({ fecha_aceptacion: '15/04/2026' }), 38200);
+    const payload = rowToPayload(baseRow({ fecha_aceptacion: '15/04/2026' }), 38200);
     expect(payload.dtaVerifFechaAceptacion).toBe('2026-04-15T05:00:00.000Z');
   });
 
   it('convierte DD-MM-YYYY a ISO 8601', () => {
-    const payload = rowToPayload(filaBase({ fecha_recepcion: '15-04-2026' }), 38200);
+    const payload = rowToPayload(baseRow({ fecha_recepcion: '15-04-2026' }), 38200);
     expect(payload.dtaRecepcion).toBe('2026-04-15T05:00:00.000Z');
   });
 
   it('mantiene la fecha tal cual si el formato no se puede parsear', () => {
-    const payload = rowToPayload(filaBase({ fecha_recepcion: 'invalid' }), 38200);
+    const payload = rowToPayload(baseRow({ fecha_recepcion: 'invalid' }), 38200);
     expect(payload.dtaRecepcion).toBe('invalid');
   });
 });
 
 describe('rowToPayload - textos opcionales', () => {
   it('mapea resumen_otro_idioma a txtAbstract', () => {
-    const payload = rowToPayload(filaBase({ resumen_otro_idioma: 'Abstract' }), 38200);
+    const payload = rowToPayload(baseRow({ resumen_otro_idioma: 'Abstract' }), 38200);
     expect(payload.txtAbstract).toBe('Abstract');
   });
 
   it('mapea resumen_idioma_adicional a txtResumenOtro', () => {
-    const payload = rowToPayload(filaBase({ resumen_idioma_adicional: 'Resumo' }), 38200);
+    const payload = rowToPayload(baseRow({ resumen_idioma_adicional: 'Resumo' }), 38200);
     expect(payload.txtResumenOtro).toBe('Resumo');
   });
 
   it('mapea palabras_clave_otro_idioma a txtPalabraClaveIdioma', () => {
     const payload = rowToPayload(
-      filaBase({ palabras_clave_otro_idioma: 'history; culture' }),
+      baseRow({ palabras_clave_otro_idioma: 'history; culture' }),
       38200
     );
     expect(payload.txtPalabraClaveIdioma).toBe('history; culture');
@@ -139,12 +139,12 @@ describe('rowToPayload - textos opcionales', () => {
 
 describe('rowToPayload - idFasciculo', () => {
   it('usa el idFasciculo proporcionado', () => {
-    const payload = rowToPayload(filaBase(), 12345);
+    const payload = rowToPayload(baseRow(), 12345);
     expect(payload.idFasciculo).toBe(12345);
   });
 
   it('acepta cualquier número como idFasciculo', () => {
-    const payload = rowToPayload(filaBase(), 999999);
+    const payload = rowToPayload(baseRow(), 999999);
     expect(payload.idFasciculo).toBe(999999);
   });
 });

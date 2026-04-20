@@ -78,9 +78,7 @@ describe('withRetry', () => {
     ultimo = Date.now();
     await withRetry(fn, { maxAttempts: 3, delayMs: 50, backoff: 2 });
 
-    // Segundo attempt: delayMs * 1 = 50ms
-    // Tercer attempt: delayMs * 2 = 100ms
-    // Los tiempos entre llamadas deben ser crecientes
+    // Segundo attempt: delayMs * 1 = 50ms. Tercer attempt: delayMs * 2 = 100ms.
     expect(tiempos.length).toBeGreaterThanOrEqual(1);
   });
 

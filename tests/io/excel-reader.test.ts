@@ -5,7 +5,6 @@ import * as os from 'os';
 import * as XLSX from 'xlsx';
 import { readArticles, normalizeHeader } from '../../src/io/excel-reader';
 
-// === Helper para crear archivos temporales ===
 let tempDir: string;
 
 beforeEach(() => {
@@ -16,7 +15,7 @@ afterEach(() => {
   fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
-function crearXlsx(rows: Record<string, string>[], headers?: string[]): string {
+function createXlsx(rows: Record<string, string>[], headers?: string[]): string {
   const filePath = path.join(tempDir, 'test.xlsx');
   const wb = XLSX.utils.book_new();
   const hdrs = headers || (rows.length > 0 ? Object.keys(rows[0]) : []);
@@ -52,7 +51,7 @@ describe('normalizeHeader', () => {
 
 describe('readArticles - XLSX', () => {
   it('lee un archivo xlsx válido', () => {
-    const file = crearXlsx([
+    const file = createXlsx([
       {
         titulo: 'Artículo de prueba',
         url: 'https://example.com',
@@ -72,7 +71,7 @@ describe('readArticles - XLSX', () => {
   });
 
   it('lee múltiples filas', () => {
-    const file = crearXlsx([
+    const file = createXlsx([
       { titulo: 'Art 1', url: 'https://a.com', gran_area: '1', area: '1A', tipo_documento: '1', palabras_clave: 'a', titulo_ingles: 'A', resumen: 'r' },
       { titulo: 'Art 2', url: 'https://b.com', gran_area: '2', area: '2A', tipo_documento: '2', palabras_clave: 'b', titulo_ingles: 'B', resumen: 's' },
       { titulo: 'Art 3', url: 'https://c.com', gran_area: '3', area: '3A', tipo_documento: '3', palabras_clave: 'c', titulo_ingles: 'C', resumen: 't' },
@@ -84,7 +83,7 @@ describe('readArticles - XLSX', () => {
   });
 
   it('filtra filas completamente vacías', () => {
-    const file = crearXlsx([
+    const file = createXlsx([
       { titulo: 'Art 1', url: 'https://a.com' },
       { titulo: '', url: '' },
       { titulo: 'Art 3', url: 'https://c.com' },
@@ -95,7 +94,7 @@ describe('readArticles - XLSX', () => {
   });
 
   it('normaliza headers con acentos y mayúsculas', () => {
-    const file = crearXlsx(
+    const file = createXlsx(
       [{ Título: 'Con acento', URL: 'https://x.com', titulo_ingles: 'Title' }],
     );
 
@@ -122,7 +121,7 @@ describe('readArticles - errores', () => {
 
 describe('readArticles - clasificación por estado', () => {
   it('clasifica artículos sin estado como pendientes', () => {
-    const file = crearXlsx([
+    const file = createXlsx([
       { titulo: 'Art 1', url: 'https://a.com' },
       { titulo: 'Art 2', url: 'https://b.com' },
     ]);
@@ -134,7 +133,7 @@ describe('readArticles - clasificación por estado', () => {
   });
 
   it('clasifica artículos con estado "subido"', () => {
-    const file = crearXlsx([
+    const file = createXlsx([
       { titulo: 'Art 1', url: 'https://a.com', estado: 'subido' },
       { titulo: 'Art 2', url: 'https://b.com', estado: 'pendiente' },
       { titulo: 'Art 3', url: 'https://c.com', estado: 'error' },
@@ -147,7 +146,7 @@ describe('readArticles - clasificación por estado', () => {
   });
 
   it('reconoce estado en mayúsculas', () => {
-    const file = crearXlsx([
+    const file = createXlsx([
       { titulo: 'Art 1', url: 'https://a.com', estado: 'SUBIDO' },
     ]);
 
@@ -158,7 +157,7 @@ describe('readArticles - clasificación por estado', () => {
 
 describe('readArticles - headers desconocidos', () => {
   it('detecta columnas no reconocidas', () => {
-    const file = crearXlsx([
+    const file = createXlsx([
       { titulo: 'Art', url: 'https://a.com', columna_rara: 'X' },
     ]);
 
@@ -167,7 +166,7 @@ describe('readArticles - headers desconocidos', () => {
   });
 
   it('no reporta columnas de estado como desconocidas', () => {
-    const file = crearXlsx([
+    const file = createXlsx([
       { titulo: 'Art', url: 'https://a.com', estado: '', fecha_subida: '', ultimo_error: '' },
     ]);
 
@@ -178,7 +177,7 @@ describe('readArticles - headers desconocidos', () => {
   });
 
   it('retorna array vacío si todos los headers son conocidos', () => {
-    const file = crearXlsx([
+    const file = createXlsx([
       { titulo: 'Art', url: 'https://a.com' },
     ]);
 

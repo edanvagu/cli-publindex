@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { parsePublication, parseArticle, ojsArticleToRow, extractPublicationsXml, detectNonStandardPages, articlesToAuthorRows } from '../../src/io/ojs-xml';
 
-const PUBLICATION_COMPLETO = `<publication locale="es_ES" version="1" status="3" date_published="2026-01-15" section_ref="Artículos" seq="1">
-  <id type="internal" advice="ignore">2953</id>
-  <id type="doi" advice="update">10.22380/20274688.3196</id>
+const FULL_PUBLICATION = `<publication locale="es_ES" version="1" status="3" date_published="2026-01-15" section_ref="Artículos" seq="1">
+  <id type="internal" advice="ignore">1001</id>
+  <id type="doi" advice="update">10.9999/test.0001</id>
   <title locale="es_ES">Título del artículo en español</title>
   <title locale="en_US">Title of the article in English</title>
   <title locale="pt_BR">Título do artigo em português</title>
@@ -11,22 +11,22 @@ const PUBLICATION_COMPLETO = `<publication locale="es_ES" version="1" status="3"
   <abstract locale="en_US">&lt;p&gt;Abstract in English.&lt;/p&gt;</abstract>
   <abstract locale="pt_BR">&lt;p&gt;Resumo em português.&lt;/p&gt;</abstract>
   <keywords locale="es_ES">
-    <keyword>sociología</keyword>
-    <keyword>cultura</keyword>
-    <keyword>América Latina</keyword>
+    <keyword>ejemplo</keyword>
+    <keyword>prueba</keyword>
+    <keyword>testing</keyword>
   </keywords>
   <keywords locale="en_US">
-    <keyword>sociology</keyword>
-    <keyword>culture</keyword>
+    <keyword>example</keyword>
+    <keyword>test</keyword>
   </keywords>
   <authors>
     <author seq="1" id="1">
-      <givenname locale="es_ES">Carlos</givenname>
-      <familyname locale="es_ES">Díaz</familyname>
+      <givenname locale="es_ES">Ana</givenname>
+      <familyname locale="es_ES">Pérez</familyname>
     </author>
     <author seq="2" id="2">
-      <givenname locale="es_ES">Constanza</givenname>
-      <familyname locale="es_ES">Castro</familyname>
+      <givenname locale="es_ES">Luis</givenname>
+      <familyname locale="es_ES">García</familyname>
     </author>
   </authors>
   <citations>
@@ -37,19 +37,19 @@ const PUBLICATION_COMPLETO = `<publication locale="es_ES" version="1" status="3"
   <pages>10-27</pages>
 </publication>`;
 
-const PUBLICATION_MINIMO = `<publication locale="es_ES" version="1" status="3">
+const MINIMAL_PUBLICATION = `<publication locale="es_ES" version="1" status="3">
   <title locale="es_ES">Solo título</title>
 </publication>`;
 
-const PUBLICATION_DOS_EN_ROOT = `<root>
-  ${PUBLICATION_COMPLETO}
-  ${PUBLICATION_MINIMO}
+const TWO_PUBLICATIONS_IN_ROOT = `<root>
+  ${FULL_PUBLICATION}
+  ${MINIMAL_PUBLICATION}
   <otraEtiqueta>ruido que debe ignorarse</otraEtiqueta>
 </root>`;
 
 describe('extractPublicationsXml', () => {
   it('extrae cada bloque <publication> como string independiente', () => {
-    const blocks = extractPublicationsXml(PUBLICATION_DOS_EN_ROOT);
+    const blocks = extractPublicationsXml(TWO_PUBLICATIONS_IN_ROOT);
     expect(blocks).toHaveLength(2);
     expect(blocks[0]).toContain('<title locale="es_ES">Título del artículo en español</title>');
     expect(blocks[1]).toContain('<title locale="es_ES">Solo título</title>');
@@ -62,69 +62,69 @@ describe('extractPublicationsXml', () => {
 
 describe('parsePublication', () => {
   it('extrae el título en locale primario', () => {
-    const art = parsePublication(PUBLICATION_COMPLETO);
+    const art = parsePublication(FULL_PUBLICATION);
     expect(art.titulo).toBe('Título del artículo en español');
   });
 
   it('extrae el título en inglés', () => {
-    const art = parsePublication(PUBLICATION_COMPLETO);
+    const art = parsePublication(FULL_PUBLICATION);
     expect(art.tituloIngles).toBe('Title of the article in English');
   });
 
   it('extrae el DOI en formato bare (10.xxxx/yyyy)', () => {
-    const art = parsePublication(PUBLICATION_COMPLETO);
-    expect(art.doi).toBe('10.22380/20274688.3196');
+    const art = parsePublication(FULL_PUBLICATION);
+    expect(art.doi).toBe('10.9999/test.0001');
   });
 
   it('decodifica entities y tira tags HTML del resumen primario', () => {
-    const art = parsePublication(PUBLICATION_COMPLETO);
+    const art = parsePublication(FULL_PUBLICATION);
     expect(art.resumen).toBe('Resumen en español con formato.');
   });
 
   it('extrae resumen en otro idioma y en tercer idioma', () => {
-    const art = parsePublication(PUBLICATION_COMPLETO);
+    const art = parsePublication(FULL_PUBLICATION);
     expect(art.resumenOtroIdioma).toBe('Abstract in English.');
     expect(art.resumenIdiomaAdicional).toBe('Resumo em português.');
   });
 
   it('junta las keywords del locale primario con "; "', () => {
-    const art = parsePublication(PUBLICATION_COMPLETO);
-    expect(art.palabrasClave).toBe('sociología; cultura; América Latina');
+    const art = parsePublication(FULL_PUBLICATION);
+    expect(art.palabrasClave).toBe('ejemplo; prueba; testing');
   });
 
   it('junta las keywords del otro idioma con "; "', () => {
-    const art = parsePublication(PUBLICATION_COMPLETO);
-    expect(art.palabrasClaveOtroIdioma).toBe('sociology; culture');
+    const art = parsePublication(FULL_PUBLICATION);
+    expect(art.palabrasClaveOtroIdioma).toBe('example; test');
   });
 
   it('cuenta los autores', () => {
-    const art = parsePublication(PUBLICATION_COMPLETO);
+    const art = parsePublication(FULL_PUBLICATION);
     expect(art.numeroAutores).toBe(2);
   });
 
   it('cuenta las referencias en <citations>', () => {
-    const art = parsePublication(PUBLICATION_COMPLETO);
+    const art = parsePublication(FULL_PUBLICATION);
     expect(art.numeroReferencias).toBe(3);
   });
 
   it('separa <pages>10-27</pages> en inicial=10 y final=27', () => {
-    const art = parsePublication(PUBLICATION_COMPLETO);
+    const art = parsePublication(FULL_PUBLICATION);
     expect(art.paginaInicial).toBe('10');
     expect(art.paginaFinal).toBe('27');
   });
 
   it('mapea locale es_ES → idioma "Español"', () => {
-    const art = parsePublication(PUBLICATION_COMPLETO);
+    const art = parsePublication(FULL_PUBLICATION);
     expect(art.idioma).toBe('Español');
   });
 
   it('infiere otro_idioma="Inglés" cuando hay abstract en en_US', () => {
-    const art = parsePublication(PUBLICATION_COMPLETO);
+    const art = parsePublication(FULL_PUBLICATION);
     expect(art.otroIdioma).toBe('Inglés');
   });
 
   it('tolera publications con solo título (sin resumen, sin autores, sin referencias)', () => {
-    const art = parsePublication(PUBLICATION_MINIMO);
+    const art = parsePublication(MINIMAL_PUBLICATION);
     expect(art.titulo).toBe('Solo título');
     expect(art.resumen).toBeUndefined();
     expect(art.numeroAutores).toBeUndefined();
@@ -133,36 +133,36 @@ describe('parsePublication', () => {
   });
 
   it('deja páginas vacías si <pages> no tiene guion', () => {
-    const xml = PUBLICATION_COMPLETO.replace('<pages>10-27</pages>', '<pages>sin-formato</pages>');
+    const xml = FULL_PUBLICATION.replace('<pages>10-27</pages>', '<pages>sin-formato</pages>');
     const art = parsePublication(xml);
     expect(art.paginaInicial).toBeUndefined();
     expect(art.paginaFinal).toBeUndefined();
   });
 
   it('tolera guion tipográfico (en dash) en <pages>', () => {
-    const xml = PUBLICATION_COMPLETO.replace('<pages>10-27</pages>', '<pages>10\u201327</pages>');
+    const xml = FULL_PUBLICATION.replace('<pages>10-27</pages>', '<pages>10\u201327</pages>');
     const art = parsePublication(xml);
     expect(art.paginaInicial).toBe('10');
     expect(art.paginaFinal).toBe('27');
   });
 
   it('extrae fecha_publicacion del atributo date_published', () => {
-    const art = parsePublication(PUBLICATION_COMPLETO);
+    const art = parsePublication(FULL_PUBLICATION);
     expect(art.fechaPublicacion).toBe('2026-01-15');
   });
 
   it('extrae submissionId del <id type="internal">', () => {
-    const art = parsePublication(PUBLICATION_COMPLETO);
-    expect(art.submissionId).toBe('2953');
+    const art = parsePublication(FULL_PUBLICATION);
+    expect(art.submissionId).toBe('1001');
   });
 
   it('deja submissionId undefined si no existe <id type="internal">', () => {
-    const art = parsePublication(PUBLICATION_MINIMO);
+    const art = parsePublication(MINIMAL_PUBLICATION);
     expect(art.submissionId).toBeUndefined();
   });
 
   it('preserva <pages> en paginasRaw cuando es un e-locator (publicación continua)', () => {
-    const xml = PUBLICATION_COMPLETO.replace('<pages>10-27</pages>', '<pages>e1234</pages>');
+    const xml = FULL_PUBLICATION.replace('<pages>10-27</pages>', '<pages>e1234</pages>');
     const art = parsePublication(xml);
     expect(art.paginaInicial).toBeUndefined();
     expect(art.paginaFinal).toBeUndefined();
@@ -170,19 +170,19 @@ describe('parsePublication', () => {
   });
 
   it('preserva <pages> en paginasRaw cuando es un número suelto (página única)', () => {
-    const xml = PUBLICATION_COMPLETO.replace('<pages>10-27</pages>', '<pages>15</pages>');
+    const xml = FULL_PUBLICATION.replace('<pages>10-27</pages>', '<pages>15</pages>');
     const art = parsePublication(xml);
     expect(art.paginaInicial).toBeUndefined();
     expect(art.paginasRaw).toBe('15');
   });
 
   it('no marca paginasRaw cuando <pages> es un rango válido', () => {
-    const art = parsePublication(PUBLICATION_COMPLETO);
+    const art = parsePublication(FULL_PUBLICATION);
     expect(art.paginasRaw).toBeUndefined();
   });
 
   it('no marca paginasRaw cuando <pages> está ausente', () => {
-    const xml = PUBLICATION_COMPLETO.replace('<pages>10-27</pages>', '');
+    const xml = FULL_PUBLICATION.replace('<pages>10-27</pages>', '');
     const art = parsePublication(xml);
     expect(art.paginasRaw).toBeUndefined();
   });
@@ -212,62 +212,62 @@ describe('detectNonStandardPages', () => {
 });
 
 describe('parseArticle', () => {
-  const ARTICLE_CON_UNA_PUBLICATION = `<article locale="es_ES" date_submitted="2025-09-25" status="3" current_publication_id="2953" stage="production">
-  <id type="internal" advice="ignore">3196</id>
-  <id type="doi" advice="update">10.22380/20274688.3196</id>
-  ${PUBLICATION_COMPLETO}
+  const ARTICLE_WITH_ONE_PUBLICATION = `<article locale="es_ES" date_submitted="2025-09-25" status="3" current_publication_id="1001" stage="production">
+  <id type="internal" advice="ignore">1002</id>
+  <id type="doi" advice="update">10.9999/test.0001</id>
+  ${FULL_PUBLICATION}
 </article>`;
 
-  const ARTICLE_CON_MULTIPLES = `<article locale="es_ES" current_publication_id="2953" stage="production">
-  <id type="internal" advice="ignore">3196</id>
+  const ARTICLE_WITH_MULTIPLE_VERSIONS = `<article locale="es_ES" current_publication_id="1001" stage="production">
+  <id type="internal" advice="ignore">1002</id>
   <publication locale="es_ES" version="1">
-    <id type="internal">2900</id>
+    <id type="internal">999</id>
     <title locale="es_ES">Versión vieja</title>
   </publication>
-  ${PUBLICATION_COMPLETO}
+  ${FULL_PUBLICATION}
 </article>`;
 
-  const ARTICLE_SIN_CURRENT = `<article locale="es_ES" stage="production">
-  <id type="internal" advice="ignore">3196</id>
-  ${PUBLICATION_COMPLETO}
+  const ARTICLE_WITHOUT_CURRENT_ID = `<article locale="es_ES" stage="production">
+  <id type="internal" advice="ignore">1002</id>
+  ${FULL_PUBLICATION}
 </article>`;
 
   it('extrae submissionId del <article> (no del publication)', () => {
-    const art = parseArticle(ARTICLE_CON_UNA_PUBLICATION);
-    expect(art.submissionId).toBe('3196');
+    const art = parseArticle(ARTICLE_WITH_ONE_PUBLICATION);
+    expect(art.submissionId).toBe('1002');
   });
 
   it('selecciona la publication que matchea current_publication_id cuando hay múltiples versiones', () => {
-    const art = parseArticle(ARTICLE_CON_MULTIPLES);
-    expect(art.submissionId).toBe('3196');
+    const art = parseArticle(ARTICLE_WITH_MULTIPLE_VERSIONS);
+    expect(art.submissionId).toBe('1002');
     expect(art.titulo).toBe('Título del artículo en español');
   });
 
   it('usa la única publication disponible cuando no hay current_publication_id', () => {
-    const art = parseArticle(ARTICLE_SIN_CURRENT);
-    expect(art.submissionId).toBe('3196');
+    const art = parseArticle(ARTICLE_WITHOUT_CURRENT_ID);
+    expect(art.submissionId).toBe('1002');
     expect(art.titulo).toBe('Título del artículo en español');
   });
 
   it('lanza error cuando el article no tiene publication', () => {
-    const xml = `<article locale="es_ES"><id type="internal">3196</id></article>`;
+    const xml = `<article locale="es_ES"><id type="internal">1002</id></article>`;
     expect(() => parseArticle(xml)).toThrow();
   });
 });
 
 describe('ojsArticleToRow', () => {
   it('mapea los campos auto-rellenables al shape ArticleRow', () => {
-    const art = parsePublication(PUBLICATION_COMPLETO);
+    const art = parsePublication(FULL_PUBLICATION);
     const row = ojsArticleToRow(art);
 
     expect(row.titulo).toBe('Título del artículo en español');
     expect(row.titulo_ingles).toBe('Title of the article in English');
-    expect(row.doi).toBe('10.22380/20274688.3196');
+    expect(row.doi).toBe('10.9999/test.0001');
     expect(row.resumen).toBe('Resumen en español con formato.');
     expect(row.resumen_otro_idioma).toBe('Abstract in English.');
     expect(row.resumen_idioma_adicional).toBe('Resumo em português.');
-    expect(row.palabras_clave).toBe('sociología; cultura; América Latina');
-    expect(row.palabras_clave_otro_idioma).toBe('sociology; culture');
+    expect(row.palabras_clave).toBe('ejemplo; prueba; testing');
+    expect(row.palabras_clave_otro_idioma).toBe('example; test');
     expect(row.numero_autores).toBe('2');
     expect(row.numero_referencias).toBe('3');
     expect(row.pagina_inicial).toBe('10');
@@ -277,7 +277,7 @@ describe('ojsArticleToRow', () => {
   });
 
   it('deja vacíos los campos que OJS no provee (Minciencias, evaluación, tipos)', () => {
-    const art = parsePublication(PUBLICATION_COMPLETO);
+    const art = parsePublication(FULL_PUBLICATION);
     const row = ojsArticleToRow(art);
 
     expect(row.gran_area).toBeUndefined();
@@ -302,8 +302,8 @@ describe('extracción de autores desde OJS', () => {
       <title locale="es_ES">T</title>
       <authors>
         <author>
-          <givenname locale="es_ES">Ana</givenname>
-          <familyname locale="es_ES">Pérez</familyname>
+          <givenname locale="es_ES">María</givenname>
+          <familyname locale="es_ES">Rodríguez</familyname>
           <country>CO</country>
           <affiliation locale="es_ES">Universidad Ejemplo</affiliation>
         </author>
@@ -311,7 +311,7 @@ describe('extracción de autores desde OJS', () => {
     </publication>`;
     const art = parsePublication(xml);
     expect(art.autores).toHaveLength(1);
-    expect(art.autores[0].nombre_completo).toBe('Ana Pérez');
+    expect(art.autores[0].nombre_completo).toBe('María Rodríguez');
     expect(art.autores[0].nacionalidad).toBe('Colombiana');
     expect(art.autores[0].filiacion_institucional).toBe('Universidad Ejemplo');
   });
@@ -322,7 +322,7 @@ describe('extracción de autores desde OJS', () => {
       <authors>
         <author>
           <givenname locale="es_ES">John</givenname>
-          <familyname locale="es_ES">Smith</familyname>
+          <familyname locale="es_ES">Doe</familyname>
           <country>US</country>
         </author>
       </authors>
@@ -336,8 +336,8 @@ describe('extracción de autores desde OJS', () => {
       <title locale="es_ES">T</title>
       <authors>
         <author>
-          <givenname locale="es_ES">Ana</givenname>
-          <familyname locale="es_ES">Smith</familyname>
+          <givenname locale="es_ES">Jane</givenname>
+          <familyname locale="es_ES">Doe</familyname>
         </author>
       </authors>
     </publication>`;
@@ -346,20 +346,20 @@ describe('extracción de autores desde OJS', () => {
   });
 
   it('extrae múltiples autores por artículo', () => {
-    const art = parsePublication(PUBLICATION_COMPLETO);
+    const art = parsePublication(FULL_PUBLICATION);
     expect(art.autores).toHaveLength(2);
-    expect(art.autores[0].nombre_completo).toBe('Carlos Díaz');
-    expect(art.autores[1].nombre_completo).toBe('Constanza Castro');
+    expect(art.autores[0].nombre_completo).toBe('Ana Pérez');
+    expect(art.autores[1].nombre_completo).toBe('Luis García');
   });
 
   it('articlesToAuthorRows genera una fila por autor con titulo_articulo', () => {
-    const art1 = parsePublication(PUBLICATION_COMPLETO);
-    const art2 = parsePublication(PUBLICATION_MINIMO);
+    const art1 = parsePublication(FULL_PUBLICATION);
+    const art2 = parsePublication(MINIMAL_PUBLICATION);
     const rows = articlesToAuthorRows([art1, art2]);
-    expect(rows).toHaveLength(2); // PUBLICATION_MINIMO no tiene authors
+    expect(rows).toHaveLength(2); // MINIMAL_PUBLICATION no tiene authors
     expect(rows[0].titulo_articulo).toBe(art1.titulo);
-    expect(rows[0].nombre_completo).toBe('Carlos Díaz');
-    expect(rows[1].nombre_completo).toBe('Constanza Castro');
+    expect(rows[0].nombre_completo).toBe('Ana Pérez');
+    expect(rows[1].nombre_completo).toBe('Luis García');
     expect(rows[1].titulo_articulo).toBe(art1.titulo);
   });
 });

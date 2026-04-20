@@ -97,14 +97,14 @@ describe('runAuthorsUpload', () => {
   });
 
   it('si no matchea por documento, pide al usuario escoger de la lista de nombre', async () => {
-    const candidato = { ...PERSON, codRh: 'OTHER', nroDocumentoIdent: '99' };
+    const candidate = { ...PERSON, codRh: 'OTHER', nroDocumentoIdent: '99' };
     vi.mocked(api.searchPersons)
       .mockResolvedValueOnce([])               // búsqueda por doc: vacía
-      .mockResolvedValueOnce([candidato]);     // búsqueda por nombre: 1 resultado
-    vi.mocked(api.getTrayectoria).mockResolvedValueOnce(candidato);
+      .mockResolvedValueOnce([candidate]);     // búsqueda por nombre: 1 resultado
+    vi.mocked(api.getTrayectoria).mockResolvedValueOnce(candidate);
     vi.mocked(api.linkAuthor).mockResolvedValueOnce();
 
-    const onPickPerson = vi.fn().mockResolvedValue(candidato);
+    const onPickPerson = vi.fn().mockResolvedValue(candidate);
     const options = buildOptions({ onPickPerson });
 
     const result = await runAuthorsUpload(mockSession(), [buildAuthor()], options);
