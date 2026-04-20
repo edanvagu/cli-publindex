@@ -115,9 +115,12 @@ describe('runAuthorsUpload', () => {
   });
 
   it('marca error si el usuario escoge "Ninguno" en el picker', async () => {
+    // Ronda 1: doc → vacío; nombre → [PERSON] (picker devuelve null).
+    // Ronda 2 (fallback por nacionalidad cruzada): ambas búsquedas → vacío.
     vi.mocked(api.searchPersons)
       .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([PERSON]);
+      .mockResolvedValueOnce([PERSON])
+      .mockResolvedValue([]);
 
     const onPickPerson = vi.fn().mockResolvedValue(null);
     const options = buildOptions({ onPickPerson });
@@ -136,8 +139,8 @@ describe('runAuthorsUpload', () => {
     );
   });
 
-  it('marca error si ambas búsquedas devuelven 0 resultados', async () => {
-    vi.mocked(api.searchPersons).mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+  it('marca error si ambas búsquedas devuelven 0 resultados (incluso tras el fallback de nacionalidad)', async () => {
+    vi.mocked(api.searchPersons).mockResolvedValue([]);
 
     const options = buildOptions();
     const result = await runAuthorsUpload(mockSession(), [buildAuthor()], options);
@@ -292,5 +295,90 @@ describe('runAuthorsUpload', () => {
       expect.objectContaining({ accionRequerida: 'Revisar error y reintentar' }),
       expect.any(Function),
     );
+  });
+});
+
+describe('fallback de nacionalidad (ronda 2)', () => {
+  beforeEach(() => {
+    vi.mocked(api.searchPersons).mockReset();
+    vi.mocked(api.getTrayectoria).mockReset();
+    vi.mocked(api.linkAuthor).mockReset();
+  });
+
+  it('rescata al autor flippeando la nacionalidad cuando ronda 1 devuelve vacío', async () => {
+    // Ronda 1 como Colombiana: doc → [], nombre → [].
+    // Ronda 2 como Extranjera: doc → [PERSON] (match inmediato).
+    vi.mocked(api.searchPersons)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([PERSON]);
+    vi.mocked(api.getTrayectoria).mockResolvedValueOnce({
+      ...PERSON, staCertificado: 'T', instituciones: ['UNIVERSIDAD X'],
+    });
+    vi.mocked(api.linkAuthor).mockResolvedValueOnce();
+
+    const options = buildOptions();
+    const result = await runAuthorsUpload(
+      mockSession(),
+      [buildAuthor({ nacionalidad: 'Colombiana' })],
+      options,
+    );
+
+    expect(result.successful).toHaveLength(1);
+    expect(result.failed).toHaveLength(0);
+
+    // La tercera llamada (primera de ronda 2) fue con tpoNacionalidad='E'.
+    const calls = vi.mocked(api.searchPersons).mock.calls;
+    expect(calls[2][1]).toMatchObject({ tpoNacionalidad: 'E' });
+
+    expect(api.linkAuthor).toHaveBeenCalledTimes(1);
+    expect(options.onWarning).toHaveBeenCalledWith(expect.stringMatching(/Ronda 2/i));
+  });
+
+  it('si ronda 2 también falla, queda como error sin duplicar la fila', async () => {
+    vi.mocked(api.searchPersons).mockResolvedValue([]);
+
+    const options = buildOptions();
+    const result = await runAuthorsUpload(mockSession(), [buildAuthor()], options);
+
+    expect(result.failed).toHaveLength(1);
+    expect(result.failed[0].error).toBe('No encontrado en Publindex');
+    expect(result.successful).toHaveLength(0);
+    // Round 1: 2 búsquedas (doc + nombre). Round 2: otras 2.
+    expect(api.searchPersons).toHaveBeenCalledTimes(4);
+    expect(options.onWarning).toHaveBeenCalledWith(expect.stringMatching(/Ronda 2/i));
+  });
+
+  it('NO dispara ronda 2 cuando el error de ronda 1 es "Colombiano sin CvLAC"', async () => {
+    vi.mocked(api.searchPersons).mockResolvedValueOnce([PERSON]);
+    vi.mocked(api.getTrayectoria).mockResolvedValueOnce({ ...PERSON, staCertificado: 'F' });
+
+    const options = buildOptions();
+    const result = await runAuthorsUpload(
+      mockSession(),
+      [buildAuthor({ nacionalidad: 'Colombiana' })],
+      options,
+    );
+
+    expect(result.failed).toHaveLength(1);
+    expect(result.failed[0].error).toBe('Colombiano sin CvLAC');
+    // Solo 1 llamada a searchPersons: ronda 2 no se ejecuta.
+    expect(api.searchPersons).toHaveBeenCalledTimes(1);
+    expect(options.onWarning).not.toHaveBeenCalledWith(expect.stringMatching(/Ronda 2/i));
+  });
+
+  it('NO dispara ronda 2 si ronda 1 es 100% exitosa', async () => {
+    vi.mocked(api.searchPersons).mockResolvedValueOnce([PERSON]);
+    vi.mocked(api.getTrayectoria).mockResolvedValueOnce({
+      ...PERSON, staCertificado: 'T', instituciones: ['UNIVERSIDAD X'],
+    });
+    vi.mocked(api.linkAuthor).mockResolvedValueOnce();
+
+    const options = buildOptions();
+    const result = await runAuthorsUpload(mockSession(), [buildAuthor()], options);
+
+    expect(result.successful).toHaveLength(1);
+    expect(api.searchPersons).toHaveBeenCalledTimes(1);
+    expect(options.onWarning).not.toHaveBeenCalledWith(expect.stringMatching(/Ronda 2/i));
   });
 });

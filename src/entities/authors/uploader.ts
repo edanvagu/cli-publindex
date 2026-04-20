@@ -39,7 +39,43 @@ function writeError(
   );
 }
 
+const NOT_FOUND_ERROR = 'No encontrado en Publindex';
+
+function flipNationality(label: string): string {
+  return label === NATIONALITIES.C ? NATIONALITIES.E : NATIONALITIES.C;
+}
+
 export async function runAuthorsUpload(
+  session: Session,
+  authors: AuthorRow[],
+  options: AuthorsUploadOptions,
+): Promise<AuthorsUploadResult> {
+  const pass1 = await runAuthorsPass(session, authors, options);
+
+  const retryableRows = new Set(
+    pass1.failed.filter(f => f.error === NOT_FOUND_ERROR).map(f => f.row),
+  );
+  if (retryableRows.size === 0) return pass1;
+
+  options.onWarning(`Ronda 2: reintentando ${retryableRows.size} autor(es) con nacionalidad cruzada...`);
+
+  const flipped: AuthorRow[] = authors
+    .filter(a => retryableRows.has(a._fila))
+    .map(a => ({ ...a, nacionalidad: flipNationality(a.nacionalidad) }));
+
+  const pass2 = await runAuthorsPass(session, flipped, options);
+
+  return {
+    successful: [...pass1.successful, ...pass2.successful],
+    failed: [
+      ...pass1.failed.filter(f => !retryableRows.has(f.row)),
+      ...pass2.failed,
+    ],
+    totalTimeMs: pass1.totalTimeMs + pass2.totalTimeMs,
+  };
+}
+
+async function runAuthorsPass(
   session: Session,
   authors: AuthorRow[],
   options: AuthorsUploadOptions,
@@ -62,7 +98,7 @@ export async function runAuthorsUpload(
     try {
       const person = await resolvePerson(session.token, author, options);
       if (!person) {
-        const msg = 'No encontrado en Publindex';
+        const msg = NOT_FOUND_ERROR;
         writeError(options.progressTracker, author, msg, 'Registrar autor manualmente en Publindex', options.onWarning);
         failed.push({ row: author._fila, nombre, error: msg });
         options.onProgress(i + 1, authors.length, nombre, false, Date.now() - start, msg);
