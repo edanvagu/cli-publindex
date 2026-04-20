@@ -46,7 +46,7 @@ describe('ProgressTracker - XLSX', () => {
     crearXlsxBase(file);
 
     const gestor = new ProgressTracker(file);
-    const ok = gestor.actualizar({ row: 2, estado: 'subido' });
+    const ok = gestor.update({ row: 2, state: 'subido' });
 
     expect(ok).toBe(true);
     const data = leerXlsx(file);
@@ -59,7 +59,7 @@ describe('ProgressTracker - XLSX', () => {
     crearXlsxBase(file);
 
     const gestor = new ProgressTracker(file);
-    gestor.actualizar({ row: 2, estado: 'error', error: 'HTTP 500' });
+    gestor.update({ row: 2, state: 'error', error: 'HTTP 500' });
 
     const data = leerXlsx(file);
     expect(data[0].estado).toBe('error');
@@ -71,7 +71,7 @@ describe('ProgressTracker - XLSX', () => {
     crearXlsxBase(file);
 
     const gestor = new ProgressTracker(file);
-    gestor.actualizar({ row: 2, estado: 'subido' });
+    gestor.update({ row: 2, state: 'subido' });
 
     const wb = XLSX.readFile(file);
     const sheet = wb.Sheets[wb.SheetNames[0]];
@@ -87,9 +87,9 @@ describe('ProgressTracker - XLSX', () => {
     crearXlsxBase(file, 5);
 
     const gestor = new ProgressTracker(file);
-    gestor.actualizar({ row: 4, estado: 'subido' });
-    gestor.actualizar({ row: 2, estado: 'error', error: 'E1' });
-    gestor.actualizar({ row: 6, estado: 'subido' });
+    gestor.update({ row: 4, state: 'subido' });
+    gestor.update({ row: 2, state: 'error', error: 'E1' });
+    gestor.update({ row: 6, state: 'subido' });
 
     const data = leerXlsx(file);
     expect(data[0].estado).toBe('error'); // row 2
@@ -104,8 +104,8 @@ describe('ProgressTracker - XLSX', () => {
     crearXlsxBase(file);
 
     const gestor = new ProgressTracker(file);
-    gestor.actualizar({ row: 2, estado: 'error', error: 'Primer fallo' });
-    gestor.actualizar({ row: 2, estado: 'subido' });
+    gestor.update({ row: 2, state: 'error', error: 'Primer fallo' });
+    gestor.update({ row: 2, state: 'subido' });
 
     const data = leerXlsx(file);
     expect(data[0].estado).toBe('subido');
@@ -125,7 +125,7 @@ describe('ProgressTracker - fallback sidecar', () => {
     simularArchivoBloqueado();
 
     const messages: string[] = [];
-    const ok = gestor.actualizar({ row: 2, estado: 'subido' }, msg => messages.push(msg));
+    const ok = gestor.update({ row: 2, state: 'subido' }, msg => messages.push(msg));
 
     expect(ok).toBe(false);
     expect(fs.existsSync(file + '.progreso.json')).toBe(true);
@@ -139,13 +139,13 @@ describe('ProgressTracker - fallback sidecar', () => {
     const gestor = new ProgressTracker(file);
     simularArchivoBloqueado();
 
-    gestor.actualizar({ row: 2, estado: 'subido' });
-    gestor.actualizar({ row: 3, estado: 'error', error: 'fallo' });
+    gestor.update({ row: 2, state: 'subido' });
+    gestor.update({ row: 3, state: 'error', error: 'fallo' });
 
     const sidecar = JSON.parse(fs.readFileSync(file + '.progreso.json', 'utf-8'));
-    expect(sidecar.registros).toHaveLength(2);
-    expect(sidecar.registros.find((r: any) => r.row === 2).estado).toBe('subido');
-    expect(sidecar.registros.find((r: any) => r.row === 3).estado).toBe('error');
+    expect(sidecar.records).toHaveLength(2);
+    expect(sidecar.records.find((r: any) => r.row === 2).state).toBe('subido');
+    expect(sidecar.records.find((r: any) => r.row === 3).state).toBe('error');
   });
 
   it('solo muestra warning la primera vez', () => {
@@ -155,9 +155,9 @@ describe('ProgressTracker - fallback sidecar', () => {
     simularArchivoBloqueado();
 
     const messages: string[] = [];
-    gestor.actualizar({ row: 2, estado: 'subido' }, msg => messages.push(msg));
-    gestor.actualizar({ row: 3, estado: 'subido' }, msg => messages.push(msg));
-    gestor.actualizar({ row: 4, estado: 'subido' }, msg => messages.push(msg));
+    gestor.update({ row: 2, state: 'subido' }, msg => messages.push(msg));
+    gestor.update({ row: 3, state: 'subido' }, msg => messages.push(msg));
+    gestor.update({ row: 4, state: 'subido' }, msg => messages.push(msg));
 
     expect(messages).toHaveLength(1);
   });
@@ -168,8 +168,8 @@ describe('ProgressTracker - readStates', () => {
     const file = path.join(tempDir, 'test.xlsx');
     crearXlsxBase(file);
     const gestor = new ProgressTracker(file);
-    gestor.actualizar({ row: 2, estado: 'subido' });
-    gestor.actualizar({ row: 3, estado: 'error', error: 'e' });
+    gestor.update({ row: 2, state: 'subido' });
+    gestor.update({ row: 3, state: 'error', error: 'e' });
 
     const { articles } = readArticles(file);
     const estados = ProgressTracker.readStates(file, articles);
@@ -182,10 +182,10 @@ describe('ProgressTracker - readStates', () => {
     const file = path.join(tempDir, 'test.xlsx');
     crearXlsxBase(file);
     const gestor = new ProgressTracker(file);
-    gestor.actualizar({ row: 2, estado: 'error', error: 'e' });
+    gestor.update({ row: 2, state: 'error', error: 'e' });
 
     const spy = simularArchivoBloqueado();
-    gestor.actualizar({ row: 2, estado: 'subido' });
+    gestor.update({ row: 2, state: 'subido' });
     spy.mockRestore();
 
     const { articles } = readArticles(file);
@@ -206,8 +206,8 @@ describe('ProgressTracker - sincronizarSidecar', () => {
     const gestor = new ProgressTracker(file);
 
     const spy = simularArchivoBloqueado();
-    gestor.actualizar({ row: 2, estado: 'subido' });
-    gestor.actualizar({ row: 3, estado: 'error', error: 'e1' });
+    gestor.update({ row: 2, state: 'subido' });
+    gestor.update({ row: 3, state: 'error', error: 'e1' });
 
     expect(fs.existsSync(file + '.progreso.json')).toBe(true);
     spy.mockRestore();

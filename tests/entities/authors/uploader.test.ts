@@ -28,8 +28,8 @@ function buildAuthor(overrides: Partial<AuthorRow> = {}): AuthorRow {
   return {
     titulo_articulo: 'Mi artículo',
     id_articulo: '253026',
-    nombre_completo: 'Pablo Rodríguez',
-    identificacion: '71772091',
+    nombre_completo: 'Ana Pérez López',
+    identificacion: '99999999',
     nacionalidad: 'Colombiana',
     _fila: 2,
     ...overrides,
@@ -37,7 +37,7 @@ function buildAuthor(overrides: Partial<AuthorRow> = {}): AuthorRow {
 }
 
 function mockTracker() {
-  const tracker = { actualizarAutor: vi.fn() };
+  const tracker = { updateAuthor: vi.fn() };
   return tracker as unknown as ProgressTracker;
 }
 
@@ -57,9 +57,9 @@ function buildOptions(extra: Partial<Parameters<typeof runAuthorsUpload>[2]> = {
 }
 
 const PERSON: PersonSearchResult = {
-  codRh: '0000207039',
-  nroDocumentoIdent: '71772091',
-  txtTotalNames: 'Pablo Rodríguez Cumplido',
+  codRh: '0000000001',
+  nroDocumentoIdent: '99999999',
+  txtTotalNames: 'Ana Pérez López',
   staCertificado: 'T',
   nmePaisNacim: 'Colombia',
 };
@@ -83,15 +83,15 @@ describe('runAuthorsUpload', () => {
     expect(result.failed).toHaveLength(0);
     expect(api.searchPersons).toHaveBeenCalledWith('x', expect.objectContaining({
       tpoNacionalidad: 'C',
-      nroDocumentoIdent: '71772091',
+      nroDocumentoIdent: '99999999',
     }));
     expect(api.linkAuthor).toHaveBeenCalledWith('x', expect.objectContaining({
-      codRh: '0000207039',
+      codRh: '0000000001',
       idArticulo: 253026,
       anoFasciculo: 2025,
     }));
-    expect(options.progressTracker.actualizarAutor).toHaveBeenCalledWith(
-      expect.objectContaining({ estadoCarga: 'subido', tieneCvlac: 'Sí' }),
+    expect(options.progressTracker.updateAuthor).toHaveBeenCalledWith(
+      expect.objectContaining({ uploadState: 'subido', hasCvlac: 'Sí' }),
       expect.any(Function),
     );
   });
@@ -130,10 +130,10 @@ describe('runAuthorsUpload', () => {
     expect(result.failed).toHaveLength(1);
     expect(result.failed[0].error).toBe('No encontrado en Publindex');
     expect(api.linkAuthor).not.toHaveBeenCalled();
-    expect(options.progressTracker.actualizarAutor).toHaveBeenCalledWith(
+    expect(options.progressTracker.updateAuthor).toHaveBeenCalledWith(
       expect.objectContaining({
-        estadoCarga: 'error:No encontrado en Publindex',
-        accionRequerida: 'Registrar autor manualmente en Publindex',
+        uploadState: 'error:No encontrado en Publindex',
+        requiredAction: 'Registrar autor manualmente en Publindex',
       }),
       expect.any(Function),
     );
@@ -175,8 +175,8 @@ describe('runAuthorsUpload', () => {
     const options = buildOptions();
     await runAuthorsUpload(mockSession(), [buildAuthor()], options);
 
-    expect(options.progressTracker.actualizarAutor).toHaveBeenCalledWith(
-      expect.objectContaining({ tieneCvlac: 'No' }),
+    expect(options.progressTracker.updateAuthor).toHaveBeenCalledWith(
+      expect.objectContaining({ hasCvlac: 'No' }),
       expect.any(Function),
     );
   });
@@ -195,11 +195,11 @@ describe('runAuthorsUpload', () => {
     expect(result.failed).toHaveLength(1);
     expect(result.failed[0].error).toBe('Colombiano sin CvLAC');
     expect(api.linkAuthor).not.toHaveBeenCalled();
-    expect(options.progressTracker.actualizarAutor).toHaveBeenCalledWith(
+    expect(options.progressTracker.updateAuthor).toHaveBeenCalledWith(
       expect.objectContaining({
-        estadoCarga: 'error:Colombiano sin CvLAC',
-        tieneCvlac: 'No',
-        accionRequerida: expect.stringContaining('CvLAC'),
+        uploadState: 'error:Colombiano sin CvLAC',
+        hasCvlac: 'No',
+        requiredAction: expect.stringContaining('CvLAC'),
       }),
       expect.any(Function),
     );
@@ -217,10 +217,10 @@ describe('runAuthorsUpload', () => {
     const options = buildOptions();
     await runAuthorsUpload(mockSession(), [buildAuthor()], options);
 
-    expect(options.progressTracker.actualizarAutor).toHaveBeenCalledWith(
+    expect(options.progressTracker.updateAuthor).toHaveBeenCalledWith(
       expect.objectContaining({
-        estadoCarga: 'subido',
-        accionRequerida: '',
+        uploadState: 'subido',
+        requiredAction: '',
       }),
       expect.any(Function),
     );
@@ -238,10 +238,10 @@ describe('runAuthorsUpload', () => {
     const options = buildOptions();
     await runAuthorsUpload(mockSession(), [buildAuthor()], options);
 
-    expect(options.progressTracker.actualizarAutor).toHaveBeenCalledWith(
+    expect(options.progressTracker.updateAuthor).toHaveBeenCalledWith(
       expect.objectContaining({
-        estadoCarga: 'subido',
-        accionRequerida: expect.stringMatching(/filiaci[oó]n (interna|vigente)/i),
+        uploadState: 'subido',
+        requiredAction: expect.stringMatching(/filiaci[oó]n (interna|vigente)/i),
       }),
       expect.any(Function),
     );
@@ -260,8 +260,8 @@ describe('runAuthorsUpload', () => {
     const options = buildOptions();
     await runAuthorsUpload(mockSession(), [buildAuthor()], options);
 
-    expect(options.progressTracker.actualizarAutor).toHaveBeenCalledWith(
-      expect.objectContaining({ accionRequerida: expect.stringMatching(/filiaci[oó]n (interna|vigente)/i) }),
+    expect(options.progressTracker.updateAuthor).toHaveBeenCalledWith(
+      expect.objectContaining({ requiredAction: expect.stringMatching(/filiaci[oó]n (interna|vigente)/i) }),
       expect.any(Function),
     );
   });
@@ -291,8 +291,8 @@ describe('runAuthorsUpload', () => {
 
     expect(result.failed).toHaveLength(1);
     expect(result.failed[0].error).toContain('HTTP 500');
-    expect(options.progressTracker.actualizarAutor).toHaveBeenCalledWith(
-      expect.objectContaining({ accionRequerida: 'Revisar error y reintentar' }),
+    expect(options.progressTracker.updateAuthor).toHaveBeenCalledWith(
+      expect.objectContaining({ requiredAction: 'Revisar error y reintentar' }),
       expect.any(Function),
     );
   });

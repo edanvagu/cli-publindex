@@ -302,18 +302,18 @@ describe('extracción de autores desde OJS', () => {
       <title locale="es_ES">T</title>
       <authors>
         <author>
-          <givenname locale="es_ES">Pablo</givenname>
-          <familyname locale="es_ES">Rodríguez</familyname>
+          <givenname locale="es_ES">Ana</givenname>
+          <familyname locale="es_ES">Pérez</familyname>
           <country>CO</country>
-          <affiliation locale="es_ES">Poligrán</affiliation>
+          <affiliation locale="es_ES">Universidad Ejemplo</affiliation>
         </author>
       </authors>
     </publication>`;
     const art = parsePublication(xml);
     expect(art.autores).toHaveLength(1);
-    expect(art.autores[0].nombre_completo).toBe('Pablo Rodríguez');
+    expect(art.autores[0].nombre_completo).toBe('Ana Pérez');
     expect(art.autores[0].nacionalidad).toBe('Colombiana');
-    expect(art.autores[0].filiacion_institucional).toBe('Poligrán');
+    expect(art.autores[0].filiacion_institucional).toBe('Universidad Ejemplo');
   });
 
   it('marca Extranjera cuando country no es CO', () => {

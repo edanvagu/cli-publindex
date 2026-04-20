@@ -16,7 +16,7 @@ export interface RunnerOptions {
   onRetry: (row: number, attempt: number, error: Error) => void;
   onTokenExpiring: () => void;
   onWarning: (msg: string) => void;
-  onArticleCreated?: (row: ArticleRow, idArticulo: number) => void;
+  onArticleCreated?: (row: ArticleRow, articleId: number) => void;
   abortSignal?: AbortSignal;
 }
 
@@ -47,7 +47,7 @@ export async function runUpload(
     const payload = rowToPayload(article, idFasciculo);
 
     try {
-      const idArticulo = await withRetry(
+      const articleId = await withRetry(
         () => createArticle(session.token, payload),
         {
           onRetry: (attempt, error) => {
@@ -60,19 +60,19 @@ export async function runUpload(
       successful.push({ row: article._fila, titulo: article.titulo });
       options.onProgress(i + 1, articles.length, article.titulo, true, elapsed);
 
-      options.progressTracker.actualizar(
-        { row: article._fila, estado: ARTICLE_STATES.UPLOADED, idArticulo },
+      options.progressTracker.update(
+        { row: article._fila, state: ARTICLE_STATES.UPLOADED, articleId },
         options.onWarning
       );
-      options.onArticleCreated?.(article, idArticulo);
+      options.onArticleCreated?.(article, articleId);
     } catch (err) {
       const elapsed = Date.now() - start;
       const errorMsg = err instanceof Error ? err.message : String(err);
       failed.push({ row: article._fila, titulo: article.titulo, error: errorMsg });
       options.onProgress(i + 1, articles.length, article.titulo, false, elapsed, errorMsg);
 
-      options.progressTracker.actualizar(
-        { row: article._fila, estado: ARTICLE_STATES.ERROR, error: errorMsg },
+      options.progressTracker.update(
+        { row: article._fila, state: ARTICLE_STATES.ERROR, error: errorMsg },
         options.onWarning
       );
     }

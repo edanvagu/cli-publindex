@@ -360,13 +360,13 @@ const AREAS_TREE: AreaConocimiento[] = [
   },
 ];
 
-const flatMap = new Map<string, { nombre: string; padre: string | null }>();
+const flatMap = new Map<string, { name: string; parent: string | null }>();
 
 function buildFlatMap(areas: AreaConocimiento[]) {
   for (const area of areas) {
     flatMap.set(area.codAreaConocimiento, {
-      nombre: area.txtNmeArea,
-      padre: area.codAreaPadre,
+      name: area.txtNmeArea,
+      parent: area.codAreaPadre,
     });
     if (area.areasHijas) {
       buildFlatMap(area.areasHijas);
@@ -376,45 +376,45 @@ function buildFlatMap(areas: AreaConocimiento[]) {
 
 buildFlatMap(AREAS_TREE);
 
-export function areaExists(codigo: string): boolean {
-  return flatMap.has(codigo);
+export function areaExists(code: string): boolean {
+  return flatMap.has(code);
 }
 
-export function getAreaName(codigo: string): string | undefined {
-  return flatMap.get(codigo)?.nombre;
+export function getAreaName(code: string): string | undefined {
+  return flatMap.get(code)?.name;
 }
 
-export function getAreaParent(codigo: string): string | null | undefined {
-  return flatMap.get(codigo)?.padre;
+export function getAreaParent(code: string): string | null | undefined {
+  return flatMap.get(code)?.parent;
 }
 
-export function getGranAreas(): { codigo: string; nombre: string }[] {
-  return AREAS_TREE.map(a => ({ codigo: a.codAreaConocimiento, nombre: a.txtNmeArea }));
+export function getGranAreas(): { code: string; name: string }[] {
+  return AREAS_TREE.map(a => ({ code: a.codAreaConocimiento, name: a.txtNmeArea }));
 }
 
-export function getChildAreas(codGranArea: string): { codigo: string; nombre: string }[] {
-  const granArea = AREAS_TREE.find(a => a.codAreaConocimiento === codGranArea);
+export function getChildAreas(granAreaCode: string): { code: string; name: string }[] {
+  const granArea = AREAS_TREE.find(a => a.codAreaConocimiento === granAreaCode);
   if (!granArea?.areasHijas) return [];
-  return granArea.areasHijas.map(a => ({ codigo: a.codAreaConocimiento, nombre: a.txtNmeArea }));
+  return granArea.areasHijas.map(a => ({ code: a.codAreaConocimiento, name: a.txtNmeArea }));
 }
 
-export function getChildSubareas(codArea: string): { codigo: string; nombre: string }[] {
+export function getChildSubareas(areaCode: string): { code: string; name: string }[] {
   for (const granArea of AREAS_TREE) {
     if (!granArea.areasHijas) continue;
-    const area = granArea.areasHijas.find(a => a.codAreaConocimiento === codArea);
+    const area = granArea.areasHijas.find(a => a.codAreaConocimiento === areaCode);
     if (area?.areasHijas) {
-      return area.areasHijas.map(a => ({ codigo: a.codAreaConocimiento, nombre: a.txtNmeArea }));
+      return area.areasHijas.map(a => ({ code: a.codAreaConocimiento, name: a.txtNmeArea }));
     }
   }
   return [];
 }
 
-export function areaBelongsToParent(codArea: string, codGranArea: string): boolean {
-  return getAreaParent(codArea) === codGranArea;
+export function areaBelongsToParent(areaCode: string, granAreaCode: string): boolean {
+  return getAreaParent(areaCode) === granAreaCode;
 }
 
-export function subareaBelongsToArea(codSubarea: string, codArea: string): boolean {
-  return getAreaParent(codSubarea) === codArea;
+export function subareaBelongsToArea(subareaCode: string, areaCode: string): boolean {
+  return getAreaParent(subareaCode) === areaCode;
 }
 
 export function getGranAreaCodeByName(name: string): string | undefined {

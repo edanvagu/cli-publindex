@@ -42,8 +42,8 @@ export interface OjsAuthorRow {
   filiacion_institucional?: string;
 }
 
-// Mapea locale OJS → label del idioma (no código), porque el Excel ahora
-// guarda labels y el validator/mapper los traduce a código antes de enviar a Publindex.
+// Mapea locale OJS → label del idioma. El Excel guarda labels; el mapper
+// traduce a código al construir el payload para Publindex.
 const LOCALE_TO_LANGUAGE: Record<string, string> = {
   es_ES: 'Español', en_US: 'Inglés', pt_BR: 'Portugués', fr_FR: 'Francés', de_DE: 'Alemán', it_IT: 'Italiano',
 };
@@ -292,7 +292,6 @@ function pickLocalized(node: any, locale: string): string | undefined {
   if (typeof node === 'object') {
     if (node[locale]) return String(node[locale]).trim() || undefined;
     if (node['#text']) return String(node['#text']).trim() || undefined;
-    // Primer valor string disponible
     for (const k of Object.keys(node)) {
       if (k.startsWith('@_')) continue;
       const v = node[k];

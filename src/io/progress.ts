@@ -10,38 +10,38 @@ import { normalizeHeader } from './excel-reader';
 
 export interface StateUpdate {
   row: number;
-  estado: ArticleState;
+  state: ArticleState;
   error?: string;
-  idArticulo?: number;
+  articleId?: number;
 }
 
 export interface AuthorStateUpdate {
   row: number;
-  estadoCarga?: string;
-  tieneCvlac?: string;
-  accionRequerida?: string;
-  idArticulo?: number;
+  uploadState?: string;
+  hasCvlac?: string;
+  requiredAction?: string;
+  articleId?: number;
 }
 
-export interface ProgresoSidecar {
+export interface ProgressSidecar {
   file: string;
-  ultimaActualizacion: string;
-  registros: {
+  lastUpdated: string;
+  records: {
     row: number;
-    estado: ArticleState;
-    fechaSubida?: string;
+    state: ArticleState;
+    uploadDate?: string;
     error?: string;
-    idArticulo?: number;
+    articleId?: number;
   }[];
-  autores?: AuthorSidecarRecord[];
+  authors?: AuthorSidecarRecord[];
 }
 
 interface AuthorSidecarRecord {
   row: number;
-  estadoCarga?: string;
-  tieneCvlac?: string;
-  accionRequerida?: string;
-  idArticulo?: number;
+  uploadState?: string;
+  hasCvlac?: string;
+  requiredAction?: string;
+  articleId?: number;
 }
 
 interface SheetCache {
@@ -49,10 +49,10 @@ interface SheetCache {
   data: Record<string, unknown>[];
 }
 
-interface CacheXlsx {
+interface XlsxCache {
   workbook: XLSX.WorkBook;
-  articulosSheetName: string;
-  autoresSheetName: string | null;
+  articlesSheetName: string;
+  authorsSheetName: string | null;
   sheets: Map<string, SheetCache>;
   dirty: Set<string>;
 }
@@ -62,63 +62,63 @@ interface CacheXlsx {
  * Si el archivo está bloqueado (Excel abierto), usa un sidecar JSON como fallback.
  */
 export class ProgressTracker {
-  private rutaArchivo: string;
-  private rutaSidecar: string;
-  private usarSidecar: boolean = false;
-  private advertenciaMostrada: boolean = false;
-  private cacheXlsx: CacheXlsx | null = null;
+  private filePath: string;
+  private sidecarPath: string;
+  private useSidecar: boolean = false;
+  private warningShown: boolean = false;
+  private xlsxCache: XlsxCache | null = null;
 
-  constructor(rutaArchivo: string) {
-    this.rutaArchivo = path.resolve(rutaArchivo);
-    this.rutaSidecar = this.rutaArchivo + '.progreso.json';
+  constructor(filePath: string) {
+    this.filePath = path.resolve(filePath);
+    this.sidecarPath = this.filePath + '.progreso.json';
   }
 
-  actualizar(actualizacion: StateUpdate, onWarning?: (msg: string) => void): boolean {
-    if (this.usarSidecar) {
-      this.actualizarSidecar(actualizacion);
+  update(update: StateUpdate, onWarning?: (msg: string) => void): boolean {
+    if (this.useSidecar) {
+      this.updateSidecar(update);
       return false;
     }
 
     try {
-      this.actualizarXlsx(actualizacion);
+      this.updateXlsx(update);
       return true;
-    } catch (err) {
-      this.fallbackASidecar(onWarning);
-      this.actualizarSidecar(actualizacion);
+    } catch {
+      this.fallbackToSidecar(onWarning);
+      this.updateSidecar(update);
       return false;
     }
   }
 
   /**
-   * Tras crear un artículo, escribe el `idArticulo` a todas las filas de la
+   * Tras crear un artículo, escribe el `articleId` a todas las filas de la
    * hoja Autores cuyo `titulo_articulo` matchee. Silencioso si no hay hoja Autores.
    */
   propagateArticleIdToAuthors(
-    tituloArticulo: string,
-    idArticulo: number,
+    articleTitle: string,
+    articleId: number,
     onWarning?: (msg: string) => void,
   ): number {
     try {
       const cache = this.ensureXlsxCache();
-      const autoresName = cache.autoresSheetName;
-      if (!autoresName) return 0;
+      const authorsName = cache.authorsSheetName;
+      if (!authorsName) return 0;
 
-      const sheetCache = cache.sheets.get(autoresName)!;
-      const tituloCol = findHeader(sheetCache.headers, AUTHOR_COLUMNS.TITULO_ARTICULO);
+      const sheetCache = cache.sheets.get(authorsName)!;
+      const titleCol = findHeader(sheetCache.headers, AUTHOR_COLUMNS.TITULO_ARTICULO);
       const idCol = findHeader(sheetCache.headers, AUTHOR_COLUMNS.ID_ARTICULO);
-      if (!tituloCol || !idCol) return 0;
+      if (!titleCol || !idCol) return 0;
 
-      const target = (tituloArticulo || '').trim();
+      const target = (articleTitle || '').trim();
       let count = 0;
-      for (const fila of sheetCache.data) {
-        const v = String(fila[tituloCol] ?? '').trim();
+      for (const row of sheetCache.data) {
+        const v = String(row[titleCol] ?? '').trim();
         if (v === target) {
-          fila[idCol] = idArticulo;
+          row[idCol] = articleId;
           count++;
         }
       }
 
-      if (count > 0) this.escribirCacheXlsx(autoresName);
+      if (count > 0) this.flushXlsxCache(authorsName);
       return count;
     } catch (err) {
       onWarning?.(`No se pudo propagar id_articulo a hoja Autores: ${(err as Error).message}`);
@@ -126,139 +126,139 @@ export class ProgressTracker {
     }
   }
 
-  actualizarAutor(actualizacion: AuthorStateUpdate, onWarning?: (msg: string) => void): boolean {
-    if (this.usarSidecar) {
-      this.actualizarAutorSidecar(actualizacion);
+  updateAuthor(update: AuthorStateUpdate, onWarning?: (msg: string) => void): boolean {
+    if (this.useSidecar) {
+      this.updateAuthorSidecar(update);
       return false;
     }
 
     try {
       const cache = this.ensureXlsxCache();
-      if (!cache.autoresSheetName) {
+      if (!cache.authorsSheetName) {
         throw new Error('Hoja Autores no existe en el archivo');
       }
 
-      const sheetCache = cache.sheets.get(cache.autoresSheetName)!;
-      const indice = actualizacion.row - 2;
-      if (indice < 0 || indice >= sheetCache.data.length) {
-        throw new Error(`Fila ${actualizacion.row} fuera de rango en hoja Autores`);
+      const sheetCache = cache.sheets.get(cache.authorsSheetName)!;
+      const index = update.row - 2;
+      if (index < 0 || index >= sheetCache.data.length) {
+        throw new Error(`Fila ${update.row} fuera de rango en hoja Autores`);
       }
 
-      const fila = sheetCache.data[indice];
+      const row = sheetCache.data[index];
       const setCol = (key: string, value: unknown) => {
         const col = findHeader(sheetCache.headers, key) ?? key;
-        fila[col] = value;
+        row[col] = value;
       };
-      if (actualizacion.estadoCarga !== undefined) setCol(AUTHOR_COLUMNS.ESTADO_CARGA, actualizacion.estadoCarga);
-      if (actualizacion.tieneCvlac !== undefined) setCol(AUTHOR_COLUMNS.TIENE_CVLAC, actualizacion.tieneCvlac);
-      if (actualizacion.accionRequerida !== undefined) setCol(AUTHOR_COLUMNS.ACCION_REQUERIDA, actualizacion.accionRequerida);
-      if (actualizacion.idArticulo !== undefined) setCol(AUTHOR_COLUMNS.ID_ARTICULO, actualizacion.idArticulo);
+      if (update.uploadState !== undefined) setCol(AUTHOR_COLUMNS.ESTADO_CARGA, update.uploadState);
+      if (update.hasCvlac !== undefined) setCol(AUTHOR_COLUMNS.TIENE_CVLAC, update.hasCvlac);
+      if (update.requiredAction !== undefined) setCol(AUTHOR_COLUMNS.ACCION_REQUERIDA, update.requiredAction);
+      if (update.articleId !== undefined) setCol(AUTHOR_COLUMNS.ID_ARTICULO, update.articleId);
 
-      this.escribirCacheXlsx(cache.autoresSheetName);
+      this.flushXlsxCache(cache.authorsSheetName);
       return true;
-    } catch (err) {
-      this.fallbackASidecar(onWarning);
-      this.actualizarAutorSidecar(actualizacion);
+    } catch {
+      this.fallbackToSidecar(onWarning);
+      this.updateAuthorSidecar(update);
       return false;
     }
   }
 
   trySyncSidecar(): boolean {
-    if (!fs.existsSync(this.rutaSidecar)) return true;
+    if (!fs.existsSync(this.sidecarPath)) return true;
 
     try {
-      const sidecar: ProgresoSidecar = JSON.parse(fs.readFileSync(this.rutaSidecar, 'utf-8'));
-      this.cacheXlsx = null; // forzar re-lectura (el usuario pudo haber cambiado el file)
+      const sidecar: ProgressSidecar = JSON.parse(fs.readFileSync(this.sidecarPath, 'utf-8'));
+      this.xlsxCache = null; // force re-read: the user may have edited the file
       const cache = this.ensureXlsxCache();
-      const articulosCache = cache.sheets.get(cache.articulosSheetName)!;
+      const articlesCache = cache.sheets.get(cache.articlesSheetName)!;
 
-      if (sidecar.registros.length > 0) {
-        for (const reg of sidecar.registros) {
-          const indice = reg.row - 2;
-          if (indice >= 0 && indice < articulosCache.data.length) {
-            articulosCache.data[indice][STATE_COLUMNS.STATE] = reg.estado;
-            if (reg.fechaSubida) articulosCache.data[indice][STATE_COLUMNS.UPLOAD_DATE] = reg.fechaSubida;
-            if (reg.error) articulosCache.data[indice][STATE_COLUMNS.LAST_ERROR] = reg.error;
-            if (reg.idArticulo !== undefined) articulosCache.data[indice][ARTICLE_ID_COLUMN] = reg.idArticulo;
+      if (sidecar.records.length > 0) {
+        for (const rec of sidecar.records) {
+          const index = rec.row - 2;
+          if (index >= 0 && index < articlesCache.data.length) {
+            articlesCache.data[index][STATE_COLUMNS.STATE] = rec.state;
+            if (rec.uploadDate) articlesCache.data[index][STATE_COLUMNS.UPLOAD_DATE] = rec.uploadDate;
+            if (rec.error) articlesCache.data[index][STATE_COLUMNS.LAST_ERROR] = rec.error;
+            if (rec.articleId !== undefined) articlesCache.data[index][ARTICLE_ID_COLUMN] = rec.articleId;
           }
         }
-        cache.dirty.add(cache.articulosSheetName);
+        cache.dirty.add(cache.articlesSheetName);
       }
 
-      if (sidecar.autores && cache.autoresSheetName && sidecar.autores.length > 0) {
-        const autoresCache = cache.sheets.get(cache.autoresSheetName)!;
-        const resolveCol = (key: string) => findHeader(autoresCache.headers, key) ?? key;
-        for (const reg of sidecar.autores) {
-          const indice = reg.row - 2;
-          if (indice >= 0 && indice < autoresCache.data.length) {
-            const fila = autoresCache.data[indice];
-            if (reg.estadoCarga !== undefined) fila[resolveCol(AUTHOR_COLUMNS.ESTADO_CARGA)] = reg.estadoCarga;
-            if (reg.tieneCvlac !== undefined) fila[resolveCol(AUTHOR_COLUMNS.TIENE_CVLAC)] = reg.tieneCvlac;
-            if (reg.accionRequerida !== undefined) fila[resolveCol(AUTHOR_COLUMNS.ACCION_REQUERIDA)] = reg.accionRequerida;
-            if (reg.idArticulo !== undefined) fila[resolveCol(AUTHOR_COLUMNS.ID_ARTICULO)] = reg.idArticulo;
+      if (sidecar.authors && cache.authorsSheetName && sidecar.authors.length > 0) {
+        const authorsCache = cache.sheets.get(cache.authorsSheetName)!;
+        const resolveCol = (key: string) => findHeader(authorsCache.headers, key) ?? key;
+        for (const rec of sidecar.authors) {
+          const index = rec.row - 2;
+          if (index >= 0 && index < authorsCache.data.length) {
+            const row = authorsCache.data[index];
+            if (rec.uploadState !== undefined) row[resolveCol(AUTHOR_COLUMNS.ESTADO_CARGA)] = rec.uploadState;
+            if (rec.hasCvlac !== undefined) row[resolveCol(AUTHOR_COLUMNS.TIENE_CVLAC)] = rec.hasCvlac;
+            if (rec.requiredAction !== undefined) row[resolveCol(AUTHOR_COLUMNS.ACCION_REQUERIDA)] = rec.requiredAction;
+            if (rec.articleId !== undefined) row[resolveCol(AUTHOR_COLUMNS.ID_ARTICULO)] = rec.articleId;
           }
         }
-        cache.dirty.add(cache.autoresSheetName);
+        cache.dirty.add(cache.authorsSheetName);
       }
 
-      this.escribirCacheXlsx();
-      fs.unlinkSync(this.rutaSidecar);
-      this.usarSidecar = false;
+      this.flushXlsxCache();
+      fs.unlinkSync(this.sidecarPath);
+      this.useSidecar = false;
       return true;
     } catch {
       return false;
     }
   }
 
-  static readStates(rutaArchivo: string, articles: ArticleRow[]): Map<number, ArticleState> {
-    const estados = new Map<number, ArticleState>();
-    const valoresValidos: ArticleState[] = [ARTICLE_STATES.UPLOADED, ARTICLE_STATES.ERROR, ARTICLE_STATES.PENDING];
+  static readStates(filePath: string, articles: ArticleRow[]): Map<number, ArticleState> {
+    const states = new Map<number, ArticleState>();
+    const validValues: ArticleState[] = [ARTICLE_STATES.UPLOADED, ARTICLE_STATES.ERROR, ARTICLE_STATES.PENDING];
 
     for (const art of articles) {
       if (!art.estado) continue;
-      const estado = art.estado.toLowerCase() as ArticleState;
-      if (valoresValidos.includes(estado)) {
-        estados.set(art._fila, estado);
+      const state = art.estado.toLowerCase() as ArticleState;
+      if (validValues.includes(state)) {
+        states.set(art._fila, state);
       }
     }
 
-    const rutaSidecar = path.resolve(rutaArchivo) + '.progreso.json';
-    if (fs.existsSync(rutaSidecar)) {
+    const sidecarPath = path.resolve(filePath) + '.progreso.json';
+    if (fs.existsSync(sidecarPath)) {
       try {
-        const sidecar: ProgresoSidecar = JSON.parse(fs.readFileSync(rutaSidecar, 'utf-8'));
-        for (const reg of sidecar.registros) {
-          estados.set(reg.row, reg.estado);
+        const sidecar: ProgressSidecar = JSON.parse(fs.readFileSync(sidecarPath, 'utf-8'));
+        for (const rec of sidecar.records) {
+          states.set(rec.row, rec.state);
         }
       } catch {
         // sidecar corrupto: ignorar
       }
     }
 
-    return estados;
+    return states;
   }
 
-  private fallbackASidecar(onWarning?: (msg: string) => void): void {
-    if (this.advertenciaMostrada) return;
-    this.advertenciaMostrada = true;
-    this.usarSidecar = true;
-    this.cacheXlsx = null;
+  private fallbackToSidecar(onWarning?: (msg: string) => void): void {
+    if (this.warningShown) return;
+    this.warningShown = true;
+    this.useSidecar = true;
+    this.xlsxCache = null;
     onWarning?.(
       `No se puede escribir al archivo original (probablemente está abierto en Excel). ` +
-      `Guardando progreso en ${path.basename(this.rutaSidecar)}. ` +
+      `Guardando progreso en ${path.basename(this.sidecarPath)}. ` +
       `Cierre el archivo Excel para que el progreso se guarde ahí directamente.`
     );
   }
 
-  private ensureXlsxCache(): CacheXlsx {
-    if (this.cacheXlsx) return this.cacheXlsx;
+  private ensureXlsxCache(): XlsxCache {
+    if (this.xlsxCache) return this.xlsxCache;
 
-    const workbook = XLSX.readFile(this.rutaArchivo);
+    const workbook = XLSX.readFile(this.filePath);
     const sheets = new Map<string, SheetCache>();
 
-    // La primera hoja es siempre la de artículos (por compatibilidad con plantillas viejas
-    // que no tenían nombre estandarizado). Buscamos también por nombre explícito.
-    let articulosSheetName = workbook.SheetNames.find(n => n === ARTICLES_SHEET_NAME) ?? workbook.SheetNames[0];
-    let autoresSheetName: string | null = workbook.SheetNames.find(n => n === AUTHORS_SHEET_NAME) ?? null;
+    // La primera hoja es siempre la de artículos (por compat con plantillas viejas
+    // sin nombres estandarizados). Buscamos también por nombre explícito.
+    const articlesSheetName = workbook.SheetNames.find(n => n === ARTICLES_SHEET_NAME) ?? workbook.SheetNames[0];
+    const authorsSheetName: string | null = workbook.SheetNames.find(n => n === AUTHORS_SHEET_NAME) ?? null;
 
     for (const name of workbook.SheetNames) {
       const sheet = workbook.Sheets[name];
@@ -266,14 +266,14 @@ export class ProgressTracker {
       const headerRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1 });
       const headers = headerRows.length > 0 ? (headerRows[0] as string[]).map(h => String(h)) : [];
 
-      if (name === articulosSheetName) {
+      if (name === articlesSheetName) {
         const normalized = headers.map(normalizeHeader);
         for (const col of Object.values(STATE_COLUMNS)) {
           if (!normalized.includes(col)) headers.push(col);
         }
         if (!normalized.includes(ARTICLE_ID_COLUMN)) headers.push(ARTICLE_ID_COLUMN);
       }
-      if (name === autoresSheetName) {
+      if (name === authorsSheetName) {
         const normalized = headers.map(normalizeHeader);
         for (const col of AUTHORS_SHEET_HEADERS) {
           if (!normalized.includes(col)) headers.push(col);
@@ -283,103 +283,102 @@ export class ProgressTracker {
       sheets.set(name, { headers, data });
     }
 
-    this.cacheXlsx = { workbook, articulosSheetName, autoresSheetName, sheets, dirty: new Set() };
-    return this.cacheXlsx;
+    this.xlsxCache = { workbook, articlesSheetName, authorsSheetName, sheets, dirty: new Set() };
+    return this.xlsxCache;
   }
 
   /**
-   * Re-serializa SOLO las hojas marcadas como dirty (las que tuvieron updates
-   * desde el último flush) y graba el workbook. Cada `json_to_sheet` sobre una
-   * hoja de 500 filas × 30 cols cuesta O(filas × cols); limitarlo a hojas
-   * modificadas ahorra la mitad del trabajo cuando un update afecta solo una.
+   * Re-serializa SOLO las hojas marcadas como dirty y graba el workbook.
+   * Cada `json_to_sheet` es O(filas × cols); limitar re-serialización a las
+   * hojas modificadas ahorra trabajo cuando un update afecta solo una.
    */
-  private escribirCacheXlsx(dirty?: string) {
-    const cache = this.cacheXlsx!;
+  private flushXlsxCache(dirty?: string) {
+    const cache = this.xlsxCache!;
     if (dirty) cache.dirty.add(dirty);
 
     for (const name of cache.dirty) {
       const sheetCache = cache.sheets.get(name);
       if (!sheetCache) continue;
-      const sheetAnterior = cache.workbook.Sheets[name];
-      const nuevaSheet = XLSX.utils.json_to_sheet(sheetCache.data, { header: sheetCache.headers });
-      if (sheetAnterior?.['!cols']) {
-        nuevaSheet['!cols'] = sheetAnterior['!cols'];
+      const previousSheet = cache.workbook.Sheets[name];
+      const newSheet = XLSX.utils.json_to_sheet(sheetCache.data, { header: sheetCache.headers });
+      if (previousSheet?.['!cols']) {
+        newSheet['!cols'] = previousSheet['!cols'];
       }
-      cache.workbook.Sheets[name] = nuevaSheet;
+      cache.workbook.Sheets[name] = newSheet;
     }
-    XLSX.writeFile(cache.workbook, this.rutaArchivo);
+    XLSX.writeFile(cache.workbook, this.filePath);
     cache.dirty.clear();
   }
 
-  private actualizarXlsx(actualizacion: StateUpdate) {
+  private updateXlsx(update: StateUpdate) {
     const cache = this.ensureXlsxCache();
-    const articulosCache = cache.sheets.get(cache.articulosSheetName)!;
+    const articlesCache = cache.sheets.get(cache.articlesSheetName)!;
 
-    const indice = actualizacion.row - 2;
-    if (indice < 0 || indice >= articulosCache.data.length) {
-      throw new Error(`Fila ${actualizacion.row} fuera de rango`);
+    const index = update.row - 2;
+    if (index < 0 || index >= articlesCache.data.length) {
+      throw new Error(`Fila ${update.row} fuera de rango`);
     }
 
-    articulosCache.data[indice][STATE_COLUMNS.STATE] = actualizacion.estado;
-    if (actualizacion.estado === ARTICLE_STATES.UPLOADED) {
-      articulosCache.data[indice][STATE_COLUMNS.UPLOAD_DATE] = new Date().toISOString();
-      articulosCache.data[indice][STATE_COLUMNS.LAST_ERROR] = '';
-    } else if (actualizacion.estado === ARTICLE_STATES.ERROR) {
-      articulosCache.data[indice][STATE_COLUMNS.LAST_ERROR] = actualizacion.error || '';
+    articlesCache.data[index][STATE_COLUMNS.STATE] = update.state;
+    if (update.state === ARTICLE_STATES.UPLOADED) {
+      articlesCache.data[index][STATE_COLUMNS.UPLOAD_DATE] = new Date().toISOString();
+      articlesCache.data[index][STATE_COLUMNS.LAST_ERROR] = '';
+    } else if (update.state === ARTICLE_STATES.ERROR) {
+      articlesCache.data[index][STATE_COLUMNS.LAST_ERROR] = update.error || '';
     }
-    if (actualizacion.idArticulo !== undefined) {
-      articulosCache.data[indice][ARTICLE_ID_COLUMN] = actualizacion.idArticulo;
+    if (update.articleId !== undefined) {
+      articlesCache.data[index][ARTICLE_ID_COLUMN] = update.articleId;
     }
 
-    this.escribirCacheXlsx(cache.articulosSheetName);
+    this.flushXlsxCache(cache.articlesSheetName);
   }
 
-  private actualizarSidecar(actualizacion: StateUpdate) {
-    const sidecar = this.leerSidecar();
-    const reg = {
-      row: actualizacion.row,
-      estado: actualizacion.estado,
-      fechaSubida: actualizacion.estado === ARTICLE_STATES.UPLOADED ? new Date().toISOString() : undefined,
-      error: actualizacion.error,
-      idArticulo: actualizacion.idArticulo,
+  private updateSidecar(update: StateUpdate) {
+    const sidecar = this.readSidecar();
+    const rec = {
+      row: update.row,
+      state: update.state,
+      uploadDate: update.state === ARTICLE_STATES.UPLOADED ? new Date().toISOString() : undefined,
+      error: update.error,
+      articleId: update.articleId,
     };
 
-    const idx = sidecar.registros.findIndex(r => r.row === actualizacion.row);
-    if (idx >= 0) sidecar.registros[idx] = reg;
-    else sidecar.registros.push(reg);
-    sidecar.ultimaActualizacion = new Date().toISOString();
+    const idx = sidecar.records.findIndex(r => r.row === update.row);
+    if (idx >= 0) sidecar.records[idx] = rec;
+    else sidecar.records.push(rec);
+    sidecar.lastUpdated = new Date().toISOString();
 
-    fs.writeFileSync(this.rutaSidecar, JSON.stringify(sidecar, null, 2), 'utf-8');
+    fs.writeFileSync(this.sidecarPath, JSON.stringify(sidecar, null, 2), 'utf-8');
   }
 
-  private actualizarAutorSidecar(actualizacion: AuthorStateUpdate) {
-    const sidecar = this.leerSidecar();
-    sidecar.autores = sidecar.autores ?? [];
+  private updateAuthorSidecar(update: AuthorStateUpdate) {
+    const sidecar = this.readSidecar();
+    sidecar.authors = sidecar.authors ?? [];
 
-    const idx = sidecar.autores.findIndex(r => r.row === actualizacion.row);
-    const reg: AuthorSidecarRecord = {
-      row: actualizacion.row,
-      estadoCarga: actualizacion.estadoCarga,
-      tieneCvlac: actualizacion.tieneCvlac,
-      accionRequerida: actualizacion.accionRequerida,
-      idArticulo: actualizacion.idArticulo,
+    const idx = sidecar.authors.findIndex(r => r.row === update.row);
+    const rec: AuthorSidecarRecord = {
+      row: update.row,
+      uploadState: update.uploadState,
+      hasCvlac: update.hasCvlac,
+      requiredAction: update.requiredAction,
+      articleId: update.articleId,
     };
-    if (idx >= 0) sidecar.autores[idx] = reg;
-    else sidecar.autores.push(reg);
-    sidecar.ultimaActualizacion = new Date().toISOString();
+    if (idx >= 0) sidecar.authors[idx] = rec;
+    else sidecar.authors.push(rec);
+    sidecar.lastUpdated = new Date().toISOString();
 
-    fs.writeFileSync(this.rutaSidecar, JSON.stringify(sidecar, null, 2), 'utf-8');
+    fs.writeFileSync(this.sidecarPath, JSON.stringify(sidecar, null, 2), 'utf-8');
   }
 
-  private leerSidecar(): ProgresoSidecar {
-    if (fs.existsSync(this.rutaSidecar)) {
+  private readSidecar(): ProgressSidecar {
+    if (fs.existsSync(this.sidecarPath)) {
       try {
-        return JSON.parse(fs.readFileSync(this.rutaSidecar, 'utf-8'));
+        return JSON.parse(fs.readFileSync(this.sidecarPath, 'utf-8'));
       } catch {
-        // corrupto: sobrescribir con vacío
+        // corrupto: sobrescribir
       }
     }
-    return { file: this.rutaArchivo, ultimaActualizacion: '', registros: [] };
+    return { file: this.filePath, lastUpdated: '', records: [] };
   }
 }
 

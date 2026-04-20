@@ -80,7 +80,6 @@ function buildAuthorsSheet(wb: ExcelJS.Workbook, authors: AuthorTemplateRow[]): 
 
   ws.columns = headers.map(h => ({ width: Math.max(h.length + 2, 22) }));
 
-  // Highlight amarillo para identificacion y nacionalidad vacías.
   authors.forEach((a, rowIdx) => {
     for (let colIdx = 0; colIdx < headers.length; colIdx++) {
       const header = headers[colIdx];
@@ -91,7 +90,6 @@ function buildAuthorsSheet(wb: ExcelJS.Workbook, authors: AuthorTemplateRow[]): 
     }
   });
 
-  // Dropdown de nacionalidad.
   const nacionalidadCol = headers.indexOf('nacionalidad') + 1;
   if (nacionalidadCol > 0) {
     const values = Object.values(NATIONALITIES);
@@ -188,7 +186,6 @@ function applyListToColumn(ws: ExcelJS.Worksheet, colIdx: number, formula: strin
 function buildLookupsSheet(wb: ExcelJS.Workbook): void {
   const ws = wb.addWorksheet('_lookups', { state: 'hidden' });
 
-  // Col A: labels de gran_areas. Col B: códigos paralelos.
   const granAreaLabels = AREAS_TREE.map(g => g.txtNmeArea);
   const granAreaCodes = AREAS_TREE.map(g => g.codAreaConocimiento);
   ws.getColumn(1).values = ['GRAN_AREAS', ...granAreaLabels];

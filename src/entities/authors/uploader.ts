@@ -17,7 +17,7 @@ export interface AuthorsUploadOptions {
   abortSignal?: AbortSignal;
 }
 
-function nacionalidadCode(label: string): 'C' | 'E' {
+function nationalityCode(label: string): 'C' | 'E' {
   const entry = Object.entries(NATIONALITIES).find(([, v]) => v === label);
   return (entry?.[0] ?? 'E') as 'C' | 'E';
 }
@@ -26,14 +26,14 @@ function writeError(
   tracker: ProgressTracker,
   author: AuthorRow,
   msg: string,
-  accionRequerida: string,
+  requiredAction: string,
   onWarning: (msg: string) => void,
 ) {
-  tracker.actualizarAutor(
+  tracker.updateAuthor(
     {
       row: author._fila,
-      estadoCarga: `${AUTHOR_STATES.ERROR}:${msg}`,
-      accionRequerida,
+      uploadState: `${AUTHOR_STATES.ERROR}:${msg}`,
+      requiredAction,
     },
     onWarning,
   );
@@ -110,19 +110,18 @@ async function runAuthorsPass(
         { onRetry: (attempt, error) => options.onRetry(author._fila, attempt, error) },
       );
 
-      const tieneCvlac = enriched.staCertificado === 'T';
+      const hasCvlac = enriched.staCertificado === 'T';
 
-      // Precheck Publindex: los colombianos deben tener CvLAC para poder vincularse.
-      // Sin este check, el POST /autores responde con un mensaje en español; lo
-      // preemptimos aquí para ahorrar un request y dar mejor feedback.
-      if (author.nacionalidad === NATIONALITIES.C && !tieneCvlac) {
+      // Pre-check: colombianos sin CvLAC no pueden vincularse. Hacerlo acá evita
+      // un POST /autores que Publindex rechaza con un mensaje en español.
+      if (author.nacionalidad === NATIONALITIES.C && !hasCvlac) {
         const msg = 'Colombiano sin CvLAC';
-        options.progressTracker.actualizarAutor(
+        options.progressTracker.updateAuthor(
           {
             row: author._fila,
-            estadoCarga: `${AUTHOR_STATES.ERROR}:${msg}`,
-            tieneCvlac: 'No',
-            accionRequerida: 'Registrar al autor en CvLAC (https://scienti.minciencias.gov.co/cvlac/) y reintentar',
+            uploadState: `${AUTHOR_STATES.ERROR}:${msg}`,
+            hasCvlac: 'No',
+            requiredAction: 'Registrar al autor en CvLAC (https://scienti.minciencias.gov.co/cvlac/) y reintentar',
           },
           options.onWarning,
         );
@@ -131,32 +130,31 @@ async function runAuthorsPass(
         continue;
       }
 
-      const idArticulo = parseInt(author.id_articulo, 10);
+      const articleId = parseInt(author.id_articulo, 10);
       await withRetry(
-        () => linkAuthor(session.token, { ...enriched, idArticulo, anoFasciculo: options.anoFasciculo }),
+        () => linkAuthor(session.token, { ...enriched, idArticulo: articleId, anoFasciculo: options.anoFasciculo }),
         { onRetry: (attempt, error) => options.onRetry(author._fila, attempt, error) },
       );
 
-      // Si la persona no tiene filiación institucional vigente en su trayectoria,
-      // Publindex la asume automáticamente como INTERNA (de la institución editora
-      // de la revista). El linkeo igual funciona, pero el editor debe actualizar
-      // CvLAC si la filiación real es distinta.
-      const tieneAfiliacionVigente = Array.isArray(enriched.instituciones) && enriched.instituciones.length > 0;
-      const accionRequerida = tieneAfiliacionVigente
+      // Sin filiación institucional vigente, Publindex asume INTERNA (de la
+      // institución editora) por defecto. El linkeo funciona; el editor corrige
+      // via CvLAC si la filiación real es otra.
+      const hasCurrentAffiliation = Array.isArray(enriched.instituciones) && enriched.instituciones.length > 0;
+      const requiredAction = hasCurrentAffiliation
         ? ''
         : 'Registrar experiencia profesional en CvLAC — sin filiación vigente, el sistema asumirá automáticamente que la filiación es interna (de la institución editora de la revista)';
 
-      options.progressTracker.actualizarAutor(
+      options.progressTracker.updateAuthor(
         {
           row: author._fila,
-          estadoCarga: AUTHOR_STATES.UPLOADED,
-          tieneCvlac: tieneCvlac ? 'Sí' : 'No',
-          accionRequerida,
+          uploadState: AUTHOR_STATES.UPLOADED,
+          hasCvlac: hasCvlac ? 'Sí' : 'No',
+          requiredAction,
         },
         options.onWarning,
       );
 
-      if (!tieneAfiliacionVigente) {
+      if (!hasCurrentAffiliation) {
         options.onWarning(`Fila ${author._fila} (${nombre}): vinculado, pero sin filiación vigente — el sistema lo asumirá como filiación interna. Registrar experiencia en CvLAC si corresponde a otra institución.`);
       }
 
@@ -182,9 +180,8 @@ async function resolvePerson(
   author: AuthorRow,
   options: AuthorsUploadOptions,
 ): Promise<PersonSearchResult | null> {
-  const tpoNac = nacionalidadCode(author.nacionalidad);
+  const tpoNac = nationalityCode(author.nacionalidad);
 
-  // Paso 1: búsqueda por documento (si se proporcionó).
   if (author.identificacion) {
     const byDoc = await searchPersons(token, {
       tpoNacionalidad: tpoNac,
@@ -194,7 +191,6 @@ async function resolvePerson(
     if (byDoc.length > 0) return byDoc[0];
   }
 
-  // Paso 2: fallback (o principal) por nombre con picker.
   if (author.nombre_completo) {
     const byName = await searchPersons(token, {
       tpoNacionalidad: tpoNac,

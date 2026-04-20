@@ -96,8 +96,6 @@ export async function uploadArticles(): Promise<void> {
 
   success('Carga de artículos finalizada.');
 
-  // Si hubo al menos un artículo exitoso, ofrecemos continuar con autores
-  // reutilizando sesión + fascículo + archivo (evita re-login y re-selección).
   if (result.successful.length > 0) {
     console.log('');
     const continuar = await confirmContinue('¿Continuar con la vinculación de autores?');
@@ -127,10 +125,10 @@ function buildUploadOptions(progressTracker: ProgressTracker, isRetry: boolean) 
       warning('Token próximo a expirar. Los próximos requests podrían fallar.');
     },
     onWarning: warning,
-    onArticleCreated: (article: ArticleRow, idArticulo: number) => {
-      const count = progressTracker.propagateArticleIdToAuthors(article.titulo, idArticulo, warning);
+    onArticleCreated: (article: ArticleRow, articleId: number) => {
+      const count = progressTracker.propagateArticleIdToAuthors(article.titulo, articleId, warning);
       if (count > 0) {
-        console.log(`        ↳ id_articulo=${idArticulo} propagado a ${count} fila(s) de la hoja Autores`);
+        console.log(`        ↳ id_articulo=${articleId} propagado a ${count} fila(s) de la hoja Autores`);
       }
     },
   };

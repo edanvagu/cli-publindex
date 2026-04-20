@@ -64,7 +64,6 @@ function validateArticle(art: ArticleRow, errors: ValidationError[]) {
     errors.push({ row, field: 'url', message: `"${art.url}" debe comenzar con http:// o https://` });
   }
 
-  // gran_area / area / subarea — validación en cascada sobre labels.
   const granAreaCode = art.gran_area ? getGranAreaCodeByName(art.gran_area) : undefined;
   if (!art.gran_area) {
     errors.push({ row, field: 'gran_area', message: 'Campo obligatorio' });
@@ -72,7 +71,7 @@ function validateArticle(art: ArticleRow, errors: ValidationError[]) {
     errors.push({
       row, field: 'gran_area',
       message: `"${art.gran_area}" no es una gran área válida`,
-      suggestion: `Valores válidos: ${getGranAreas().map(g => g.nombre).join(', ')}`,
+      suggestion: `Valores válidos: ${getGranAreas().map(g => g.name).join(', ')}`,
     });
   }
 
@@ -86,7 +85,7 @@ function validateArticle(art: ArticleRow, errors: ValidationError[]) {
       errors.push({
         row, field: 'area',
         message: `"${art.area}" no pertenece a ${art.gran_area}`,
-        suggestion: `Áreas válidas bajo "${art.gran_area}": ${validAreas.map(a => a.nombre).join(', ')}`,
+        suggestion: `Áreas válidas bajo "${art.gran_area}": ${validAreas.map(a => a.name).join(', ')}`,
       });
     }
   }
@@ -98,7 +97,7 @@ function validateArticle(art: ArticleRow, errors: ValidationError[]) {
       errors.push({
         row, field: 'subarea',
         message: `"${art.subarea}" no pertenece a ${art.area}`,
-        suggestion: `Subáreas válidas bajo "${art.area}": ${validSubs.map(s => s.nombre).join(', ')}`,
+        suggestion: `Subáreas válidas bajo "${art.area}": ${validSubs.map(s => s.name).join(', ')}`,
       });
     }
   }

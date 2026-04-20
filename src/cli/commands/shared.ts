@@ -5,10 +5,6 @@ import { listIssues } from '../../entities/issues/api';
 import { Session } from '../../entities/auth/types';
 import { Issue } from '../../entities/issues/types';
 
-/**
- * Pide credenciales e inicia sesión. En caso de fallo, imprime el error y lanza
- * para que el command padre haga `return`; el loop del CLI atrapa y vuelve al menú.
- */
 export async function loginOrThrow(): Promise<Session> {
   const { username, password } = await promptCredentials();
   const sp = spinner('Iniciando sesión...');

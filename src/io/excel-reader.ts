@@ -22,7 +22,7 @@ export interface ReadResult {
   withError: ArticleRow[];
 }
 
-const HEADERS_CONOCIDOS: ReadonlySet<string> = new Set<string>([
+const KNOWN_HEADERS: ReadonlySet<string> = new Set<string>([
   ...(EXCEL_HEADERS as readonly string[]),
   STATE_COLUMNS.STATE,
   STATE_COLUMNS.UPLOAD_DATE,
@@ -42,9 +42,9 @@ export function readArticles(filePath: string): ReadResult {
     throw new Error(`Formato no soportado: ${ext}. Use .xlsx o .xls`);
   }
 
-  const { articles, headersNormalizados } = parseXlsx(absolutePath);
+  const { articles, normalizedHeaders } = parseXlsx(absolutePath);
 
-  const unknownHeaders = headersNormalizados.filter(h => h && !HEADERS_CONOCIDOS.has(h));
+  const unknownHeaders = normalizedHeaders.filter(h => h && !KNOWN_HEADERS.has(h));
 
   const alreadyUploaded: ArticleRow[] = [];
   const pending: ArticleRow[] = [];

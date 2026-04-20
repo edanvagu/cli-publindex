@@ -82,15 +82,15 @@ describe('getGranAreas', () => {
 
   it('incluye Humanidades con código 6', () => {
     const granAreas = getGranAreas();
-    const humanidades = granAreas.find(g => g.codigo === '6');
+    const humanidades = granAreas.find(g => g.code === '6');
     expect(humanidades).toBeDefined();
-    expect(humanidades?.nombre).toBe('Humanidades');
+    expect(humanidades?.name).toBe('Humanidades');
   });
 
   it('todos los códigos son strings de un solo dígito', () => {
     const granAreas = getGranAreas();
     for (const ga of granAreas) {
-      expect(ga.codigo).toMatch(/^[1-6]$/);
+      expect(ga.code).toMatch(/^[1-6]$/);
     }
   });
 });
@@ -99,9 +99,9 @@ describe('getChildAreas', () => {
   it('retorna las áreas de Humanidades', () => {
     const areas = getChildAreas('6');
     expect(areas.length).toBeGreaterThan(0);
-    const codigos = areas.map(a => a.codigo);
-    expect(codigos).toContain('6A');
-    expect(codigos).toContain('6B');
+    const codes =areas.map(a => a.code);
+    expect(codes).toContain('6A');
+    expect(codes).toContain('6B');
   });
 
   it('retorna array vacío para gran área inexistente', () => {
@@ -111,7 +111,7 @@ describe('getChildAreas', () => {
   it('todas las áreas tienen nombre no vacío', () => {
     const areas = getChildAreas('1');
     for (const a of areas) {
-      expect(a.nombre).toBeTruthy();
+      expect(a.name).toBeTruthy();
     }
   });
 });
@@ -119,10 +119,10 @@ describe('getChildAreas', () => {
 describe('getChildSubareas', () => {
   it('retorna las subáreas de 6A (Historia y Arqueología)', () => {
     const subareas = getChildSubareas('6A');
-    const codigos = subareas.map(s => s.codigo);
-    expect(codigos).toContain('6A01');
-    expect(codigos).toContain('6A02');
-    expect(codigos).toContain('6A03');
+    const codes =subareas.map(s => s.code);
+    expect(codes).toContain('6A01');
+    expect(codes).toContain('6A02');
+    expect(codes).toContain('6A03');
   });
 
   it('retorna array vacío para área inexistente', () => {

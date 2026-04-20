@@ -17,7 +17,7 @@ describe('authors API', () => {
 
     const res = await searchPersons('tok', {
       tpoNacionalidad: 'C',
-      nroDocumentoIdent: '71772091',
+      nroDocumentoIdent: '99999999',
       txtTotalNames: '',
     });
 
@@ -26,7 +26,7 @@ describe('authors API', () => {
       expect.stringContaining('/personas/criterios'),
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ tpoNacionalidad: 'C', nroDocumentoIdent: '71772091', txtTotalNames: '' }),
+        body: JSON.stringify({ tpoNacionalidad: 'C', nroDocumentoIdent: '99999999', txtTotalNames: '' }),
       }),
     );
   });
@@ -46,9 +46,9 @@ describe('authors API', () => {
 
   it('getTrayectoria construye la URL con codRh y año', async () => {
     vi.mocked(http.httpRequest).mockResolvedValue({ status: 200, data: { codRh: 'X' } } as any);
-    await getTrayectoria('tok', '0000207039', 2025);
+    await getTrayectoria('tok', '0000000001', 2025);
     expect(http.httpRequest).toHaveBeenCalledWith(
-      expect.stringMatching(/\/personas\/0000207039\/2025\/trayectoriaProfesional$/),
+      expect.stringMatching(/\/personas\/0000000001\/2025\/trayectoriaProfesional$/),
       expect.objectContaining({ method: 'GET' }),
     );
   });
@@ -56,7 +56,7 @@ describe('authors API', () => {
   it('linkAuthor hace POST a /autores con el payload completo', async () => {
     vi.mocked(http.httpRequest).mockResolvedValue({ status: 200, data: '' } as any);
     await linkAuthor('tok', {
-      codRh: '0000207039',
+      codRh: '0000000001',
       idArticulo: 253026,
       anoFasciculo: 2025,
     } as any);

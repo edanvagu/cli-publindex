@@ -1,30 +1,28 @@
 import { AUTHOR_STATES } from '../../config/constants';
 
-// Fila del Excel hoja Autores — keys coinciden con columnas del Excel.
 export interface AuthorRow {
   titulo_articulo: string;
-  id_articulo: string;          // puede estar vacío si aún no se subió el artículo
+  id_articulo: string;          // vacío hasta que el artículo padre se sube
   nombre_completo: string;
-  identificacion: string;       // número de documento
-  nacionalidad: string;         // label: "Colombiana" | "Extranjera"
+  identificacion: string;
+  nacionalidad: string;         // "Colombiana" | "Extranjera"
   filiacion_institucional?: string;
-  tiene_cvlac?: string;         // label: "Sí" | "No" — auto
-  estado_carga?: string;        // auto
-  accion_requerida?: string;    // auto
+  tiene_cvlac?: string;         // "Sí" | "No"
+  estado_carga?: string;
+  accion_requerida?: string;
   _fila: number;
 }
 
 export type AuthorState = typeof AUTHOR_STATES[keyof typeof AUTHOR_STATES];
 
-// Criterios del POST /api/personas/criterios
 export interface PersonSearchCriteria {
   tpoNacionalidad: 'C' | 'E';
   nroDocumentoIdent: string;
   txtTotalNames: string;
 }
 
-// Shape de cada persona en el array de respuesta de /personas/criterios.
-// Muchos campos vienen null en la búsqueda y se completan con trayectoriaProfesional.
+// Muchos campos vienen null en el response de /criterios; se completan al
+// llamar a /trayectoriaProfesional con el codRh obtenido.
 export interface PersonSearchResult {
   codRh: string;
   nroIdCnpq?: string | null;
@@ -65,7 +63,6 @@ export interface PersonSearchResult {
   [key: string]: unknown;
 }
 
-// Payload del POST /api/autores: objeto completo de la búsqueda + idArticulo + anoFasciculo.
 export type LinkAuthorPayload = PersonSearchResult & {
   idArticulo: number;
   anoFasciculo: number;

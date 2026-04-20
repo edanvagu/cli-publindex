@@ -5,7 +5,7 @@ import { normalizeHeader } from './excel-reader';
 
 export interface ParseResult {
   articles: ArticleRow[];
-  headersNormalizados: string[];
+  normalizedHeaders: string[];
 }
 
 export function parseXlsx(filePath: string): ParseResult {
@@ -13,7 +13,7 @@ export function parseXlsx(filePath: string): ParseResult {
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
 
   const headerRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1 });
-  const headersNormalizados = headerRows.length > 0
+  const normalizedHeaders = headerRows.length > 0
     ? (headerRows[0] as string[]).map(h => normalizeHeader(String(h ?? '')))
     : [];
 
@@ -22,5 +22,5 @@ export function parseXlsx(filePath: string): ParseResult {
     .map((raw, i) => mapRawToArticleRow(raw, i + 2))
     .filter(row => !isEmptyRow(row));
 
-  return { articles, headersNormalizados };
+  return { articles, normalizedHeaders };
 }
