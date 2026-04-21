@@ -1,8 +1,9 @@
-import { httpRequest, buildAuthHeaders } from '../../io/publindex-http';
+import { authedRequest } from '../../io/publindex-http';
 import { ENDPOINTS } from '../../config/constants';
+import { Session } from '../auth/types';
 import { ArticlePayload } from './types';
 
-export async function createArticle(token: string, payload: ArticlePayload): Promise<number> {
+export async function createArticle(session: Session, payload: ArticlePayload): Promise<number> {
   const jsonStr = JSON.stringify(payload);
 
   // multipart/form-data manual — el endpoint espera el campo "articulo" (en español,
@@ -17,12 +18,9 @@ export async function createArticle(token: string, payload: ArticlePayload): Pro
     '',
   ].join('\r\n');
 
-  const response = await httpRequest(ENDPOINTS.ARTICLES, {
+  const response = await authedRequest(session, ENDPOINTS.ARTICLES, {
     method: 'POST',
-    headers: {
-      ...buildAuthHeaders(token),
-      'Content-Type': `multipart/form-data; boundary=${boundary}`,
-    },
+    headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
     body,
   });
 

@@ -48,7 +48,7 @@ export async function runUpload(
 
     try {
       const articleId = await withRetry(
-        () => createArticle(session.token, payload),
+        () => createArticle(session, payload),
         {
           onRetry: (attempt, error) => {
             options.onRetry(article._fila, attempt, error);

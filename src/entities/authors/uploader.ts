@@ -3,8 +3,9 @@ import { Session } from '../auth/types';
 import { searchPersons, getTrayectoria, linkAuthor } from './api';
 import { tokenValid } from '../auth/session';
 import { withRetry } from '../../utils/retry';
-import { AUTHOR_STATES, NATIONALITIES } from '../../config/constants';
+import { AUTHOR_STATES, DEFAULTS, NATIONALITIES } from '../../config/constants';
 import { ProgressTracker } from '../../io/progress';
+import { sleep } from '../../utils/async';
 
 export interface AuthorsUploadOptions {
   progressTracker: ProgressTracker;
@@ -14,7 +15,18 @@ export interface AuthorsUploadOptions {
   onTokenExpiring: () => void;
   onWarning: (msg: string) => void;
   onPickPerson: (candidates: PersonSearchResult[], author: AuthorRow) => Promise<PersonSearchResult | null>;
+  onPause?: (segundos: number) => void;
   abortSignal?: AbortSignal;
+}
+
+function adaptivePauseMs(elapsedMs: number): number {
+  const base = Math.max(0, DEFAULTS.AUTHOR_TARGET_SPACING_MS - elapsedMs);
+  const jitter = Math.floor(Math.random() * DEFAULTS.AUTHOR_JITTER_MS);
+  return base + jitter;
+}
+
+function subcallPause(signal?: AbortSignal): Promise<void> {
+  return sleep(DEFAULTS.SUBCALL_PAUSE_MS, signal).catch(() => {});
 }
 
 function nationalityCode(label: string): 'C' | 'E' {
@@ -43,6 +55,10 @@ const NOT_FOUND_ERROR = 'No encontrado en Publindex';
 
 function flipNationality(label: string): string {
   return label === NATIONALITIES.C ? NATIONALITIES.E : NATIONALITIES.C;
+}
+
+export function estimateAuthorsTimeSeconds(cantidad: number): number {
+  return Math.round(cantidad * DEFAULTS.ESTIMATED_SECONDS_PER_AUTHOR);
 }
 
 export async function runAuthorsUpload(
@@ -83,7 +99,6 @@ async function runAuthorsPass(
   const startTime = Date.now();
   const successful: AuthorsUploadResult['successful'] = [];
   const failed: AuthorsUploadResult['failed'] = [];
-
   for (let i = 0; i < authors.length; i++) {
     if (options.abortSignal?.aborted) break;
 
@@ -96,7 +111,7 @@ async function runAuthorsPass(
     }
 
     try {
-      const person = await resolvePerson(session.token, author, options);
+      const person = await resolvePerson(session, author, options);
       if (!person) {
         const msg = NOT_FOUND_ERROR;
         writeError(options.progressTracker, author, msg, 'Registrar autor manualmente en Publindex', options.onWarning);
@@ -105,15 +120,14 @@ async function runAuthorsPass(
         continue;
       }
 
+      await subcallPause(options.abortSignal);
       const enriched = await withRetry(
-        () => getTrayectoria(session.token, person.codRh, options.anoFasciculo),
+        () => getTrayectoria(session, person.codRh, options.anoFasciculo),
         { onRetry: (attempt, error) => options.onRetry(author._fila, attempt, error) },
       );
 
       const hasCvlac = enriched.staCertificado === 'T';
 
-      // Pre-check: colombianos sin CvLAC no pueden vincularse. Hacerlo acá evita
-      // un POST /autores que Publindex rechaza con un mensaje en español.
       if (author.nacionalidad === NATIONALITIES.C && !hasCvlac) {
         const msg = 'Colombiano sin CvLAC';
         options.progressTracker.updateAuthor(
@@ -131,14 +145,13 @@ async function runAuthorsPass(
       }
 
       const articleId = parseInt(author.id_articulo, 10);
+      await subcallPause(options.abortSignal);
       await withRetry(
-        () => linkAuthor(session.token, { ...enriched, idArticulo: articleId, anoFasciculo: options.anoFasciculo }),
+        () => linkAuthor(session, { ...enriched, idArticulo: articleId, anoFasciculo: options.anoFasciculo }),
         { onRetry: (attempt, error) => options.onRetry(author._fila, attempt, error) },
       );
 
-      // Sin filiación institucional vigente, Publindex asume INTERNA (de la
-      // institución editora) por defecto. El linkeo funciona; el editor corrige
-      // via CvLAC si la filiación real es otra.
+      // Sin filiación institucional vigente, Publindex asume INTERNA (de la institución editora) por defecto. El linkeo funciona; el editor corrige via CvLAC si la filiación real es otra.
       const hasCurrentAffiliation = Array.isArray(enriched.instituciones) && enriched.instituciones.length > 0;
       const requiredAction = hasCurrentAffiliation
         ? ''
@@ -166,6 +179,18 @@ async function runAuthorsPass(
       failed.push({ row: author._fila, nombre, error: errorMsg });
       options.onProgress(i + 1, authors.length, nombre, false, Date.now() - start, errorMsg);
     }
+
+    if (i + 1 < authors.length) {
+      const pausa = adaptivePauseMs(Date.now() - start);
+      if (pausa > 0) {
+        options.onPause?.(Math.round(pausa / 1000));
+        try {
+          await sleep(pausa, options.abortSignal);
+        } catch {
+          break;
+        }
+      }
+    }
   }
 
   return {
@@ -176,23 +201,24 @@ async function runAuthorsPass(
 }
 
 async function resolvePerson(
-  token: string,
+  session: Session,
   author: AuthorRow,
   options: AuthorsUploadOptions,
 ): Promise<PersonSearchResult | null> {
   const tpoNac = nationalityCode(author.nacionalidad);
 
   if (author.identificacion) {
-    const byDoc = await searchPersons(token, {
+    const byDoc = await searchPersons(session, {
       tpoNacionalidad: tpoNac,
       nroDocumentoIdent: author.identificacion,
       txtTotalNames: '',
     });
     if (byDoc.length > 0) return byDoc[0];
+    await subcallPause(options.abortSignal);
   }
 
   if (author.nombre_completo) {
-    const byName = await searchPersons(token, {
+    const byName = await searchPersons(session, {
       tpoNacionalidad: tpoNac,
       nroDocumentoIdent: '',
       txtTotalNames: author.nombre_completo,

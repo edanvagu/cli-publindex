@@ -4,15 +4,13 @@ import {
   showProgress, showPickerReference, showCandidatesTable,
 } from '../logger';
 import { promptFilePath, confirmContinue, confirmAuthorsStart } from '../prompts';
-import { tokenValid } from '../../entities/auth/session';
-import { formatIssue } from '../../entities/issues/api';
 import { readAuthors, ReadAuthorsResult } from '../../io/authors-reader';
-import { runAuthorsUpload } from '../../entities/authors/uploader';
+import { runAuthorsUpload, estimateAuthorsTimeSeconds } from '../../entities/authors/uploader';
 import { ProgressTracker } from '../../io/progress';
 import { Session } from '../../entities/auth/types';
 import { Issue } from '../../entities/issues/types';
 import { AuthorRow, PersonSearchResult } from '../../entities/authors/types';
-import { loginOrThrow, fetchAndSelectIssue } from './shared';
+import { loginOrThrow, fetchAndSelectIssue, ensureTokenCoversEstimate } from './shared';
 
 export interface AuthorsContext {
   file: string;
@@ -32,7 +30,8 @@ export async function uploadAuthorsWithContext(ctx: AuthorsContext): Promise<voi
 }
 
 async function uploadAuthorsCore(ctx: AuthorsContext): Promise<void> {
-  const { file, session, issue } = ctx;
+  const { file, issue } = ctx;
+  let { session } = ctx;
 
   const readSpinner = spinner(`Leyendo hoja Autores de ${file}...`);
   let readResult: ReadAuthorsResult;
@@ -81,11 +80,7 @@ async function uploadAuthorsCore(ctx: AuthorsContext): Promise<void> {
     return;
   }
 
-  const sinDoc = toProcess.filter(a => !a.identificacion.trim()).length;
-  if (sinDoc > 0) {
-    info(`${sinDoc} autor(es) sin identificación — se buscarán por nombre (picker interactivo).`);
-  }
-
+  const estimatedTime = estimateAuthorsTimeSeconds(toProcess.length);
   const proceed = await confirmAuthorsStart(toProcess.length);
   if (!proceed) {
     info('Operación cancelada.');
@@ -97,11 +92,10 @@ async function uploadAuthorsCore(ctx: AuthorsContext): Promise<void> {
     error(`No se pudo determinar el año del fascículo (dtaPublicacion="${issue.dtaPublicacion}").`);
     return;
   }
-  info(`Fascículo: ${formatIssue(issue)} — año usado: ${anoFasciculo}`);
 
-  if (!tokenValid(session)) {
-    warning('El token está próximo a expirar.');
-  }
+  const refreshed = await ensureTokenCoversEstimate(session, estimatedTime, `vincular ${toProcess.length} autores`);
+  if (!refreshed) return;
+  session = refreshed;
 
   info(`Vinculando ${toProcess.length} autores...`);
   console.log('');
@@ -116,6 +110,7 @@ async function uploadAuthorsCore(ctx: AuthorsContext): Promise<void> {
     onTokenExpiring: () => warning('Token próximo a expirar. Los próximos requests podrían fallar.'),
     onWarning: warning,
     onPickPerson: buildPersonPicker(),
+    onPause: (segundos) => info(`Pausa de ${segundos}s antes del siguiente autor...`),
   });
 
   progressTracker.trySyncSidecar();

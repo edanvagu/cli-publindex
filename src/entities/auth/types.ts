@@ -21,4 +21,5 @@ export interface Session {
   idRevista: number;
   nmeRevista: string;
   expiresAt: Date;
+  cookies: Record<string, string>;
 }

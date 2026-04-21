@@ -17,7 +17,6 @@ export async function run(options: { forcedMode?: ExecutionMode } = {}): Promise
   while (true) {
     const mode = await mainMenu();
     if (mode === 'exit') {
-      info('Hasta luego.');
       return;
     }
     try {

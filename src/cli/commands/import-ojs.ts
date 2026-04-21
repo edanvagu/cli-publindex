@@ -1,6 +1,6 @@
 import * as path from 'path';
 import { spinner, success, error, info, warning } from '../logger';
-import { promptOjsFilePath, promptJournalBaseUrl, promptSavePath } from '../prompts';
+import { promptOjsFilePath, promptJournalBaseUrl, promptSavePath, promptUrlFailureAction } from '../prompts';
 import { buildArticleUrl } from '../../utils/urls';
 import { formatTimestampCompact } from '../../utils/dates';
 import { probeUrl } from '../../io/http-probe';
@@ -31,39 +31,55 @@ export async function importOjs(): Promise<void> {
     return;
   }
 
-  const baseUrl = await promptJournalBaseUrl();
+  let baseUrl = await promptJournalBaseUrl();
   const urlsByIndex = new Map<number, string>();
   const urlWarnings: string[] = [];
 
-  if (baseUrl) {
+  while (baseUrl) {
     const withId = articles
       .map((art, idx) => ({ art, idx }))
       .filter(({ art }) => art.submissionId);
 
     if (withId.length === 0) {
       warning('Ningún artículo tiene submissionId; no se construirán URLs.');
-    } else {
-      const verifySpinner = spinner(`Construyendo y verificando ${withId.length} URLs...`);
-      const results = await Promise.all(
-        withId.map(async ({ art, idx }) => {
-          const url = buildArticleUrl(baseUrl, art.submissionId!);
-          const result = await probeUrl(url);
-          return { idx, url, result };
-        })
-      );
-      const okCount = results.filter(r => r.result.ok).length;
-      verifySpinner.succeed(`${okCount}/${results.length} URLs respondieron 200`);
+      break;
+    }
 
-      for (const { idx, url, result } of results) {
-        urlsByIndex.set(idx, url);
-        if (!result.ok) {
-          const detalle = result.status ? `status ${result.status}` : result.error ?? 'sin respuesta';
-          urlWarnings.push(`Fila ${idx + 2}: URL ${url} no respondió 200 (${detalle}).`);
-        }
+    const verifySpinner = spinner(`Construyendo y verificando ${withId.length} URLs...`);
+    const results = await Promise.all(
+      withId.map(async ({ art, idx }) => {
+        const url = buildArticleUrl(baseUrl!, art.submissionId!);
+        const result = await probeUrl(url);
+        return { idx, url, result };
+      })
+    );
+    const okCount = results.filter(r => r.result.ok).length;
+
+    if (okCount === results.length) {
+      verifySpinner.succeed('Las URL de cada artículo se validaron exitosamente.');
+      for (const { idx, url } of results) urlsByIndex.set(idx, url);
+      break;
+    }
+
+    if (okCount === 0) {
+      verifySpinner.fail('Las URL no se comprobaron exitosamente.');
+      const action = await promptUrlFailureAction();
+      if (action === 'retry') {
+        baseUrl = await promptJournalBaseUrl();
+        continue;
+      }
+      break;
+    }
+
+    verifySpinner.warn(`${okCount}/${results.length} URLs respondieron 200`);
+    for (const { idx, url, result } of results) {
+      urlsByIndex.set(idx, url);
+      if (!result.ok) {
+        const detalle = result.status ? `status ${result.status}` : result.error ?? 'sin respuesta';
+        urlWarnings.push(`Fila ${idx + 2}: URL ${url} no respondió 200 (${detalle}).`);
       }
     }
-  } else {
-    info('URL base no proporcionada; las URLs quedarán vacías para llenar manualmente.');
+    break;
   }
 
   const rows = articles.map((art, idx) => ojsArticleToRow(art, urlsByIndex.get(idx)));

@@ -1,8 +1,5 @@
 export const BASE_URL = 'https://scienti.minciencias.gov.co/publindex/api';
 
-// Los paths de los endpoints son el contrato con el API Publindex; deben quedar
-// en español tal cual los expone Minciencias. Las keys del objeto (ISSUES,
-// ARTICLES) son identificadores internos del código, en inglés.
 export const ENDPOINTS = {
   LOGIN: `${BASE_URL}/autenticacion/autenticarEditor`,
   ISSUES: `${BASE_URL}/fasciculos`,
@@ -24,8 +21,11 @@ export const DEFAULTS = {
   PAUSE_MIN_MS: 4000,
   PAUSE_MAX_MS: 9000,
   SUBCALL_PAUSE_MS: 500,
-  ESTIMATED_SECONDS_PER_ARTICLE: 8.5,
+  AUTHOR_TARGET_SPACING_MS: 3000,
+  AUTHOR_JITTER_MS: 2000,
+  ESTIMATED_SECONDS_PER_ARTICLE: 15,
   ESTIMATED_SECONDS_PER_AUTHOR: 7,
+  PREFLIGHT_TOKEN_MARGIN_MS: 5 * 60 * 1000,
 } as const;
 
 export const STATE_COLUMNS = {
@@ -119,8 +119,6 @@ export const EXCEL_HEADERS = [
   'resumen_idioma_adicional',
 ] as const;
 
-// Columna extra en la hoja Artículos (después de estado/fecha_subida/ultimo_error)
-// con el id devuelto por el POST /articulos.
 export const ARTICLE_ID_COLUMN = 'id_articulo';
 
 export const AUTHORS_SHEET_NAME = 'Autores';

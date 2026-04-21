@@ -7,7 +7,6 @@ import { ProgressTracker } from '../../../src/io/progress';
 
 vi.mock('../../../src/entities/authors/api');
 
-// Pausas y retries — neutralizar para que los tests corran rápido.
 vi.mock('../../../src/utils/async', () => ({
   sleep: () => Promise.resolve(),
 }));
@@ -21,6 +20,7 @@ function mockSession(): Session {
     idRevista: 1,
     nmeRevista: 'Revista Test',
     expiresAt: new Date(Date.now() + 3600_000),
+    cookies: {},
   };
 }
 
@@ -81,11 +81,11 @@ describe('runAuthorsUpload', () => {
 
     expect(result.successful).toHaveLength(1);
     expect(result.failed).toHaveLength(0);
-    expect(api.searchPersons).toHaveBeenCalledWith('x', expect.objectContaining({
+    expect(api.searchPersons).toHaveBeenCalledWith(expect.objectContaining({ token: 'x' }), expect.objectContaining({
       tpoNacionalidad: 'C',
       nroDocumentoIdent: '99999999',
     }));
-    expect(api.linkAuthor).toHaveBeenCalledWith('x', expect.objectContaining({
+    expect(api.linkAuthor).toHaveBeenCalledWith(expect.objectContaining({ token: 'x' }), expect.objectContaining({
       codRh: '0000000001',
       idArticulo: 253026,
       anoFasciculo: 2025,
@@ -111,12 +111,10 @@ describe('runAuthorsUpload', () => {
 
     expect(onPickPerson).toHaveBeenCalled();
     expect(result.successful).toHaveLength(1);
-    expect(api.linkAuthor).toHaveBeenCalledWith('x', expect.objectContaining({ codRh: 'OTHER' }));
+    expect(api.linkAuthor).toHaveBeenCalledWith(expect.objectContaining({ token: 'x' }), expect.objectContaining({ codRh: 'OTHER' }));
   });
 
   it('marca error si el usuario escoge "Ninguno" en el picker', async () => {
-    // Ronda 1: doc → vacío; nombre → [PERSON] (picker devuelve null).
-    // Ronda 2 (fallback por nacionalidad cruzada): ambas búsquedas → vacío.
     vi.mocked(api.searchPersons)
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([PERSON])
@@ -162,7 +160,7 @@ describe('runAuthorsUpload', () => {
       options,
     );
 
-    expect(api.searchPersons).toHaveBeenCalledWith('x', expect.objectContaining({
+    expect(api.searchPersons).toHaveBeenCalledWith(expect.objectContaining({ token: 'x' }), expect.objectContaining({
       tpoNacionalidad: 'E',
     }));
   });
@@ -306,8 +304,6 @@ describe('fallback de nacionalidad (ronda 2)', () => {
   });
 
   it('rescata al autor flippeando la nacionalidad cuando ronda 1 devuelve vacío', async () => {
-    // Ronda 1 como Colombiana: doc → [], nombre → [].
-    // Ronda 2 como Extranjera: doc → [PERSON] (match inmediato).
     vi.mocked(api.searchPersons)
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
@@ -327,7 +323,6 @@ describe('fallback de nacionalidad (ronda 2)', () => {
     expect(result.successful).toHaveLength(1);
     expect(result.failed).toHaveLength(0);
 
-    // La tercera llamada (primera de ronda 2) fue con tpoNacionalidad='E'.
     const calls = vi.mocked(api.searchPersons).mock.calls;
     expect(calls[2][1]).toMatchObject({ tpoNacionalidad: 'E' });
 
@@ -344,7 +339,6 @@ describe('fallback de nacionalidad (ronda 2)', () => {
     expect(result.failed).toHaveLength(1);
     expect(result.failed[0].error).toBe('No encontrado en Publindex');
     expect(result.successful).toHaveLength(0);
-    // Round 1: 2 búsquedas (doc + nombre). Round 2: otras 2.
     expect(api.searchPersons).toHaveBeenCalledTimes(4);
     expect(options.onWarning).toHaveBeenCalledWith(expect.stringMatching(/Ronda 2/i));
   });
@@ -362,7 +356,6 @@ describe('fallback de nacionalidad (ronda 2)', () => {
 
     expect(result.failed).toHaveLength(1);
     expect(result.failed[0].error).toBe('Colombiano sin CvLAC');
-    // Solo 1 llamada a searchPersons: ronda 2 no se ejecuta.
     expect(api.searchPersons).toHaveBeenCalledTimes(1);
     expect(options.onWarning).not.toHaveBeenCalledWith(expect.stringMatching(/Ronda 2/i));
   });

@@ -1,14 +1,12 @@
-import { httpRequest, buildAuthHeaders } from '../../io/publindex-http';
+import { authedRequest } from '../../io/publindex-http';
 import { ENDPOINTS } from '../../config/constants';
+import { Session } from '../auth/types';
 import { Issue } from './types';
 
-export async function listIssues(token: string): Promise<Issue[]> {
-  const response = await httpRequest<Issue[]>(ENDPOINTS.ISSUES, {
+export async function listIssues(session: Session): Promise<Issue[]> {
+  const response = await authedRequest<Issue[]>(session, ENDPOINTS.ISSUES, {
     method: 'GET',
-    headers: {
-      ...buildAuthHeaders(token),
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
   });
 
   if (response.status !== 200) {

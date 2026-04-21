@@ -1,17 +1,15 @@
-import { httpRequest, buildAuthHeaders } from '../../io/publindex-http';
+import { authedRequest } from '../../io/publindex-http';
 import { ENDPOINTS, buildTrayectoriaUrl } from '../../config/constants';
+import { Session } from '../auth/types';
 import { PersonSearchCriteria, PersonSearchResult, LinkAuthorPayload } from './types';
 
 export async function searchPersons(
-  token: string,
+  session: Session,
   criteria: PersonSearchCriteria,
 ): Promise<PersonSearchResult[]> {
-  const response = await httpRequest<PersonSearchResult[]>(ENDPOINTS.PERSONS_SEARCH, {
+  const response = await authedRequest<PersonSearchResult[]>(session, ENDPOINTS.PERSONS_SEARCH, {
     method: 'POST',
-    headers: {
-      ...buildAuthHeaders(token),
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(criteria),
   });
 
@@ -24,17 +22,14 @@ export async function searchPersons(
 }
 
 export async function getTrayectoria(
-  token: string,
+  session: Session,
   codRh: string,
   anoFasciculo: number,
 ): Promise<PersonSearchResult> {
   const url = buildTrayectoriaUrl(codRh, anoFasciculo);
-  const response = await httpRequest<PersonSearchResult>(url, {
+  const response = await authedRequest<PersonSearchResult>(session, url, {
     method: 'GET',
-    headers: {
-      ...buildAuthHeaders(token),
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
   });
 
   if (response.status < 200 || response.status >= 300) {
@@ -49,13 +44,10 @@ export async function getTrayectoria(
   return response.data;
 }
 
-export async function linkAuthor(token: string, payload: LinkAuthorPayload): Promise<void> {
-  const response = await httpRequest(ENDPOINTS.AUTHORS, {
+export async function linkAuthor(session: Session, payload: LinkAuthorPayload): Promise<void> {
+  const response = await authedRequest(session, ENDPOINTS.AUTHORS, {
     method: 'POST',
-    headers: {
-      ...buildAuthHeaders(token),
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
 

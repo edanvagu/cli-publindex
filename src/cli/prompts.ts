@@ -274,6 +274,21 @@ export async function promptJournalBaseUrl(): Promise<string | null> {
   return trimmed ? trimmed : null;
 }
 
+export async function promptUrlFailureAction(): Promise<'retry' | 'skip'> {
+  const { action } = await inquirer.prompt([
+    {
+      type: 'list',
+      name: 'action',
+      message: '¿Qué desea hacer?',
+      choices: [
+        { name: 'Ingresar de nuevo la URL base', value: 'retry' },
+        { name: 'Omitir y completar las URLs manualmente en el Excel', value: 'skip' },
+      ],
+    },
+  ]);
+  return action;
+}
+
 export async function mainMenu(): Promise<ExecutionMode> {
   const { option } = await inquirer.prompt([
     {
@@ -310,9 +325,9 @@ export async function confirmResume(alreadyUploaded: number, pending: number): P
 }
 
 export async function confirmTimeEstimate(quantity: number, seconds: number): Promise<boolean> {
+  const avg = quantity > 0 ? Math.round(seconds / quantity) : 0;
   console.log('');
-  console.log(`  ⏱  Tiempo estimado: ~${formatDuration(seconds)} (${quantity} artículos × ~9s promedio)`);
-  console.log(`  ℹ  Se aplicará una pausa aleatoria de 4-9s entre cada artículo para no saturar el servidor`);
+  console.log(`  ⏱  Tiempo estimado: ~${formatDuration(seconds)} (${quantity} artículos × ~${avg}s promedio, incluyendo pausas)`);
   console.log('');
 
   const { proceder } = await inquirer.prompt([
@@ -328,7 +343,7 @@ export async function confirmTimeEstimate(quantity: number, seconds: number): Pr
 
 export async function confirmAuthorsStart(quantity: number): Promise<boolean> {
   console.log('');
-  console.log(`  ℹ  Se procesarán ${quantity} autor(es). El proceso es más ágil que artículos (sin pausas entre peticiones).`);
+  console.log(`  ℹ  Se procesarán ${quantity} autor(es).`);
   console.log('');
 
   const { proceder } = await inquirer.prompt([

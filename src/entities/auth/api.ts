@@ -1,4 +1,4 @@
-import { httpRequest } from '../../io/publindex-http';
+import { httpRequest, BROWSER_HEADERS, updateCookiesFromResponse } from '../../io/publindex-http';
 import { ENDPOINTS } from '../../config/constants';
 import { LoginResponse, Session } from './types';
 
@@ -11,10 +11,8 @@ export async function login(username: string, password: string): Promise<Session
   const response = await httpRequest<LoginResponse>(ENDPOINTS.LOGIN, {
     method: 'POST',
     headers: {
+      ...BROWSER_HEADERS,
       'Content-Type': 'application/json',
-      'Accept': 'application/json, text/plain, */*',
-      'Origin': 'https://scienti.minciencias.gov.co',
-      'Referer': 'https://scienti.minciencias.gov.co/publindex/',
     },
     body,
   });
@@ -29,12 +27,15 @@ export async function login(username: string, password: string): Promise<Session
   const data = response.data;
   const expiresAt = parseJwtExpiration(data.token);
 
-  return {
+  const session: Session = {
     token: data.token,
     idRevista: data.idRevista,
     nmeRevista: data.nmeRevista,
     expiresAt,
+    cookies: {},
   };
+  updateCookiesFromResponse(session, response);
+  return session;
 }
 
 function parseJwtExpiration(token: string): Date {

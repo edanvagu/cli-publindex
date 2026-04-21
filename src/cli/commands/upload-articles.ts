@@ -8,7 +8,7 @@ import { runUpload, estimateTimeSeconds } from '../../entities/articles/uploader
 import { ProgressTracker } from '../../io/progress';
 import { ArticleRow } from '../../entities/articles/types';
 import { uploadAuthorsWithContext } from './upload-authors';
-import { loginOrThrow, fetchAndSelectIssue } from './shared';
+import { loginOrThrow, fetchAndSelectIssue, ensureTokenCoversEstimate } from './shared';
 
 export async function uploadArticles(): Promise<void> {
   const file = await promptFilePath();
@@ -55,7 +55,7 @@ export async function uploadArticles(): Promise<void> {
     }
   }
 
-  const session = await loginOrThrow();
+  let session = await loginOrThrow();
   const issue = await fetchAndSelectIssue(session);
   success(`Fascículo seleccionado: ${formatIssue(issue)} (ID: ${issue.id})`);
 
@@ -66,9 +66,9 @@ export async function uploadArticles(): Promise<void> {
     return;
   }
 
-  if (!tokenValid(session)) {
-    warning('El token de sesión está próximo a expirar. Considere reiniciar el proceso.');
-  }
+  const refreshed = await ensureTokenCoversEstimate(session, estimatedTime, `cargar ${validation.valid.length} artículos`);
+  if (!refreshed) return;
+  session = refreshed;
 
   info(`Iniciando carga de ${validation.valid.length} artículos...`);
   console.log('');
@@ -126,10 +126,7 @@ function buildUploadOptions(progressTracker: ProgressTracker, isRetry: boolean) 
     },
     onWarning: warning,
     onArticleCreated: (article: ArticleRow, articleId: number) => {
-      const count = progressTracker.propagateArticleIdToAuthors(article.titulo, articleId, warning);
-      if (count > 0) {
-        console.log(`        ↳ id_articulo=${articleId} propagado a ${count} fila(s) de la hoja Autores`);
-      }
+      progressTracker.propagateArticleIdToAuthors(article.titulo, articleId, warning);
     },
   };
 }
