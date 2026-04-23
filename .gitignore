@@ -4,3 +4,4 @@ dist/
 .env
 .claude/
 /samples
+skills-lock.json

@@ -2,9 +2,9 @@
 
 ## Objetivo
 
-El proyecto automatiza la carga de artículos de revistas académicas colombianas al sistema Publindex (Minciencias), lee metadatos desde Excel/CSV/OJS XML, valida, y hace upload secuencial vía API REST con retries y progreso.
+El proyecto automatiza la carga de artículos y la vinculación de autores en el sistema [Publindex](https://scienti.minciencias.gov.co/publindex/) (Minciencias). Lee metadatos desde un export XML de OJS o desde un Excel ya prellenado, valida contra el catálogo Minciencias, hace upload secuencial vía API REST con reintentos, pausas adaptativas y persistencia de progreso en el mismo Excel.
 
-La arquitectura está organizada **por entidades** (articles, auth, issues, areas) con capas internas delgadas, pensada para escalar a la Fase 2 (carga de autores + evaluadores) sin tocar código existente — solo agregando carpetas paralelas.
+La arquitectura está organizada **por entidades** (articles, authors, auth, issues, areas) con capas internas delgadas. La regla del proyecto: agregar una entidad nueva no debe forzar tocar código existente — solo agregar una carpeta paralela bajo `src/entities/`.
 
 ## Capas y dependencias
 
@@ -21,20 +21,22 @@ La arquitectura está organizada **por entidades** (articles, auth, issues, area
 ┌─────────────────────────────────────────────────────────┐
 │  entities/                                               │
 │    articles/   (types, validator, mapper, api, uploader) │
+│    authors/    (types, api, uploader)                    │
 │    auth/       (types, api, session)                     │
 │    issues/     (types, api)                              │
-│    areas/      (tree + lookups)                          │
+│    areas/      (tree + lookups Minciencias)              │
 └──────────────────┬──────────────────────────────────────┘
                    │ usa
                    ▼
 ┌─────────────────────────────────────────────────────────┐
 │  io/                                                     │
-│    publindex-http.ts  (cliente HTTP Publindex)           │
+│    publindex-http.ts  (HTTP client Publindex + cookies)  │
 │    http-probe.ts      (verificador genérico 2xx)         │
-│    excel-reader.ts    (lectura .xlsx/.xls/.csv → rows)   │
-│    excel-writer.ts    (rows → .xlsx con estilos)         │
-│    xlsx-parser.ts, csv-parser.ts, row-mapper.ts          │
-│    ojs-xml.ts         (streaming parser de OJS)          │
+│    excel-reader.ts    (lectura .xlsx/.xls → ArticleRow)  │
+│    authors-reader.ts  (lectura hoja Autores)             │
+│    excel-writer.ts    (rows → .xlsx con estilos+lookups) │
+│    xlsx-parser.ts, row-mapper.ts                         │
+│    ojs-xml.ts         (streaming parser de export OJS)   │
 │    progress.ts        (estado persistente Excel+sidecar) │
 └──────────────────┬──────────────────────────────────────┘
                    │ usa
@@ -61,9 +63,9 @@ La arquitectura está organizada **por entidades** (articles, auth, issues, area
 **Qué vive aquí:** interacción con el usuario (prompts con inquirer, outputs con chalk), ruteo entre comandos según la opción del menú. Los archivos son "delgados" — orquestan llamadas a `entities/` e `io/`, nunca contienen lógica de dominio.
 
 - `index.ts` — router del menú principal. Un `switch` despacha a un comando.
-- `commands/{validate,upload-articles,import-ojs,generate-template}.ts` — un archivo por comando. Contiene el flujo end-to-end de ese caso de uso (pedir inputs → llamar servicios → mostrar resultados).
-- `prompts.ts` — funciones que piden inputs del usuario (`promptCredentials`, `selectIssue`, `promptFilePath`, etc.).
-- `logger.ts` — helpers de output (`success`, `warning`, `info`, `error`, `showValidation`, `showSummary`, etc.).
+- `commands/{import-ojs,upload-articles,upload-authors,shared}.ts` — un archivo por comando. Contiene el flujo end-to-end de ese caso de uso (pedir inputs → llamar servicios → mostrar resultados). `shared.ts` agrupa pasos reutilizables como `loginOrThrow`, `fetchAndSelectIssue`, `ensureTokenCoversEstimate`.
+- `prompts.ts` — funciones que piden inputs del usuario (`promptCredentials`, `selectIssue`, `promptFilePath`, etc.). Encapsula también el diálogo nativo de archivos (PowerShell en Windows, osascript en Mac).
+- `logger.ts` — helpers de output (`success`, `warning`, `info`, `error`, `showValidation`, `showSummary`, `showPickerReference`, `showCandidatesTable`, etc.).
 
 **Qué NO vive aquí:** lógica de negocio, llamadas HTTP directas, parseo de archivos, validación de dominio.
 
@@ -71,31 +73,33 @@ La arquitectura está organizada **por entidades** (articles, auth, issues, area
 
 **Qué vive aquí:** dominio + servicios por entidad. Cada entidad es una carpeta independiente con los mismos archivos estándar:
 
-- `types.ts` — interfaces TypeScript de la entidad. Los keys de tipos que cruzan contratos externos (Excel, API Publindex) quedan en español; los keys puramente internos en inglés.
-- `headers.ts` — metadata de columnas Excel (si aplica).
+- `types.ts` — interfaces TypeScript de la entidad.
 - `validator.ts` — reglas de validación de negocio. Pura, sin I/O.
 - `mapper.ts` — transformación entre shapes (ej. `ArticleRow` → `ArticlePayload`). Pura.
-- `api.ts` — operaciones CRUD contra el API Publindex (usa `io/publindex-http`).
-- `uploader.ts` — orquestación de cargas batch con retries, pausas, progreso.
+- `api.ts` — operaciones contra el API Publindex (usa `io/publindex-http`).
+- `uploader.ts` — orquestación de cargas batch con reintentos, pausas adaptativas y progreso.
 
 **Qué NO vive aquí:** prompts del usuario, output coloreado, streaming de archivos grandes (eso va en `io/`).
 
-Las 4 entidades actuales:
-- `articles/` — artículos (entidad principal, completa).
-- `auth/` — login + gestión de sesión JWT.
+Las 5 entidades actuales:
+
+- `articles/` — artículos (validator + mapper + api + uploader completos).
+- `authors/` — autores: búsqueda por documento o nombre, picker interactivo cuando hay ambigüedad, vinculación al artículo creado.
+- `auth/` — login + gestión de sesión JWT (`tokenValid`, expiración derivada del JWT).
 - `issues/` — fascículos (listar, seleccionar).
-- `areas/` — taxonomía de áreas de conocimiento Minciencias (lookup read-only).
+- `areas/` — taxonomía de áreas de conocimiento Minciencias en árbol (lookup read-only por código y por nombre).
 
 ### `src/io/`
 
 **Qué vive aquí:** adaptadores que tocan el mundo exterior (HTTP, filesystem, parsers de formatos externos). Plano — sin subcarpetas.
 
-- `publindex-http.ts` — cliente HTTP específico del API Publindex (Bearer token, JSON, timeouts).
-- `http-probe.ts` — verificador genérico `probeUrl()` (HEAD con fallback a GET).
-- `excel-reader.ts`, `xlsx-parser.ts`, `csv-parser.ts`, `row-mapper.ts` — pipeline de lectura de archivos de artículos.
-- `excel-writer.ts` — generación de plantilla Excel con estilos (celdas amarillas, hojas auxiliares).
-- `ojs-xml.ts` — streaming parser de export Native XML de OJS (175MB+, con PDFs inline en base64).
-- `progress.ts` — tracker persistente de progreso (escribe a columnas del Excel + sidecar JSON para resiliencia).
+- `publindex-http.ts` — cliente HTTP específico del API Publindex (Bearer token, headers de browser, jar de cookies persistente, decompresión gzip/brotli).
+- `http-probe.ts` — verificador genérico `probeUrl()` (HEAD con fallback a GET, sigue redirects).
+- `excel-reader.ts`, `xlsx-parser.ts`, `row-mapper.ts` — pipeline de lectura de la hoja Artículos del Excel.
+- `authors-reader.ts` — lectura de la hoja Autores (segunda hoja del mismo workbook).
+- `excel-writer.ts` — generación de plantilla Excel: estilos (celdas amarillas obligatorias), dropdowns con cascada gran_area → area → subarea, hoja `_lookups` oculta para los `VLOOKUP`, hoja `Instrucciones`.
+- `ojs-xml.ts` — streaming parser del export Native XML de OJS (puede pesar cientos de MB con PDFs inline en base64; los descarta en vuelo).
+- `progress.ts` — tracker persistente de progreso (escribe a columnas del Excel; si el archivo está bloqueado por Excel, cae en sidecar JSON y reconcilia al cerrar).
 
 **Qué NO vive aquí:** lógica de dominio, decisiones de negocio, prompts.
 
@@ -108,12 +112,24 @@ Las 4 entidades actuales:
 - `retry.ts` — `withRetry()` con backoff exponencial.
 - `text.ts` — `cleanHtml()` (strip tags + decode entities).
 - `urls.ts` — normalización y construcción de URLs.
+- `time.ts` — `formatDuration()` (segundos → "1h 23m").
 
 ### `src/config/`
 
-- `constants.ts` — `ENDPOINTS` (URLs Publindex), `DEFAULTS` (timeouts, reintentos, pausas), diccionarios (`DOCUMENT_TYPES`, `SUMMARY_TYPES`, `LANGUAGES`, etc.), `EXCEL_HEADERS` (columnas del Excel), `ARTICLE_STATES` (valores del campo `estado`).
+- `constants.ts` — `ENDPOINTS` (URLs Publindex), `DEFAULTS` (timeouts, reintentos, pausas, márgenes de token), diccionarios (`DOCUMENT_TYPES`, `SUMMARY_TYPES`, `SPECIALIST_TYPES`, `LANGUAGES`, `NATIONALITIES`), `EXCEL_HEADERS` y `AUTHORS_SHEET_HEADERS` (columnas del Excel), `ARTICLE_STATES` y `AUTHOR_STATES` (valores escritos a la columna `estado`/`estado_carga`).
 
-**Los nombres de las constantes están en inglés, los valores de strings siguen en español** porque esos valores terminan escribiéndose al Excel que el usuario lee.
+**Los nombres de las constantes están en inglés**; los **valores** en español están permitidos solo cuando son strings que terminan en el Excel que ve el editor o que matchean el catálogo Publindex.
+
+## Flujo end-to-end (orden recomendado)
+
+```
+1. Importar desde OJS              →  genera Excel prellenado (hojas Artículos + Autores)
+2. (Editor completa celdas amarillas en el Excel)
+3. Validar y cargar artículos      →  POST /articulos por cada fila → escribe id_articulo al Excel
+4. Vincular autores                →  busca cada autor en Publindex → POST /autores
+```
+
+El Excel es la fuente de verdad: cada paso lee y escribe sobre el mismo workbook (`estado`, `fecha_subida`, `id_articulo` para artículos; `estado_carga`, `tiene_cvlac`, `accion_requerida` para autores). El editor puede cerrar el CLI y retomar — el `ProgressTracker` lee el estado anterior y procesa solo lo pendiente.
 
 ## Flujo típico — importar OJS
 
@@ -146,61 +162,38 @@ cli/commands/import-ojs.ts
   │ 8. warning/info outputs                       ←  cli/logger.ts
 ```
 
-## Idiomas en el código
+## Convenciones de código
 
-| Dónde | Idioma | Por qué |
-|---|---|---|
-| Nombres de tipos, funciones, constantes, variables internas | Inglés | Código |
-| Strings de mensajes al usuario (CLI output) | Español | Lo lee el editor |
-| Strings de errores de validación | Español | Los lee el editor |
-| Keys de `ArticleRow` (`titulo`, `doi`, `pagina_inicial`...) | Español | Son nombres de columnas del Excel |
-| Keys de `ArticlePayload` (`txtTituloArticulo`, `idFasciculo`...) | Español con prefijos Publindex | Contrato con API |
-| Keys de `LoginResponse`, `Issue` | Español | Contrato con API |
-| Valores de `ARTICLE_STATES` (`'pendiente'`, `'subido'`...) | Español | Se escriben al Excel |
-| Valores de `DOCUMENT_TYPES`, `LANGUAGES`, etc. | Español | Se muestran en hojas del Excel |
-| Keys internos de structs (`ValidationError.fila`, `UploadResult.exitosos`...) | Español | Consistencia con `ArticleRow`; reflejan conceptos del Excel |
-| Parámetros internos y locals en funciones | Mixto | El refactor renombró los principales; algunos menos importantes quedan en español por tamaño del cambio |
+### Datos en tests, fixtures y ejemplos
 
-## Cómo agregar una entidad nueva (Fase 2 — authors, reviewers)
+- Solo data ficticia. Nunca DOIs reales, ORCIDs reales, cédulas reales, títulos de artículos reales o nombres de autores reales.
+- Placeholders convencionales: `Jane Doe`, `Autor Prueba 1`, `test@example.com`, `10.0000/fake.0001`, `0000-0000-0000-0000`, `00000000`. La hoja `Instrucciones` que genera `excel-writer.ts` ya sigue esta regla (URLs `revistas.ejemplo.edu.co`, fechas 2026-XX-XX inventadas).
 
-Patrón para `authors`:
+## Patrón para agregar una entidad nueva
 
-1. **Crear `src/entities/authors/`** con:
-   - `types.ts` — `Author`, `AuthorRow`, `AuthorPayload`, etc. Aplicar la misma regla de idiomas: type names inglés, keys que coinciden con Excel o API en español.
-   - `headers.ts` — constante `AUTHOR_EXCEL_HEADERS` con las columnas del Excel de autores.
-   - `validator.ts` — `validateAuthorBatch(rows): ValidationResult`. Reusar `ValidationError/Result/Warning` de `articles/types.ts` o mover a un shared si aplica.
-   - `mapper.ts` — `authorRowToPayload(row): AuthorPayload`.
-   - `api.ts` — `createAuthor(token, payload)`. Usa `httpRequest` de `io/publindex-http.ts`.
-   - `uploader.ts` — `runAuthorUpload(session, authors, options)`. Modelar sobre `articles/uploader.ts` (mismo patrón de loop + pausa + progreso).
+Tomar `entities/authors/` como referencia. Pasos típicos:
 
-2. **Agregar `AUTHORS` al `ENDPOINTS`** en `src/config/constants.ts`.
+1. **Crear `src/entities/<entity>/`** con:
+   - `types.ts` — interfaces.
+   - `validator.ts` — reglas puras de validación (sin I/O). Reutilizar `ValidationError`/`ValidationResult` de `articles/types.ts` cuando aplique.
+   - `mapper.ts` — `<entity>RowToPayload(row): <Entity>Payload`. Pura.
+   - `api.ts` — operaciones contra Publindex usando `authedRequest` de `io/publindex-http.ts`. Throw con mensaje útil en errores no-2xx.
+   - `uploader.ts` — `run<Entity>Upload(session, rows, options)`. Loop secuencial con `withRetry` + pausa adaptativa entre items + callbacks de progreso (`onProgress`, `onRetry`, `onPause`, `onWarning`). Modelar sobre `articles/uploader.ts` o `authors/uploader.ts`.
 
-3. **Agregar diccionarios específicos** (si aplica) — ej. `AUTHOR_ROLES`, tipos de identificación. Nombres en inglés, valores en español.
+2. **Agregar el endpoint** a `ENDPOINTS` en `src/config/constants.ts`. Si el endpoint usa diccionarios catálogo Minciencias, agregar el `Record<string, string>` (keys = código, values = label en español).
 
-4. **Extender `src/io/excel-reader.ts`** si los autores vienen en un Excel distinto:
-   - Crear `src/io/excel-reader-authors.ts` o generalizar `excel-reader.ts` para que acepte una config de headers.
+3. **Si el flujo lee un Excel adicional**, agregar el reader en `src/io/`. Reutilizar `normalizeHeader()` de `excel-reader.ts` para mantener tolerancia a tildes/casing en headers.
 
-5. **Crear `src/cli/commands/upload-authors.ts`** copiando la estructura de `upload-articles.ts`. Llama a `validateAuthorBatch`, `runAuthorUpload`, usa `promptFilePath` (reusable).
+4. **Crear `src/cli/commands/<flow>.ts`** copiando la estructura de `upload-articles.ts` o `upload-authors.ts`. Reutilizar `loginOrThrow`, `fetchAndSelectIssue`, `ensureTokenCoversEstimate` de `commands/shared.ts`.
 
-6. **Agregar opción al menú** en `src/cli/prompts.ts:mainMenu()`:
-   ```ts
-   { name: 'Cargar autores', value: 'upload-authors' as ExecutionMode }
-   ```
-   Y extender el type `ExecutionMode` en `src/entities/articles/types.ts` (o mover a un `shared/types.ts` si crece).
+5. **Agregar opción al menú** en `src/cli/prompts.ts:mainMenu()` y el case correspondiente en `src/cli/index.ts:dispatch()`. Extender el type `ExecutionMode` en `src/entities/articles/types.ts`.
 
-7. **Agregar case al router** en `src/cli/index.ts`:
-   ```ts
-   case 'upload-authors':
-     await uploadAuthors();
-     return;
-   ```
+6. **Tests** en `tests/entities/<entity>/{validator,mapper,uploader}.test.ts`. Solo data ficticia (regla de la skill).
 
-8. **Tests** en `tests/entities/authors/{validator,mapper,uploader}.test.ts`. Espejar la estructura de `tests/entities/articles/`.
-
-No se debería tocar nada en `articles/`, `io/` (excepto si hay un nuevo formato de archivo), ni en `utils/`. Ese es el punto del diseño por entidad.
+No se debería tocar `articles/`, `authors/`, `auth/`, `io/` (excepto si hay un nuevo formato de archivo), ni `utils/`. Ese es el punto del diseño por entidad.
 
 ## Puntos abiertos conocidos
 
-- `ExecutionMode` vive en `entities/articles/types.ts` pero conceptualmente es un enum cross-entity. Si crecen los comandos en Fase 2, mover a un `shared/types.ts` o `cli/types.ts`.
-- No hay tests para `cli/commands/*` (los comandos orquestan, son difíciles de testear sin mocks pesados de inquirer). Los tests cubren la lógica de dominio (`entities/`) y de I/O (`io/`) que es donde vive el código con lógica real.
-- Algunas **keys de tipos contractuales** (API Publindex, columnas Excel) siguen intencionalmente en español — no son code smell, son requisitos externos. Ver la tabla "Idiomas en el código" más arriba.
+- `ExecutionMode` vive en `entities/articles/types.ts` pero conceptualmente es un enum cross-entity. Si crecen los comandos, mover a `shared/types.ts` o `cli/types.ts`.
+- No hay tests para `cli/commands/*` (los comandos orquestan I/O y son difíciles de testear sin mocks pesados de inquirer). Los tests cubren la lógica de dominio (`entities/`) y de I/O (`io/`).
+- Los identificadores que mirror-ean contratos externos (API Publindex, columnas Excel) siguen intencionalmente en español — ver la tabla de la sección "Convenciones de código".

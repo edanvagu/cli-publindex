@@ -12,10 +12,10 @@ Automatiza el flujo que en la interfaz web toma minutos por artículo: importa m
 
 En la [página de releases](../../releases/latest) elija el archivo que corresponda a su sistema:
 
-| Sistema | Archivo |
-|---|---|
-| Windows | `publindex-windows-x64.exe` |
-| Mac (chip Apple M1/M2/M3) | `publindex-macos-arm64` |
+| Sistema                   | Archivo                     |
+| ------------------------- | --------------------------- |
+| Windows                   | `publindex-windows-x64.exe` |
+| Mac (chip Apple M1/M2/M3) | `publindex-macos-arm64`     |
 
 > Macs con procesador Intel (fabricados antes de 2021) no tienen binario disponible; necesitan instalar Node.js y correr desde el código fuente — escríbame si es su caso.
 
@@ -76,8 +76,6 @@ cli/   →   entities/   →   io/   →   utils/
 - `src/io/` maneja todo lo que toca disco o red: Excel reader/writer, HTTP a Publindex, importador XML OJS, progress tracker.
 - `src/cli/` es la presentación: prompts con `inquirer`, logger con `chalk`, commands que orquestan entidades e IO.
 - `src/config/constants.ts` tiene endpoints, columnas del Excel, estados, diccionarios de traducción label↔código.
-
-La convención: **identificadores en inglés**; los valores en español se conservan únicamente en (a) keys del payload de la API de Publindex — contrato con Minciencias, no modificables — y (b) headers del Excel y textos de UI — lo que ve el editor.
 
 ### Release
 
