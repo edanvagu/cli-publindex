@@ -188,6 +188,85 @@ describe('parsePublication', () => {
   });
 });
 
+describe('parsePublication — prioridad de español en titulo/resumen/palabras_clave', () => {
+  const ENGLISH_PRIMARY_NO_SPANISH = `<publication locale="en_US" version="1">
+    <title locale="en_US">English only title</title>
+    <abstract locale="en_US">&lt;p&gt;English abstract&lt;/p&gt;</abstract>
+    <keywords locale="en_US">
+      <keyword>alpha</keyword>
+      <keyword>beta</keyword>
+    </keywords>
+  </publication>`;
+
+  it('sin contenido en español, duplica el primary (inglés) en titulo y titulo_ingles', () => {
+    const art = parsePublication(ENGLISH_PRIMARY_NO_SPANISH);
+    expect(art.titulo).toBe('English only title');
+    expect(art.tituloIngles).toBe('English only title');
+  });
+
+  it('sin contenido en español, duplica el resumen primario en resumen y resumen_otro_idioma', () => {
+    const art = parsePublication(ENGLISH_PRIMARY_NO_SPANISH);
+    expect(art.resumen).toBe('English abstract');
+    expect(art.resumenOtroIdioma).toBe('English abstract');
+  });
+
+  it('sin contenido en español, duplica las palabras_clave primarias en ambas columnas', () => {
+    const art = parsePublication(ENGLISH_PRIMARY_NO_SPANISH);
+    expect(art.palabrasClave).toBe('alpha; beta');
+    expect(art.palabrasClaveOtroIdioma).toBe('alpha; beta');
+  });
+
+  const PORTUGUESE_PRIMARY_WITH_SPANISH = `<publication locale="pt_BR" version="1">
+    <title locale="pt_BR">Título em português</title>
+    <title locale="es_ES">Título en español</title>
+    <title locale="en_US">English title</title>
+    <abstract locale="pt_BR">&lt;p&gt;Resumo&lt;/p&gt;</abstract>
+    <abstract locale="es_ES">&lt;p&gt;Resumen&lt;/p&gt;</abstract>
+    <abstract locale="en_US">&lt;p&gt;Abstract&lt;/p&gt;</abstract>
+    <keywords locale="pt_BR"><keyword>pt1</keyword></keywords>
+    <keywords locale="es_ES"><keyword>es1</keyword><keyword>es2</keyword></keywords>
+    <keywords locale="en_US"><keyword>en1</keyword></keywords>
+  </publication>`;
+
+  it('cuando primary no es español pero hay es_ES, prefiere el español en las columnas principales', () => {
+    const art = parsePublication(PORTUGUESE_PRIMARY_WITH_SPANISH);
+    expect(art.titulo).toBe('Título en español');
+    expect(art.resumen).toBe('Resumen');
+    expect(art.palabrasClave).toBe('es1; es2');
+  });
+
+  it('cuando hay es_ES y en_US, llena las columnas _otro_idioma con el inglés', () => {
+    const art = parsePublication(PORTUGUESE_PRIMARY_WITH_SPANISH);
+    expect(art.tituloIngles).toBe('English title');
+    expect(art.resumenOtroIdioma).toBe('Abstract');
+    expect(art.palabrasClaveOtroIdioma).toBe('en1');
+  });
+
+  it('con contenido solo en español, deja vacías las columnas _otro_idioma para que el editor las llene', () => {
+    const xml = `<publication locale="es_ES" version="1">
+      <title locale="es_ES">Solo español</title>
+      <abstract locale="es_ES">Resumen en español</abstract>
+      <keywords locale="es_ES"><keyword>uno</keyword></keywords>
+    </publication>`;
+    const art = parsePublication(xml);
+    expect(art.titulo).toBe('Solo español');
+    expect(art.tituloIngles).toBeUndefined();
+    expect(art.resumen).toBe('Resumen en español');
+    expect(art.resumenOtroIdioma).toBeUndefined();
+    expect(art.palabrasClave).toBe('uno');
+    expect(art.palabrasClaveOtroIdioma).toBeUndefined();
+  });
+
+  it('acepta variantes de locale es_* (ej. es_CO) como español válido', () => {
+    const xml = `<publication locale="pt_BR" version="1">
+      <title locale="pt_BR">Título em português</title>
+      <title locale="es_CO">Título en español colombiano</title>
+    </publication>`;
+    const art = parsePublication(xml);
+    expect(art.titulo).toBe('Título en español colombiano');
+  });
+});
+
 describe('detectNonStandardPages', () => {
   it('retorna índices de artículos con paginasRaw presente', () => {
     const articles = [

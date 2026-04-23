@@ -124,15 +124,29 @@ export function parsePublication(xml: string): OjsArticle {
 
   const primaryLocale: string = pub['@_locale'] ?? 'es_ES';
 
-  const titulo = textByLocale(pub.title, primaryLocale) ?? '';
-  const tituloIngles = textByLocale(pub.title, 'en_US');
+  // Publindex requires Spanish in the main columns. When the XML has no es_* locale we fall back to the primary and duplicate it into the _otro_idioma column so both slots are always populated (editor translates by hand afterward). Prefix match accepts variants like es_CO and en_GB.
+  const isSpanish = (l: string) => l.toLowerCase().startsWith('es');
+  const isEnglish = (l: string) => l.toLowerCase().startsWith('en');
+  const isOtherLang = (l: string) => !!l && !isSpanish(l) && !isEnglish(l);
 
-  const resumen = cleanHtml(textByLocale(pub.abstract, primaryLocale));
-  const resumenOtroIdioma = cleanHtml(textByLocale(pub.abstract, 'en_US', primaryLocale));
-  const resumenIdiomaAdicional = cleanHtml(thirdLocale(pub.abstract, primaryLocale, 'en_US'));
+  const spanishTitle = nodeText(findLocalizedNode(pub.title, isSpanish));
+  const englishTitle = nodeText(findLocalizedNode(pub.title, isEnglish));
+  const primaryTitle = nodeText(findLocalizedNode(pub.title, (l) => l === primaryLocale));
+  const titulo = spanishTitle ?? primaryTitle ?? '';
+  const tituloIngles = englishTitle ?? (spanishTitle ? undefined : titulo || undefined);
 
-  const palabrasClave = keywordsToString(pub.keywords, primaryLocale);
-  const palabrasClaveOtroIdioma = keywordsToString(pub.keywords, 'en_US', primaryLocale);
+  const spanishAbstract = cleanHtml(nodeText(findLocalizedNode(pub.abstract, isSpanish)));
+  const englishAbstract = cleanHtml(nodeText(findLocalizedNode(pub.abstract, isEnglish)));
+  const primaryAbstract = cleanHtml(nodeText(findLocalizedNode(pub.abstract, (l) => l === primaryLocale)));
+  const resumen = spanishAbstract || primaryAbstract;
+  const resumenOtroIdioma = englishAbstract || (spanishAbstract ? undefined : resumen);
+  const resumenIdiomaAdicional = cleanHtml(nodeText(findLocalizedNode(pub.abstract, isOtherLang)));
+
+  const spanishKeywords = keywordsFromNode(findLocalizedNode(pub.keywords, isSpanish));
+  const englishKeywords = keywordsFromNode(findLocalizedNode(pub.keywords, isEnglish));
+  const primaryKeywords = keywordsFromNode(findLocalizedNode(pub.keywords, (l) => l === primaryLocale));
+  const palabrasClave = spanishKeywords ?? primaryKeywords;
+  const palabrasClaveOtroIdioma = englishKeywords ?? (spanishKeywords ? undefined : palabrasClave);
 
   const doi = extractDoi(pub.id);
   const submissionId = extractInternalId(pub.id);
@@ -154,7 +168,7 @@ export function parsePublication(xml: string): OjsArticle {
 
   const art: OjsArticle = { titulo, autores };
   if (submissionId) art.submissionId = submissionId;
-  if (tituloIngles && tituloIngles !== titulo) art.tituloIngles = tituloIngles;
+  if (tituloIngles) art.tituloIngles = tituloIngles;
   if (doi) art.doi = doi;
   if (paginaInicial) art.paginaInicial = paginaInicial;
   if (paginaFinal) art.paginaFinal = paginaFinal;
@@ -304,27 +318,23 @@ export function detectNonStandardPages(
   return result;
 }
 
-function textByLocale(arr: any, locale: string, exclude?: string): string | undefined {
+function findLocalizedNode(arr: any, predicate: (locale: string) => boolean): any {
   if (!Array.isArray(arr)) return undefined;
-  const match = arr.find((n) => n['@_locale'] === locale && (!exclude || n['@_locale'] !== exclude));
-  if (!match) return undefined;
-  const value = typeof match === 'object' ? match['#text'] ?? '' : String(match);
+  return arr.find((n) => {
+    const l = typeof n['@_locale'] === 'string' ? n['@_locale'] : '';
+    return predicate(l);
+  });
+}
+
+function nodeText(node: any): string | undefined {
+  if (!node) return undefined;
+  const value = typeof node === 'object' ? node['#text'] ?? '' : String(node);
   return value ? String(value) : undefined;
 }
 
-function thirdLocale(arr: any, skip1: string, skip2: string): string | undefined {
-  if (!Array.isArray(arr)) return undefined;
-  const match = arr.find((n) => n['@_locale'] !== skip1 && n['@_locale'] !== skip2);
-  if (!match) return undefined;
-  const value = typeof match === 'object' ? match['#text'] ?? '' : String(match);
-  return value ? String(value) : undefined;
-}
-
-function keywordsToString(keywordsArr: any, locale: string, exclude?: string): string | undefined {
-  if (!Array.isArray(keywordsArr)) return undefined;
-  const match = keywordsArr.find((k) => k['@_locale'] === locale && (!exclude || k['@_locale'] !== exclude));
-  if (!match || !Array.isArray(match.keyword)) return undefined;
-  const words = match.keyword.map((k: any) => String(k).trim()).filter(Boolean);
+function keywordsFromNode(node: any): string | undefined {
+  if (!node || !Array.isArray(node.keyword)) return undefined;
+  const words = node.keyword.map((k: any) => String(k).trim()).filter(Boolean);
   return words.length ? words.join('; ') : undefined;
 }
 
