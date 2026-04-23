@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import {
   EXCEL_HEADERS, DOCUMENT_TYPES, SUMMARY_TYPES, SPECIALIST_TYPES, LANGUAGES, STATE_COLUMNS,
   AUTHORS_SHEET_HEADERS, AUTHORS_SHEET_NAME, ARTICLES_SHEET_NAME, ARTICLE_ID_COLUMN, NATIONALITIES,
+  REVIEWERS_SHEET_HEADERS, REVIEWERS_SHEET_NAME,
 } from '../config/constants';
 import { AREAS_TREE } from '../entities/areas/tree';
 import { ArticleRow } from '../entities/articles/types';
@@ -23,15 +24,24 @@ export interface AuthorTemplateRow {
   filiacion_institucional?: string;
 }
 
+export interface ReviewerTemplateRow {
+  nombre_completo: string;
+  nacionalidad?: string;
+  identificacion?: string;
+  filiacion_institucional?: string;
+}
+
 export async function generateTemplateWithData(
   articles: Partial<ArticleRow>[],
   outputPath: string,
   authors?: AuthorTemplateRow[],
+  reviewers?: ReviewerTemplateRow[],
 ): Promise<string> {
   const wb = new ExcelJS.Workbook();
 
   buildArticlesSheet(wb, articles);
   buildAuthorsSheet(wb, authors ?? []);
+  buildReviewersSheet(wb, reviewers ?? []);
   buildLookupsSheet(wb);
   buildInstructionsSheet(wb);
 
@@ -82,6 +92,38 @@ function buildAuthorsSheet(wb: ExcelJS.Workbook, authors: AuthorTemplateRow[]): 
       const header = headers[colIdx];
       if (!AUTHORS_REQUIRED_FIELDS.includes(header)) continue;
       const value = (a as unknown as Record<string, unknown>)[header];
+      if (value !== '' && value !== undefined && value !== null) continue;
+      ws.getCell(rowIdx + 2, colIdx + 1).fill = ALERT_FILL;
+    }
+  });
+
+  const nacionalidadCol = headers.indexOf('nacionalidad') + 1;
+  if (nacionalidadCol > 0) {
+    const values = Object.values(NATIONALITIES);
+    applyListToColumn(ws, nacionalidadCol, `"${values.join(',')}"`);
+  }
+}
+
+const REVIEWERS_REQUIRED_FIELDS = ['nombre_completo', 'nacionalidad'];
+
+function buildReviewersSheet(wb: ExcelJS.Workbook, reviewers: ReviewerTemplateRow[]): void {
+  const ws = wb.addWorksheet(REVIEWERS_SHEET_NAME);
+  const headers = [...REVIEWERS_SHEET_HEADERS];
+
+  ws.addRow(headers);
+  ws.getRow(1).font = { bold: true };
+
+  for (const e of reviewers) {
+    ws.addRow(headers.map(h => (e as unknown as Record<string, unknown>)[h] ?? ''));
+  }
+
+  ws.columns = headers.map(h => ({ width: Math.max(h.length + 2, 22) }));
+
+  reviewers.forEach((e, rowIdx) => {
+    for (let colIdx = 0; colIdx < headers.length; colIdx++) {
+      const header = headers[colIdx];
+      if (!REVIEWERS_REQUIRED_FIELDS.includes(header)) continue;
+      const value = (e as unknown as Record<string, unknown>)[header];
       if (value !== '' && value !== undefined && value !== null) continue;
       ws.getCell(rowIdx + 2, colIdx + 1).fill = ALERT_FILL;
     }
@@ -256,7 +298,7 @@ function buildInstructionsSheet(wb: ExcelJS.Workbook): void {
     ['pagina_inicial', 'No', 'Número de página inicial', '1'],
     ['pagina_final', 'No', 'Número de página final (debe ser mayor que pagina_inicial)', '15'],
     ['numero_autores', 'No', 'Cantidad de autores del artículo', '3'],
-    ['numero_pares_evaluadores', 'No', 'Cantidad de pares que evaluaron el artículo', '2'],
+    ['numero_pares_reviewers', 'No', 'Cantidad de pares que evaluaron el artículo', '2'],
     ['proyecto', 'No', 'Nombre del proyecto de investigación asociado', ''],
     ['gran_area', 'Sí', 'Dropdown con las grandes áreas de conocimiento Minciencias', 'Ciencias Sociales'],
     ['area', 'Sí', 'Dropdown con las áreas hijas de la gran_area seleccionada (cascada)', 'Sociología'],
@@ -283,6 +325,15 @@ function buildInstructionsSheet(wb: ExcelJS.Workbook): void {
     ['estado', 'Auto', 'Se llena automáticamente: pendiente, subido o error', 'subido'],
     ['fecha_subida', 'Auto', 'Fecha/hora en que el artículo se cargó exitosamente', '2026-04-19T10:30:00.000Z'],
     ['ultimo_error', 'Auto', 'Mensaje de error si la carga falló', ''],
+    ['', '', '', ''],
+    ['Hoja "Evaluadores" (pares del fascículo)', '', '', ''],
+    ['nombre_completo', 'Sí', 'Nombre completo del evaluador (par revisor)', 'Jane Doe Ficticio'],
+    ['nacionalidad', 'Sí', 'Dropdown: Colombiana / Extranjera', 'Extranjera'],
+    ['identificacion', 'No', 'Cédula/doc. Si está vacío, se buscará por nombre con picker interactivo', '00000000'],
+    ['filiacion_institucional', 'No', 'Afiliación del evaluador (de OJS si disponible)', 'Universidad Ficticia'],
+    ['tiene_cvlac', 'Auto', 'Se llena automáticamente según staCertificado', 'Sí'],
+    ['estado_carga', 'Auto', 'pendiente / subido / error', 'subido'],
+    ['accion_requerida', 'Auto', 'Mensaje de acción en caso de error o advertencia', ''],
   ];
 
   rows.forEach(r => ws.addRow(r));

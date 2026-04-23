@@ -12,11 +12,13 @@ program
   .version('1.0.0')
   .option('--cargar', 'Forzar modo cargar artículos (sin menú)')
   .option('--autores', 'Forzar modo vincular autores (sin menú)')
+  .option('--evaluadores', 'Forzar modo vincular evaluadores (sin menú)')
   .option('--ojs', 'Forzar modo importar desde OJS (sin menú)')
   .action(async (options) => {
     let forcedMode: ExecutionMode | undefined;
     if (options.cargar) forcedMode = 'upload';
     else if (options.autores) forcedMode = 'authors-upload';
+    else if (options.evaluadores) forcedMode = 'reviewers-upload';
     else if (options.ojs) forcedMode = 'import-ojs';
 
     await run({ forcedMode });

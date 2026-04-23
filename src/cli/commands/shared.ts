@@ -37,6 +37,12 @@ export async function fetchAndSelectIssue(session: Session): Promise<Issue> {
   return selectIssue(issues);
 }
 
+export function extractYear(dta: string | undefined | null): number | null {
+  if (!dta) return null;
+  const match = String(dta).match(/^(\d{4})/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
 export async function ensureTokenCoversEstimate(
   session: Session,
   estimatedSeconds: number,

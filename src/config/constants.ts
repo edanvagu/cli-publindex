@@ -6,10 +6,15 @@ export const ENDPOINTS = {
   ARTICLES: `${BASE_URL}/articulos`,
   PERSONS_SEARCH: `${BASE_URL}/personas/criterios`,
   AUTHORS: `${BASE_URL}/autores`,
+  REVIEWERS: `${BASE_URL}/evaluadores`,
 } as const;
 
 export function buildTrayectoriaUrl(codRh: string, anoFasciculo: number | string): string {
   return `${BASE_URL}/personas/${codRh}/${anoFasciculo}/trayectoriaProfesional`;
+}
+
+export function buildReviewersByFasciculoUrl(idFasciculo: number | string): string {
+  return `${BASE_URL}/evaluadores/fasciculos/${idFasciculo}`;
 }
 
 export const DEFAULTS = {
@@ -25,6 +30,7 @@ export const DEFAULTS = {
   AUTHOR_JITTER_MS: 2000,
   ESTIMATED_SECONDS_PER_ARTICLE: 15,
   ESTIMATED_SECONDS_PER_AUTHOR: 7,
+  ESTIMATED_SECONDS_PER_REVIEWER: 7,
   PREFLIGHT_TOKEN_MARGIN_MS: 5 * 60 * 1000,
 } as const;
 
@@ -41,6 +47,12 @@ export const ARTICLE_STATES = {
 } as const;
 
 export const AUTHOR_STATES = {
+  PENDING: 'pendiente',
+  UPLOADED: 'subido',
+  ERROR: 'error',
+} as const;
+
+export const REVIEWER_STATES = {
   PENDING: 'pendiente',
   UPLOADED: 'subido',
   ERROR: 'error',
@@ -123,6 +135,7 @@ export const ARTICLE_ID_COLUMN = 'id_articulo';
 
 export const AUTHORS_SHEET_NAME = 'Autores';
 export const ARTICLES_SHEET_NAME = 'Artículos';
+export const REVIEWERS_SHEET_NAME = 'Evaluadores';
 
 export const AUTHOR_COLUMNS = {
   TITULO_ARTICULO: 'titulo_articulo',
@@ -146,4 +159,24 @@ export const AUTHORS_SHEET_HEADERS = [
   AUTHOR_COLUMNS.TIENE_CVLAC,
   AUTHOR_COLUMNS.ESTADO_CARGA,
   AUTHOR_COLUMNS.ACCION_REQUERIDA,
+] as const;
+
+export const REVIEWER_COLUMNS = {
+  NOMBRE: 'nombre_completo',
+  IDENTIFICACION: 'identificacion',
+  NACIONALIDAD: 'nacionalidad',
+  FILIACION: 'filiacion_institucional',
+  TIENE_CVLAC: 'tiene_cvlac',
+  ESTADO_CARGA: 'estado_carga',
+  ACCION_REQUERIDA: 'accion_requerida',
+} as const;
+
+export const REVIEWERS_SHEET_HEADERS = [
+  REVIEWER_COLUMNS.NOMBRE,
+  REVIEWER_COLUMNS.IDENTIFICACION,
+  REVIEWER_COLUMNS.NACIONALIDAD,
+  REVIEWER_COLUMNS.FILIACION,
+  REVIEWER_COLUMNS.TIENE_CVLAC,
+  REVIEWER_COLUMNS.ESTADO_CARGA,
+  REVIEWER_COLUMNS.ACCION_REQUERIDA,
 ] as const;

@@ -76,6 +76,7 @@ export async function selectIssue(issues: Issue[]): Promise<Issue> {
 
 const ARTICLE_EXTENSIONS = ['.xlsx', '.xls'];
 const OJS_EXTENSIONS = ['.xml'];
+const REVIEWS_CSV_EXTENSIONS = ['.csv'];
 
 export async function promptFilePath(): Promise<string> {
   return promptFileWithExtensions(ARTICLE_EXTENSIONS, 'Seleccionar archivo de artículos');
@@ -83,6 +84,19 @@ export async function promptFilePath(): Promise<string> {
 
 export async function promptOjsFilePath(): Promise<string> {
   return promptFileWithExtensions(OJS_EXTENSIONS, 'Seleccionar export XML de OJS');
+}
+
+export async function promptOptionalReviewsCsvPath(): Promise<string | null> {
+  const { include } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'include',
+      message: '¿Tiene también el CSV de revisiones exportado desde OJS (para pre-llenar la hoja Evaluadores)?',
+      default: false,
+    },
+  ]);
+  if (!include) return null;
+  return promptFileWithExtensions(REVIEWS_CSV_EXTENSIONS, 'Seleccionar CSV de revisiones de OJS');
 }
 
 async function promptFileWithExtensions(extensions: string[], title: string): Promise<string> {
@@ -300,6 +314,7 @@ export async function mainMenu(): Promise<ExecutionMode> {
         { name: '1. Importar desde OJS (genera plantilla prellena)', value: 'import-ojs' as ExecutionMode },
         { name: '2. Validar y cargar artículos', value: 'upload' as ExecutionMode },
         { name: '3. Vincular autores a artículos cargados', value: 'authors-upload' as ExecutionMode },
+        { name: '4. Vincular evaluadores al fascículo', value: 'reviewers-upload' as ExecutionMode },
         new inquirer.Separator(),
         { name: 'Salir', value: 'exit' as ExecutionMode },
       ],
@@ -344,6 +359,22 @@ export async function confirmTimeEstimate(quantity: number, seconds: number): Pr
 export async function confirmAuthorsStart(quantity: number): Promise<boolean> {
   console.log('');
   console.log(`  ℹ  Se procesarán ${quantity} autor(es).`);
+  console.log('');
+
+  const { proceed } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'proceed',
+      message: '¿Desea proceder con la vinculación?',
+      default: true,
+    },
+  ]);
+  return proceed;
+}
+
+export async function confirmReviewersStart(quantity: number): Promise<boolean> {
+  console.log('');
+  console.log(`  ℹ  Se procesarán ${quantity} evaluador(es).`);
   console.log('');
 
   const { proceed } = await inquirer.prompt([

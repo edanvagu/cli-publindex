@@ -1,7 +1,6 @@
-import inquirer from 'inquirer';
 import {
   spinner, success, error, info, warning,
-  showProgress, showPickerReference, showCandidatesTable,
+  showProgress,
 } from '../logger';
 import { promptFilePath, confirmContinue, confirmAuthorsStart } from '../prompts';
 import { readAuthors, ReadAuthorsResult } from '../../io/authors-reader';
@@ -10,7 +9,8 @@ import { ProgressTracker } from '../../io/progress';
 import { Session } from '../../entities/auth/types';
 import { Issue } from '../../entities/issues/types';
 import { AuthorRow, PersonSearchResult } from '../../entities/authors/types';
-import { loginOrThrow, fetchAndSelectIssue, ensureTokenCoversEstimate } from './shared';
+import { buildPersonPicker } from '../pickers';
+import { loginOrThrow, fetchAndSelectIssue, ensureTokenCoversEstimate, extractYear } from './shared';
 
 export interface AuthorsContext {
   file: string;
@@ -108,7 +108,7 @@ async function uploadAuthorsCore(ctx: AuthorsContext): Promise<void> {
     onRetry: (row, attempt, err) => warning(`Fila ${row}: intento ${attempt} (${err.message})`),
     onTokenExpiring: () => warning('Token próximo a expirar. Los próximos requests podrían fallar.'),
     onWarning: warning,
-    onPickPerson: buildPersonPicker(),
+    onPickPerson: buildAuthorPicker(),
     onPause: (seconds) => info(`Pausa de ${seconds}s antes del siguiente autor...`),
   });
 
@@ -138,56 +138,14 @@ function validateAuthors(authors: AuthorRow[]): string[] {
   return msgs;
 }
 
-function extractYear(dta: string | undefined | null): number | null {
-  if (!dta) return null;
-  const match = String(dta).match(/^(\d{4})/);
-  return match ? parseInt(match[1], 10) : null;
-}
-
-function buildPersonPicker() {
-  return async (candidates: PersonSearchResult[], author: AuthorRow): Promise<PersonSearchResult | null> => {
-    console.log('');
-    const reason = author.identificacion
-      ? `el documento "${author.identificacion}" no encontró coincidencia`
-      : 'no se proporcionó identificación';
-    warning(`Fila ${author._fila}: ${reason}. Se buscó por nombre "${author.nombre_completo}" y hay ${candidates.length} resultado(s).`);
-
-    showPickerReference({
+function buildAuthorPicker() {
+  const picker = buildPersonPicker();
+  return (candidates: PersonSearchResult[], author: AuthorRow) =>
+    picker(candidates, {
       _fila: author._fila,
       nombre_completo: author.nombre_completo,
-      filiacion_institucional: author.filiacion_institucional,
       nacionalidad: author.nacionalidad,
       identificacion: author.identificacion,
+      filiacion_institucional: author.filiacion_institucional,
     });
-
-    showCandidatesTable(candidates.map(c => ({
-      nombre: fullName(c),
-      documento: c.nroDocumentoIdent || '—',
-      pais: c.nmePaisNacim || '—',
-      email: c.txtEmail || '—',
-    })));
-
-    const choices = candidates.map((c, i) => ({
-      name: `${i + 1}. ${fullName(c)}${c.nmePaisNacim ? ' — ' + c.nmePaisNacim : ''}`,
-      value: c,
-    }));
-    choices.push({ name: 'Ninguno — marcar error', value: null as unknown as PersonSearchResult });
-
-    const { pick } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'pick',
-        message: '¿Cuál es el autor correcto? (compare país/nombre con la tabla arriba)',
-        choices,
-        pageSize: Math.min(choices.length + 1, 15),
-      },
-    ]);
-    return pick;
-  };
-}
-
-function fullName(c: PersonSearchResult): string {
-  return c.txtTotalNames
-    || [c.txtNamesRh, c.txtPrimApell, c.txtSegApell].filter(Boolean).join(' ')
-    || '(sin nombre)';
 }

@@ -74,6 +74,7 @@ export type ExecutionMode =
   | 'upload'
   | 'import-ojs'
   | 'authors-upload'
+  | 'reviewers-upload'
   | 'exit';
 
 // UploadResult.successful/failed items keep `titulo` (Spanish) because it mirrors the `titulo` column of ArticleRow / the Excel template. Other fields of these internal result structs are in English.

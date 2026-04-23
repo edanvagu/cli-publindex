@@ -3,8 +3,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ArticleRow, ArticleState } from '../entities/articles/types';
 import {
-  STATE_COLUMNS, ARTICLE_STATES, ARTICLES_SHEET_NAME, AUTHORS_SHEET_NAME,
+  STATE_COLUMNS, ARTICLE_STATES, ARTICLES_SHEET_NAME, AUTHORS_SHEET_NAME, REVIEWERS_SHEET_NAME,
   ARTICLE_ID_COLUMN, AUTHORS_SHEET_HEADERS, AUTHOR_COLUMNS,
+  REVIEWERS_SHEET_HEADERS, REVIEWER_COLUMNS,
 } from '../config/constants';
 import { normalizeHeader } from './excel-reader';
 
@@ -23,6 +24,13 @@ export interface AuthorStateUpdate {
   articleId?: number;
 }
 
+export interface ReviewerStateUpdate {
+  row: number;
+  uploadState?: string;
+  hasCvlac?: string;
+  requiredAction?: string;
+}
+
 export interface ProgressSidecar {
   file: string;
   lastUpdated: string;
@@ -34,6 +42,7 @@ export interface ProgressSidecar {
     articleId?: number;
   }[];
   authors?: AuthorSidecarRecord[];
+  reviewers?: ReviewerSidecarRecord[];
 }
 
 interface AuthorSidecarRecord {
@@ -42,6 +51,13 @@ interface AuthorSidecarRecord {
   hasCvlac?: string;
   requiredAction?: string;
   articleId?: number;
+}
+
+interface ReviewerSidecarRecord {
+  row: number;
+  uploadState?: string;
+  hasCvlac?: string;
+  requiredAction?: string;
 }
 
 interface SheetCache {
@@ -53,6 +69,7 @@ interface XlsxCache {
   workbook: XLSX.WorkBook;
   articlesSheetName: string;
   authorsSheetName: string | null;
+  reviewersSheetName: string | null;
   sheets: Map<string, SheetCache>;
   dirty: Set<string>;
 }
@@ -157,6 +174,42 @@ export class ProgressTracker {
     }
   }
 
+  updateReviewer(update: ReviewerStateUpdate, onWarning?: (msg: string) => void): boolean {
+    if (this.useSidecar) {
+      this.updateReviewerSidecar(update);
+      return false;
+    }
+
+    try {
+      const cache = this.ensureXlsxCache();
+      if (!cache.reviewersSheetName) {
+        throw new Error('Hoja Evaluadores no existe en el archivo');
+      }
+
+      const sheetCache = cache.sheets.get(cache.reviewersSheetName)!;
+      const index = update.row - 2;
+      if (index < 0 || index >= sheetCache.data.length) {
+        throw new Error(`Fila ${update.row} fuera de rango en hoja Evaluadores`);
+      }
+
+      const row = sheetCache.data[index];
+      const setCol = (key: string, value: unknown) => {
+        const col = findHeader(sheetCache.headers, key) ?? key;
+        row[col] = value;
+      };
+      if (update.uploadState !== undefined) setCol(REVIEWER_COLUMNS.ESTADO_CARGA, update.uploadState);
+      if (update.hasCvlac !== undefined) setCol(REVIEWER_COLUMNS.TIENE_CVLAC, update.hasCvlac);
+      if (update.requiredAction !== undefined) setCol(REVIEWER_COLUMNS.ACCION_REQUERIDA, update.requiredAction);
+
+      this.flushXlsxCache(cache.reviewersSheetName);
+      return true;
+    } catch {
+      this.fallbackToSidecar(onWarning);
+      this.updateReviewerSidecar(update);
+      return false;
+    }
+  }
+
   trySyncSidecar(): boolean {
     if (!fs.existsSync(this.sidecarPath)) return true;
 
@@ -193,6 +246,21 @@ export class ProgressTracker {
           }
         }
         cache.dirty.add(cache.authorsSheetName);
+      }
+
+      if (sidecar.reviewers && cache.reviewersSheetName && sidecar.reviewers.length > 0) {
+        const reviewersCache = cache.sheets.get(cache.reviewersSheetName)!;
+        const resolveCol = (key: string) => findHeader(reviewersCache.headers, key) ?? key;
+        for (const rec of sidecar.reviewers) {
+          const index = rec.row - 2;
+          if (index >= 0 && index < reviewersCache.data.length) {
+            const row = reviewersCache.data[index];
+            if (rec.uploadState !== undefined) row[resolveCol(REVIEWER_COLUMNS.ESTADO_CARGA)] = rec.uploadState;
+            if (rec.hasCvlac !== undefined) row[resolveCol(REVIEWER_COLUMNS.TIENE_CVLAC)] = rec.hasCvlac;
+            if (rec.requiredAction !== undefined) row[resolveCol(REVIEWER_COLUMNS.ACCION_REQUERIDA)] = rec.requiredAction;
+          }
+        }
+        cache.dirty.add(cache.reviewersSheetName);
       }
 
       this.flushXlsxCache();
@@ -252,6 +320,7 @@ export class ProgressTracker {
     // The first sheet is always the articles sheet — fallback for older templates generated before sheet names were standardized. Match by explicit name first.
     const articlesSheetName = workbook.SheetNames.find(n => n === ARTICLES_SHEET_NAME) ?? workbook.SheetNames[0];
     const authorsSheetName: string | null = workbook.SheetNames.find(n => n === AUTHORS_SHEET_NAME) ?? null;
+    const reviewersSheetName: string | null = workbook.SheetNames.find(n => n === REVIEWERS_SHEET_NAME) ?? null;
 
     for (const name of workbook.SheetNames) {
       const sheet = workbook.Sheets[name];
@@ -272,11 +341,17 @@ export class ProgressTracker {
           if (!normalized.includes(col)) headers.push(col);
         }
       }
+      if (name === reviewersSheetName) {
+        const normalized = headers.map(normalizeHeader);
+        for (const col of REVIEWERS_SHEET_HEADERS) {
+          if (!normalized.includes(col)) headers.push(col);
+        }
+      }
 
       sheets.set(name, { headers, data });
     }
 
-    this.xlsxCache = { workbook, articlesSheetName, authorsSheetName, sheets, dirty: new Set() };
+    this.xlsxCache = { workbook, articlesSheetName, authorsSheetName, reviewersSheetName, sheets, dirty: new Set() };
     return this.xlsxCache;
   }
 
@@ -354,6 +429,24 @@ export class ProgressTracker {
     };
     if (idx >= 0) sidecar.authors[idx] = rec;
     else sidecar.authors.push(rec);
+    sidecar.lastUpdated = new Date().toISOString();
+
+    fs.writeFileSync(this.sidecarPath, JSON.stringify(sidecar, null, 2), 'utf-8');
+  }
+
+  private updateReviewerSidecar(update: ReviewerStateUpdate) {
+    const sidecar = this.readSidecar();
+    sidecar.reviewers = sidecar.reviewers ?? [];
+
+    const idx = sidecar.reviewers.findIndex(r => r.row === update.row);
+    const rec: ReviewerSidecarRecord = {
+      row: update.row,
+      uploadState: update.uploadState,
+      hasCvlac: update.hasCvlac,
+      requiredAction: update.requiredAction,
+    };
+    if (idx >= 0) sidecar.reviewers[idx] = rec;
+    else sidecar.reviewers.push(rec);
     sidecar.lastUpdated = new Date().toISOString();
 
     fs.writeFileSync(this.sidecarPath, JSON.stringify(sidecar, null, 2), 'utf-8');

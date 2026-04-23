@@ -2,9 +2,9 @@
 
 ## Objetivo
 
-El proyecto automatiza la carga de artículos y la vinculación de autores en el sistema [Publindex](https://scienti.minciencias.gov.co/publindex/) (Minciencias). Lee metadatos desde un export XML de OJS o desde un Excel ya prellenado, valida contra el catálogo Minciencias, hace upload secuencial vía API REST con reintentos, pausas adaptativas y persistencia de progreso en el mismo Excel.
+El proyecto automatiza la carga de artículos, la vinculación de autores y la vinculación de evaluadores (pares revisores) en el sistema [Publindex](https://scienti.minciencias.gov.co/publindex/) (Minciencias). Lee metadatos desde un export XML de OJS + un CSV de revisiones, o desde un Excel ya prellenado. Valida contra el catálogo Minciencias y hace upload secuencial vía API REST con reintentos, pausas adaptativas y persistencia de progreso en el mismo Excel.
 
-La arquitectura está organizada **por entidades** (articles, authors, auth, issues, areas) con capas internas delgadas. La regla del proyecto: agregar una entidad nueva no debe forzar tocar código existente — solo agregar una carpeta paralela bajo `src/entities/`.
+La arquitectura está organizada **por entidades** (articles, authors, reviewers, persons, auth, issues, areas) con capas internas delgadas. La regla del proyecto: agregar una entidad nueva no debe forzar tocar código existente — solo agregar una carpeta paralela bajo `src/entities/`.
 
 ## Capas y dependencias
 
@@ -20,24 +20,28 @@ La arquitectura está organizada **por entidades** (articles, authors, auth, iss
                    ▼
 ┌─────────────────────────────────────────────────────────┐
 │  entities/                                               │
-│    articles/   (types, validator, mapper, api, uploader) │
-│    authors/    (types, api, uploader)                    │
-│    auth/       (types, api, session)                     │
-│    issues/     (types, api)                              │
-│    areas/      (tree + lookups Minciencias)              │
+│    articles/     (types, validator, mapper, api, uploader)│
+│    authors/      (types, api, uploader)                  │
+│    reviewers/    (types, api, uploader)                  │
+│    persons/      (types, api) — primitivas compartidas   │
+│    auth/         (types, api, session)                   │
+│    issues/       (types, api)                            │
+│    areas/        (tree + lookups Minciencias)            │
 └──────────────────┬──────────────────────────────────────┘
                    │ usa
                    ▼
 ┌─────────────────────────────────────────────────────────┐
 │  io/                                                     │
-│    publindex-http.ts  (HTTP client Publindex + cookies)  │
-│    http-probe.ts      (verificador genérico 2xx)         │
-│    excel-reader.ts    (lectura .xlsx/.xls → ArticleRow)  │
-│    authors-reader.ts  (lectura hoja Autores)             │
-│    excel-writer.ts    (rows → .xlsx con estilos+lookups) │
+│    publindex-http.ts      (HTTP client Publindex + cookies)│
+│    http-probe.ts          (verificador genérico 2xx)     │
+│    excel-reader.ts        (lectura .xlsx/.xls → ArticleRow)│
+│    authors-reader.ts      (lectura hoja Autores)         │
+│    reviewers-reader.ts    (lectura hoja Evaluadores)     │
+│    excel-writer.ts        (rows → .xlsx con estilos+lookups)│
 │    xlsx-parser.ts, row-mapper.ts                         │
-│    ojs-xml.ts         (streaming parser de export OJS)   │
-│    progress.ts        (estado persistente Excel+sidecar) │
+│    ojs-xml.ts             (streaming parser de export OJS)│
+│    ojs-csv.ts             (parser CSV de revisiones OJS) │
+│    progress.ts            (estado persistente Excel+sidecar)│
 └──────────────────┬──────────────────────────────────────┘
                    │ usa
                    ▼
@@ -81,10 +85,12 @@ La arquitectura está organizada **por entidades** (articles, authors, auth, iss
 
 **Qué NO vive aquí:** prompts del usuario, output coloreado, streaming de archivos grandes (eso va en `io/`).
 
-Las 5 entidades actuales:
+Las 7 entidades actuales:
 
 - `articles/` — artículos (validator + mapper + api + uploader completos).
 - `authors/` — autores: búsqueda por documento o nombre, picker interactivo cuando hay ambigüedad, vinculación al artículo creado.
+- `reviewers/` — pares revisores (evaluadores en la UI de Publindex): mismo patrón que autores, pero el vínculo es por fascículo (no por artículo) y el uploader hace un pre-chequeo `GET /evaluadores/fasciculos/{id}` para saltar pares ya vinculados.
+- `persons/` — primitivas compartidas de búsqueda de personas (`searchPersons`, `getTrayectoria`) consumidas tanto por `authors` como por `reviewers`. Solo tiene `types.ts` + `api.ts`, sin uploader.
 - `auth/` — login + gestión de sesión JWT (`tokenValid`, expiración derivada del JWT).
 - `issues/` — fascículos (listar, seleccionar).
 - `areas/` — taxonomía de áreas de conocimiento Minciencias en árbol (lookup read-only por código y por nombre).
@@ -97,8 +103,10 @@ Las 5 entidades actuales:
 - `http-probe.ts` — verificador genérico `probeUrl()` (HEAD con fallback a GET, sigue redirects).
 - `excel-reader.ts`, `xlsx-parser.ts`, `row-mapper.ts` — pipeline de lectura de la hoja Artículos del Excel.
 - `authors-reader.ts` — lectura de la hoja Autores (segunda hoja del mismo workbook).
-- `excel-writer.ts` — generación de plantilla Excel: estilos (celdas amarillas obligatorias), dropdowns con cascada gran_area → area → subarea, hoja `_lookups` oculta para los `VLOOKUP`, hoja `Instrucciones`.
+- `reviewers-reader.ts` — lectura de la hoja Evaluadores (tercera hoja del workbook).
+- `excel-writer.ts` — generación de plantilla Excel: estilos (celdas amarillas obligatorias), dropdowns con cascada gran_area → area → subarea, hoja `_lookups` oculta para los `VLOOKUP`, hoja `Instrucciones`, tres hojas de datos (`Artículos`, `Autores`, `Evaluadores`).
 - `ojs-xml.ts` — streaming parser del export Native XML de OJS (puede pesar cientos de MB con PDFs inline en base64; los descarta en vuelo).
+- `ojs-csv.ts` — parser del CSV de revisiones (`reviews-YYYYMMDD.csv`) exportado por OJS. Filtra a una fascículo dado por `submissionId`, deduplica por username OJS.
 - `progress.ts` — tracker persistente de progreso (escribe a columnas del Excel; si el archivo está bloqueado por Excel, cae en sidecar JSON y reconcilia al cerrar).
 
 **Qué NO vive aquí:** lógica de dominio, decisiones de negocio, prompts.
@@ -123,13 +131,16 @@ Las 5 entidades actuales:
 ## Flujo end-to-end (orden recomendado)
 
 ```
-1. Importar desde OJS              →  genera Excel prellenado (hojas Artículos + Autores)
+1. Importar desde OJS              →  (XML + CSV opcional) → Excel con hojas Artículos + Autores + Evaluadores
 2. (Editor completa celdas amarillas en el Excel)
 3. Validar y cargar artículos      →  POST /articulos por cada fila → escribe id_articulo al Excel
 4. Vincular autores                →  busca cada autor en Publindex → POST /autores
+5. Vincular evaluadores            →  selecciona fascículo → pre-check → POST /evaluadores
 ```
 
-El Excel es la fuente de verdad: cada paso lee y escribe sobre el mismo workbook (`estado`, `fecha_subida`, `id_articulo` para artículos; `estado_carga`, `tiene_cvlac`, `accion_requerida` para autores). El editor puede cerrar el CLI y retomar — el `ProgressTracker` lee el estado anterior y procesa solo lo pendiente.
+El Excel es la fuente de verdad: cada paso lee y escribe sobre el mismo workbook. `estado`, `fecha_subida`, `id_articulo` para artículos; `estado_carga`, `tiene_cvlac`, `accion_requerida` para autores y evaluadores. El editor puede cerrar el CLI y retomar — el `ProgressTracker` lee el estado anterior y procesa solo lo pendiente.
+
+Los evaluadores se vinculan a nivel **fascículo** (no artículo), por lo que la hoja Evaluadores no tiene `id_articulo`. Al arrancar el paso 5 el editor elige el fascículo destino con el mismo prompt que usan los pasos 3 y 4, y el uploader hace un `GET /evaluadores/fasciculos/{id}` al inicio para saltar evaluadores cuyo `codRh` ya está vinculado (idempotencia frente a links manuales desde la UI).
 
 ## Flujo típico — importar OJS
 

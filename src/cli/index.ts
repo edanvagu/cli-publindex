@@ -4,6 +4,7 @@ import { ExecutionMode } from '../entities/articles/types';
 import { uploadArticles } from './commands/upload-articles';
 import { importOjs } from './commands/import-ojs';
 import { uploadAuthors } from './commands/upload-authors';
+import { uploadReviewers } from './commands/upload-reviewers';
 
 export async function run(options: { forcedMode?: ExecutionMode } = {}): Promise<void> {
   banner();
@@ -39,5 +40,7 @@ async function dispatch(mode: ExecutionMode): Promise<void> {
       return uploadArticles();
     case 'authors-upload':
       return uploadAuthors();
+    case 'reviewers-upload':
+      return uploadReviewers();
   }
 }

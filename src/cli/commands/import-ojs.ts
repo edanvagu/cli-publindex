@@ -1,11 +1,12 @@
 import * as path from 'path';
 import { spinner, success, error, info, warning } from '../logger';
-import { promptOjsFilePath, promptJournalBaseUrl, promptSavePath, promptUrlFailureAction } from '../prompts';
+import { promptOjsFilePath, promptJournalBaseUrl, promptSavePath, promptUrlFailureAction, promptOptionalReviewsCsvPath } from '../prompts';
 import { buildArticleUrl } from '../../utils/urls';
 import { formatTimestampCompact } from '../../utils/dates';
 import { probeUrl } from '../../io/http-probe';
 import { importFromOjs, ojsArticleToRow, articlesToAuthorRows, OjsArticle } from '../../io/ojs-xml';
-import { generateTemplateWithData } from '../../io/excel-writer';
+import { parseReviewsCsv, ReviewerRow } from '../../io/ojs-csv';
+import { generateTemplateWithData, ReviewerTemplateRow } from '../../io/excel-writer';
 
 function buildOutputName(inputXmlPath: string): string {
   const base = path.basename(inputXmlPath, path.extname(inputXmlPath));
@@ -85,9 +86,14 @@ export async function importOjs(): Promise<void> {
   const rows = articles.map((art, idx) => ojsArticleToRow(art, urlsByIndex.get(idx)));
   const authorRows = articlesToAuthorRows(articles);
 
+  const csvPath = await promptOptionalReviewsCsvPath();
+  const { reviewerRows, csvWarnings, csvSummary } = csvPath
+    ? readReviewersForFasciculo(csvPath, articles)
+    : { reviewerRows: [] as ReviewerTemplateRow[], csvWarnings: [] as string[], csvSummary: null as string | null };
+
   const outputPath = await promptSavePath(path.dirname(file), buildOutputName(file));
   try {
-    await generateTemplateWithData(rows, outputPath, authorRows);
+    await generateTemplateWithData(rows, outputPath, authorRows, reviewerRows);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'EBUSY') {
       error(`No se pudo escribir ${path.basename(outputPath)} porque está abierto en Excel.`);
@@ -96,7 +102,12 @@ export async function importOjs(): Promise<void> {
     }
     throw err;
   }
-  success(`Plantilla prellena generada con ${rows.length} artículos y ${authorRows.length} autores en ${outputPath}.`);
+  const summary = csvPath
+    ? `${rows.length} artículos, ${authorRows.length} autores y ${reviewerRows.length} evaluadores`
+    : `${rows.length} artículos y ${authorRows.length} autores`;
+  success(`Plantilla prellena generada con ${summary} en ${outputPath}.`);
+
+  if (csvSummary) info(csvSummary);
 
   if (warnings.length > 0) {
     console.log('');
@@ -110,9 +121,57 @@ export async function importOjs(): Promise<void> {
     for (const a of urlWarnings) warning(`  ${a}`);
   }
 
+  if (csvWarnings.length > 0) {
+    console.log('');
+    for (const a of csvWarnings) warning(a);
+  }
+
   console.log('');
   warning('Las celdas resaltadas en AMARILLO son campos obligatorios que quedaron vacíos — debe completarlos antes de validar.');
   info('Abra la plantilla en Excel. En la hoja "Artículos" complete los campos amarillos.');
   info('En la hoja "Autores" puede opcionalmente agregar la `identificacion` de cada autor (si la tiene). Sin identificación el CLI busca por nombre con un picker interactivo.');
-  info('Luego ejecute: (1) "Validar y cargar artículos" → (2) "Vincular autores a artículos cargados".');
+  if (csvPath) {
+    info('En la hoja "Evaluadores" complete las cédulas si las tiene y ajuste nacionalidades que hayan quedado vacías desde OJS.');
+  } else {
+    info('La hoja "Evaluadores" quedó vacía: pude llenarla manualmente o re-ejecutar este comando suministrando el CSV de revisiones de OJS.');
+  }
+  info('Luego ejecute: (1) "Validar y cargar artículos" → (2) "Vincular autores a artículos cargados" → (3) "Vincular evaluadores al fascículo".');
+}
+
+function readReviewersForFasciculo(
+  csvPath: string,
+  articles: OjsArticle[],
+): { reviewerRows: ReviewerTemplateRow[]; csvWarnings: string[]; csvSummary: string | null } {
+  const submissionIdSet = new Set(
+    articles
+      .map(a => a.submissionId)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0),
+  );
+
+  const csvSpinner = spinner(`Leyendo CSV de revisiones (${path.basename(csvPath)})...`);
+  try {
+    const result = parseReviewsCsv(csvPath, submissionIdSet);
+    csvSpinner.succeed(
+      `${result.reviewers.length} evaluadores únicos extraídos del fascículo ` +
+      `(${result.matchedForFasciculo} filas del CSV emparejaron con ${submissionIdSet.size} submissionIds del XML)`
+    );
+    return {
+      reviewerRows: result.reviewers.map(reviewerToTemplateRow),
+      csvWarnings: result.warnings,
+      csvSummary: `Filas totales del CSV: ${result.totalRowsInCsv}. Después de filtros (Revisión + completada + no cancelada/rechazada) y dedup por username: ${result.reviewers.length}.`,
+    };
+  } catch (err) {
+    csvSpinner.fail('Error al leer CSV de revisiones');
+    warning(err instanceof Error ? err.message : String(err));
+    warning('La hoja Evaluadores quedará vacía; complétela manualmente.');
+    return { reviewerRows: [], csvWarnings: [], csvSummary: null };
+  }
+}
+
+function reviewerToTemplateRow(r: ReviewerRow): ReviewerTemplateRow {
+  return {
+    nombre_completo: r.nombre_completo,
+    nacionalidad: r.nacionalidad,
+    filiacion_institucional: r.filiacion_institucional,
+  };
 }
