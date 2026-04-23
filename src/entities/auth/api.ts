@@ -44,7 +44,7 @@ function parseJwtExpiration(token: string): Date {
     const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'));
     return new Date(payload.exp * 1000);
   } catch {
-    // Si no se puede parsear, asumir 1 hora
+    // Fall back to a conservative 1h validity if the JWT can't be decoded — the pre-flight token check downstream will surface a real issue if the guess is wrong.
     return new Date(Date.now() + 3600 * 1000);
   }
 }

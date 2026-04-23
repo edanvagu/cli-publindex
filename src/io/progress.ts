@@ -57,10 +57,7 @@ interface XlsxCache {
   dirty: Set<string>;
 }
 
-/**
- * Encapsula la escritura del estado de carga al archivo Excel original.
- * Si el archivo está bloqueado (Excel abierto), usa un sidecar JSON como fallback.
- */
+ //Persists upload state into the original Excel file. If the file is locked (because Excel has it open), writes go to a JSON sidecar instead and get merged back into the workbook on the next `trySyncSidecar` call.
 export class ProgressTracker {
   private filePath: string;
   private sidecarPath: string;
@@ -89,10 +86,7 @@ export class ProgressTracker {
     }
   }
 
-  /**
-   * Tras crear un artículo, escribe el `articleId` a todas las filas de la
-   * hoja Autores cuyo `titulo_articulo` matchee. Silencioso si no hay hoja Autores.
-   */
+  // After an article is created, writes its `articleId` to every row in the Autores sheet whose `titulo_articulo` matches. No-op when the workbook has no Autores sheet (older templates without the second sheet).
   propagateArticleIdToAuthors(
     articleTitle: string,
     articleId: number,
@@ -230,7 +224,7 @@ export class ProgressTracker {
           states.set(rec.row, rec.state);
         }
       } catch {
-        // sidecar corrupto: ignorar
+        // Corrupt sidecar — fall back to whatever state lives in the workbook.
       }
     }
 
@@ -255,8 +249,7 @@ export class ProgressTracker {
     const workbook = XLSX.readFile(this.filePath);
     const sheets = new Map<string, SheetCache>();
 
-    // La primera hoja es siempre la de artículos (por compat con plantillas viejas
-    // sin nombres estandarizados). Buscamos también por nombre explícito.
+    // The first sheet is always the articles sheet — fallback for older templates generated before sheet names were standardized. Match by explicit name first.
     const articlesSheetName = workbook.SheetNames.find(n => n === ARTICLES_SHEET_NAME) ?? workbook.SheetNames[0];
     const authorsSheetName: string | null = workbook.SheetNames.find(n => n === AUTHORS_SHEET_NAME) ?? null;
 
@@ -287,11 +280,7 @@ export class ProgressTracker {
     return this.xlsxCache;
   }
 
-  /**
-   * Re-serializa SOLO las hojas marcadas como dirty y graba el workbook.
-   * Cada `json_to_sheet` es O(filas × cols); limitar re-serialización a las
-   * hojas modificadas ahorra trabajo cuando un update afecta solo una.
-   */
+  // Re-serializes ONLY the sheets marked dirty and rewrites the workbook. `json_to_sheet` is O(rows × cols); restricting re-serialization to the sheets that actually changed avoids the per-update cost of rebuilding the untouched sheet.
   private flushXlsxCache(dirty?: string) {
     const cache = this.xlsxCache!;
     if (dirty) cache.dirty.add(dirty);

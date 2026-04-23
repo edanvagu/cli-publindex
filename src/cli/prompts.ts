@@ -92,13 +92,13 @@ async function promptFileWithExtensions(extensions: string[], title: string): Pr
       name: 'method',
       message: '¿Cómo desea seleccionar el archivo?',
       choices: [
-        { name: 'Abrir explorador de archivos', value: 'explorador' },
+        { name: 'Abrir explorador de archivos', value: 'browser' },
         { name: 'Escribir la ruta manualmente', value: 'manual' },
       ],
     },
   ]);
 
-  if (method === 'explorador') {
+  if (method === 'browser') {
     return openFileDialog(extensions, title);
   }
 
@@ -126,7 +126,7 @@ function runOsascript(script: string): string | null {
     }).trim();
     return result || null;
   } catch {
-    // osascript exit 1 cuando el usuario cancela — tratamos igual que "sin selección".
+    // osascript exits with status 1 when the user cancels; treat that as "no selection".
     return null;
   }
 }
@@ -176,7 +176,7 @@ async function promptFileManual(extensions: string[]): Promise<string> {
 }
 
 function cleanPath(filePath: string): string {
-  // Quitar comillas que Windows agrega al arrastrar archivos con espacios
+  // Windows wraps drag-dropped paths with spaces in quotes — strip them.
   return filePath.trim().replace(/^["']|["']$/g, '');
 }
 
@@ -308,17 +308,17 @@ export async function mainMenu(): Promise<ExecutionMode> {
   return option;
 }
 
-export async function confirmResume(alreadyUploaded: number, pending: number): Promise<'omitir' | 'todo'> {
+export async function confirmResume(alreadyUploaded: number, pending: number): Promise<'skip' | 'all'> {
   const { action } = await inquirer.prompt([
     {
       type: 'list',
       name: 'action',
       message: `Se detectaron ${alreadyUploaded} artículos ya cargados previamente. ¿Qué desea hacer?`,
       choices: [
-        { name: `Omitirlos y procesar solo los ${pending} pendientes (recomendado)`, value: 'omitir' },
-        { name: 'Procesar TODOS de nuevo (puede crear duplicados en Publindex)', value: 'todo' },
+        { name: `Omitirlos y procesar solo los ${pending} pendientes (recomendado)`, value: 'skip' },
+        { name: 'Procesar TODOS de nuevo (puede crear duplicados en Publindex)', value: 'all' },
       ],
-      default: 'omitir',
+      default: 'skip',
     },
   ]);
   return action;
@@ -330,15 +330,15 @@ export async function confirmTimeEstimate(quantity: number, seconds: number): Pr
   console.log(`  ⏱  Tiempo estimado: ~${formatDuration(seconds)} (${quantity} artículos × ~${avg}s promedio, incluyendo pausas)`);
   console.log('');
 
-  const { proceder } = await inquirer.prompt([
+  const { proceed } = await inquirer.prompt([
     {
       type: 'confirm',
-      name: 'proceder',
+      name: 'proceed',
       message: '¿Desea proceder con la carga?',
       default: true,
     },
   ]);
-  return proceder;
+  return proceed;
 }
 
 export async function confirmAuthorsStart(quantity: number): Promise<boolean> {
@@ -346,13 +346,13 @@ export async function confirmAuthorsStart(quantity: number): Promise<boolean> {
   console.log(`  ℹ  Se procesarán ${quantity} autor(es).`);
   console.log('');
 
-  const { proceder } = await inquirer.prompt([
+  const { proceed } = await inquirer.prompt([
     {
       type: 'confirm',
-      name: 'proceder',
+      name: 'proceed',
       message: '¿Desea proceder con la vinculación?',
       default: true,
     },
   ]);
-  return proceder;
+  return proceed;
 }

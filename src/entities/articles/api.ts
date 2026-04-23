@@ -6,8 +6,7 @@ import { ArticlePayload } from './types';
 export async function createArticle(session: Session, payload: ArticlePayload): Promise<number> {
   const jsonStr = JSON.stringify(payload);
 
-  // multipart/form-data manual — el endpoint espera el campo "articulo" (en español,
-  // contrato del API Publindex) con el JSON del payload adentro.
+  // Built manually because the endpoint expects a single multipart field literally named `articulo` (Spanish — Publindex API contract) carrying the payload JSON.
   const boundary = '----PublindexCLI' + Date.now();
   const body = [
     `--${boundary}`,
@@ -31,7 +30,7 @@ export async function createArticle(session: Session, payload: ArticlePayload): 
     throw new Error(`HTTP ${response.status}: ${msg}`);
   }
 
-  // El response del POST /articulos es un entero en texto plano, ej. "253026".
+  // POST /articulos returns the new article id as a plain-text integer (e.g. "999999").
   const raw = typeof response.data === 'string' ? response.data.trim() : String(response.data);
   const id = parseInt(raw, 10);
   if (isNaN(id)) {

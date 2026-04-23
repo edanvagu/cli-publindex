@@ -9,12 +9,10 @@ import { ArticleRow } from '../entities/articles/types';
 const REQUIRED_FIELDS = ['titulo', 'url', 'gran_area', 'area', 'tipo_documento', 'palabras_clave', 'titulo_ingles', 'resumen'];
 const ALERT_FILL: ExcelJS.FillPattern = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEB9C' } };
 
-// Filas con data validation aplicada. Suficiente para cualquier revista real.
+// Number of rows that get data-validation rules applied. 500 covers any real journal.
 const DATA_VALIDATION_ROWS = 500;
 
-// Valores numéricos-puros se convierten a número al escribir para que Excel no
-// muestre el aviso "Número almacenado como texto" en pagina_inicial, pagina_final,
-// numero_autores, etc. DOIs y fechas no matchean este regex.
+// Integer-only strings are written as numbers so that Excel does not flag the cells with the "Number stored as text" warning in pagina_inicial, pagina_final, numero_autores, etc. DOIs and dates do not match this regex and stay as strings.
 const INTEGER_RE = /^\d+$/;
 
 export interface AuthorTemplateRow {
@@ -63,8 +61,7 @@ function buildArticlesSheet(wb: ExcelJS.Workbook, articles: Partial<ArticleRow>[
   addDataValidations(ws, headers);
 }
 
-// `identificacion` NO es obligatoria: si está, se usa para buscar por documento;
-// si no, el CLI cae en fallback por nombre con picker interactivo.
+// `identificacion` is NOT required: when present it powers a document-based search; when absent the uploader falls back to name search + interactive picker.
 const AUTHORS_REQUIRED_FIELDS = ['nacionalidad'];
 
 function buildAuthorsSheet(wb: ExcelJS.Workbook, authors: AuthorTemplateRow[]): void {
@@ -120,7 +117,7 @@ function highlightEmptyRequired(ws: ExcelJS.Worksheet, headers: string[], articl
 function addDataValidations(ws: ExcelJS.Worksheet, headers: string[]): void {
   const colIdx = (h: string) => headers.indexOf(h) + 1;
 
-  // Dropdowns con LABELS. El validator/mapper traduce a código antes de enviar a Publindex.
+  // Dropdowns store user-facing LABELS. The validator/mapper translates label → code before sending the payload to Publindex.
   const simpleLists: [string, string[]][] = [
     ['tipo_documento', Object.values(DOCUMENT_TYPES)],
     ['tipo_resumen', Object.values(SUMMARY_TYPES)],
@@ -138,9 +135,7 @@ function addDataValidations(ws: ExcelJS.Worksheet, headers: string[]): void {
     applyListToColumn(ws, i, `"${values.join(',')}"`);
   }
 
-  // Cascada gran_area → area → subarea. Named ranges usan el CÓDIGO Minciencias
-  // (ASCII-safe), y la fórmula traduce label → código via VLOOKUP sobre tablas
-  // de lookup en la hoja _lookups.
+  // Cascading dropdowns gran_area → area → subarea. Named ranges are keyed on the Minciencias CODE (ASCII-safe — labels contain accented chars Excel rejects in names) and the formula translates label → code via VLOOKUP on the _lookups sheet.
   const granAreaCol = colIdx('gran_area');
   const areaCol = colIdx('area');
   const subareaCol = colIdx('subarea');
@@ -193,7 +188,7 @@ function buildLookupsSheet(wb: ExcelJS.Workbook): void {
   defineRange(wb, ws.name, 'GRAN_AREAS', 1, 1, granAreaLabels.length);
   defineMultiColRange(wb, ws.name, 'GRAN_AREA_LOOKUP', 1, 2, 2, granAreaLabels.length);
 
-  // Col C: labels de TODAS las areas (flat). Col D: códigos paralelos. Para VLOOKUP.
+  // Col C: labels of ALL areas (flat list). Col D: parallel codes. Used as the VLOOKUP source for the cascading area → subarea dropdown.
   const allAreaLabels: string[] = [];
   const allAreaCodes: string[] = [];
   for (const gran of AREAS_TREE) {

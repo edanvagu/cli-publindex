@@ -19,7 +19,7 @@ export async function withRetry<T>(
     onRetry,
   } = options;
 
-  let lastError: Error = new Error('Sin intentos');
+  let lastError: Error = new Error('No attempts made');
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {

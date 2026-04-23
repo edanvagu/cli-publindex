@@ -48,14 +48,14 @@ export function showValidation(result: ValidationResult) {
     error(`${new Set(result.errors.map(e => e.row)).size} artículos con errores:`);
     console.log('');
 
-    const porFila = new Map<number, typeof result.errors>();
+    const byRow = new Map<number, typeof result.errors>();
     for (const err of result.errors) {
-      const lista = porFila.get(err.row) || [];
-      lista.push(err);
-      porFila.set(err.row, lista);
+      const entries = byRow.get(err.row) || [];
+      entries.push(err);
+      byRow.set(err.row, entries);
     }
 
-    for (const [row, errors] of porFila) {
+    for (const [row, errors] of byRow) {
       console.log(chalk.red(`  Fila ${row}:`));
       for (const err of errors) {
         console.log(chalk.gray(`    - ${err.field}: `) + err.message);
@@ -69,8 +69,8 @@ export function showValidation(result: ValidationResult) {
 
   if (result.warnings.length > 0) {
     console.log(chalk.yellow('  Advertencias:'));
-    for (const adv of result.warnings) {
-      warning(adv.message);
+    for (const w of result.warnings) {
+      warning(w.message);
     }
     console.log('');
   }
@@ -115,7 +115,7 @@ interface CandidateRow {
   email: string;
 }
 
-/** Mostrado ANTES del picker interactivo cuando falla búsqueda por documento. */
+ //Shown BEFORE the interactive picker when document-based search misses
 export function showPickerReference(author: AuthorReference): void {
   console.log('');
   console.log(chalk.bold('  Referencia del autor (desde OJS):'));
@@ -160,12 +160,12 @@ function pad(s: string, width: number): string {
 }
 
 export function showSummary(result: UploadResult) {
-  const timeSeg = (result.totalTimeMs / 1000).toFixed(1);
+  const timeSec = (result.totalTimeMs / 1000).toFixed(1);
 
   console.log('');
   console.log(chalk.bold('  ═══════════════════════════════════════════════'));
   console.log(chalk.green(`  Completados: ${result.successful.length}`) + chalk.gray(' | ') + chalk.red(`Fallidos: ${result.failed.length}`));
-  console.log(chalk.gray(`  Tiempo total: ${timeSeg}s`));
+  console.log(chalk.gray(`  Tiempo total: ${timeSec}s`));
   console.log(chalk.bold('  ═══════════════════════════════════════════════'));
 
   if (result.failed.length > 0) {

@@ -76,7 +76,7 @@ export type ExecutionMode =
   | 'authors-upload'
   | 'exit';
 
-// UploadResult.successful/failed items preservan `titulo` (en español) porque es un reflejo directo de la columna titulo de ArticleRow; el resto de fields de estos structs internos están en inglés.
+// UploadResult.successful/failed items keep `titulo` (Spanish) because it mirrors the `titulo` column of ArticleRow / the Excel template. Other fields of these internal result structs are in English.
 export interface ValidationError {
   row: number;
   field: string;

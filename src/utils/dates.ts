@@ -12,14 +12,14 @@ export function parseDate(value: string): Date | null {
   return null;
 }
 
-// Publindex espera timestamps con hora Colombia (UTC-5): T05:00:00.000Z
+// Publindex expects ISO timestamps anchored at Colombian midnight (UTC-5), which serializes as `T05:00:00.000Z`. Without this offset Publindex re-parses the date one day earlier in the UI.
 export function parseDateToIso(value: string): string {
   const d = parseDate(value) ?? (isNaN(new Date(value).getTime()) ? null : new Date(value));
   if (!d) return value;
   return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 5, 0, 0)).toISOString();
 }
 
-// Formato `YYYYMMDD-HHmmss` para sufijos de archivo (timestamps filename-safe).
+// Filename-safe timestamp suffix in `YYYYMMDD-HHmmss` form.
 export function formatTimestampCompact(date: Date = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;

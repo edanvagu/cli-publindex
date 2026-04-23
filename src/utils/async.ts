@@ -4,7 +4,7 @@ export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
     if (signal) {
       signal.addEventListener('abort', () => {
         clearTimeout(timer);
-        reject(new Error('Cancelado'));
+        reject(new Error('Cancelled'));
       }, { once: true });
     }
   });

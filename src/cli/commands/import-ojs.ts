@@ -75,8 +75,8 @@ export async function importOjs(): Promise<void> {
     for (const { idx, url, result } of results) {
       urlsByIndex.set(idx, url);
       if (!result.ok) {
-        const detalle = result.status ? `status ${result.status}` : result.error ?? 'sin respuesta';
-        urlWarnings.push(`Fila ${idx + 2}: URL ${url} no respondió 200 (${detalle}).`);
+        const detail = result.status ? `status ${result.status}` : result.error ?? 'sin respuesta';
+        urlWarnings.push(`Fila ${idx + 2}: URL ${url} no respondió 200 (${detail}).`);
       }
     }
     break;

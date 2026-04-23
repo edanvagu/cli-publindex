@@ -15,7 +15,7 @@ export interface AuthorsUploadOptions {
   onTokenExpiring: () => void;
   onWarning: (msg: string) => void;
   onPickPerson: (candidates: PersonSearchResult[], author: AuthorRow) => Promise<PersonSearchResult | null>;
-  onPause?: (segundos: number) => void;
+  onPause?: (seconds: number) => void;
   abortSignal?: AbortSignal;
 }
 
@@ -57,8 +57,8 @@ function flipNationality(label: string): string {
   return label === NATIONALITIES.C ? NATIONALITIES.E : NATIONALITIES.C;
 }
 
-export function estimateAuthorsTimeSeconds(cantidad: number): number {
-  return Math.round(cantidad * DEFAULTS.ESTIMATED_SECONDS_PER_AUTHOR);
+export function estimateAuthorsTimeSeconds(count: number): number {
+  return Math.round(count * DEFAULTS.ESTIMATED_SECONDS_PER_AUTHOR);
 }
 
 export async function runAuthorsUpload(
@@ -151,7 +151,7 @@ async function runAuthorsPass(
         { onRetry: (attempt, error) => options.onRetry(author._fila, attempt, error) },
       );
 
-      // Sin filiación institucional vigente, Publindex asume INTERNA (de la institución editora) por defecto. El linkeo funciona; el editor corrige via CvLAC si la filiación real es otra.
+      // Without a current institutional affiliation, Publindex defaults to INTERNAL (the editor journal's institution). Linking still succeeds; the editor must correct it via CvLAC afterwards if the real affiliation is elsewhere.
       const hasCurrentAffiliation = Array.isArray(enriched.instituciones) && enriched.instituciones.length > 0;
       const requiredAction = hasCurrentAffiliation
         ? ''
@@ -181,11 +181,11 @@ async function runAuthorsPass(
     }
 
     if (i + 1 < authors.length) {
-      const pausa = adaptivePauseMs(Date.now() - start);
-      if (pausa > 0) {
-        options.onPause?.(Math.round(pausa / 1000));
+      const pauseMs = adaptivePauseMs(Date.now() - start);
+      if (pauseMs > 0) {
+        options.onPause?.(Math.round(pauseMs / 1000));
         try {
-          await sleep(pausa, options.abortSignal);
+          await sleep(pauseMs, options.abortSignal);
         } catch {
           break;
         }
@@ -205,11 +205,11 @@ async function resolvePerson(
   author: AuthorRow,
   options: AuthorsUploadOptions,
 ): Promise<PersonSearchResult | null> {
-  const tpoNac = nationalityCode(author.nacionalidad);
+  const nationality = nationalityCode(author.nacionalidad);
 
   if (author.identificacion) {
     const byDoc = await searchPersons(session, {
-      tpoNacionalidad: tpoNac,
+      tpoNacionalidad: nationality,
       nroDocumentoIdent: author.identificacion,
       txtTotalNames: '',
     });
@@ -219,7 +219,7 @@ async function resolvePerson(
 
   if (author.nombre_completo) {
     const byName = await searchPersons(session, {
-      tpoNacionalidad: tpoNac,
+      tpoNacionalidad: nationality,
       nroDocumentoIdent: '',
       txtTotalNames: author.nombre_completo,
     });

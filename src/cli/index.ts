@@ -8,7 +8,7 @@ import { uploadAuthors } from './commands/upload-authors';
 export async function run(options: { forcedMode?: ExecutionMode } = {}): Promise<void> {
   banner();
 
-  // forcedMode (flags CLI): ejecuta una sola vez, sin loop — para scripts/cron.
+  // forcedMode (CLI flag): single run, no menu loop — for scripts and cron.
   if (options.forcedMode) {
     await dispatch(options.forcedMode);
     return;

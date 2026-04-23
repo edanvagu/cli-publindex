@@ -29,7 +29,7 @@ export async function uploadArticles(): Promise<void> {
   if (readResult.alreadyUploaded.length > 0) {
     info(`Se detectaron ${readResult.alreadyUploaded.length} artículos ya cargados previamente.`);
     const action = await confirmResume(readResult.alreadyUploaded.length, readResult.pending.length + readResult.withError.length);
-    if (action === 'omitir') {
+    if (action === 'skip') {
       articlesToProcess = [...readResult.pending, ...readResult.withError];
       info(`Se procesarán los ${articlesToProcess.length} artículos pendientes + con error.`);
     } else {
@@ -98,8 +98,8 @@ export async function uploadArticles(): Promise<void> {
 
   if (result.successful.length > 0) {
     console.log('');
-    const continuar = await confirmContinue('¿Continuar con la vinculación de autores?');
-    if (continuar) {
+    const linkAuthorsNow = await confirmContinue('¿Continuar con la vinculación de autores?');
+    if (linkAuthorsNow) {
       if (!tokenValid(session)) {
         warning('El token está por expirar. Si el flow falla, reinicie el CLI y vaya directo a "Vincular autores".');
       }

@@ -2,7 +2,7 @@ import { AUTHOR_STATES } from '../../config/constants';
 
 export interface AuthorRow {
   titulo_articulo: string;
-  id_articulo: string;          // vacío hasta que el artículo padre se sube
+  id_articulo: string;          // empty until the parent article has been uploaded
   nombre_completo: string;
   identificacion: string;
   nacionalidad: string;         // "Colombiana" | "Extranjera"
@@ -21,8 +21,7 @@ export interface PersonSearchCriteria {
   txtTotalNames: string;
 }
 
-// Muchos campos vienen null en el response de /criterios; se completan al
-// llamar a /trayectoriaProfesional con el codRh obtenido.
+// Most fields come back null from /personas/criterios; they get filled in by a follow-up call to /personas/{codRh}/{anoFasciculo}/trayectoriaProfesional.
 export interface PersonSearchResult {
   codRh: string;
   nroIdCnpq?: string | null;
@@ -40,7 +39,7 @@ export interface PersonSearchResult {
   codOrcid?: string | null;
   nroValorH5?: string | null;
   txtFuenteH5?: string | null;
-  staCertificado?: string | null;     // 'T' si tiene CvLAC
+  staCertificado?: string | null;     // 'T' if the person has a CvLAC profile
   txtEmail?: string | null;
   txtDireccion?: string | null;
   txtTelefono?: string | null;

@@ -197,8 +197,8 @@ describe('detectNonStandardPages', () => {
       { titulo: 'D', paginasRaw: '15' },
     ];
     expect(detectNonStandardPages(articles)).toEqual([
-      { indice: 1, valor: 'e1234' },
-      { indice: 3, valor: '15' },
+      { index: 1, value: 'e1234' },
+      { index: 3, value: '15' },
     ]);
   });
 

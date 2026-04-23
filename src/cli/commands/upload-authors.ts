@@ -49,19 +49,19 @@ async function uploadAuthorsCore(ctx: AuthorsContext): Promise<void> {
     return;
   }
 
-  const conIdArticulo = [...readResult.pending, ...readResult.errored].filter(a => a.id_articulo.trim() !== '');
-  const sinIdArticulo = [...readResult.pending, ...readResult.errored].filter(a => a.id_articulo.trim() === '');
+  const withArticleId = [...readResult.pending, ...readResult.errored].filter(a => a.id_articulo.trim() !== '');
+  const withoutArticleId = [...readResult.pending, ...readResult.errored].filter(a => a.id_articulo.trim() === '');
 
-  if (sinIdArticulo.length > 0) {
-    warning(`${sinIdArticulo.length} autores sin id_articulo — probablemente el artículo asociado aún no se ha cargado. Se saltan.`);
+  if (withoutArticleId.length > 0) {
+    warning(`${withoutArticleId.length} autores sin id_articulo — probablemente el artículo asociado aún no se ha cargado. Se saltan.`);
   }
 
-  if (conIdArticulo.length === 0) {
+  if (withArticleId.length === 0) {
     error('No hay autores pendientes con id_articulo. Primero ejecute "Validar y cargar artículos".');
     return;
   }
 
-  const validationIssues = validateAuthors(conIdArticulo);
+  const validationIssues = validateAuthors(withArticleId);
   if (validationIssues.length > 0) {
     for (const msg of validationIssues) warning(msg);
     const proceed = await confirmContinue('¿Continuar saltando esas filas?');
@@ -71,9 +71,8 @@ async function uploadAuthorsCore(ctx: AuthorsContext): Promise<void> {
     }
   }
 
-  // `identificacion` es opcional: si falta, el uploader hace fallback a búsqueda por nombre.
-  // Solo excluimos filas sin nacionalidad (necesaria para el param tpoNacionalidad) o sin nombre.
-  const toProcess = conIdArticulo.filter(a => a.nacionalidad.trim() !== '' && a.nombre_completo.trim() !== '');
+  // `identificacion` is optional: when missing, the uploader falls back to name search. Only rows without nacionalidad (required for the tpoNacionalidad query param) or without nombre_completo are excluded — both are needed to even attempt a search.
+  const toProcess = withArticleId.filter(a => a.nacionalidad.trim() !== '' && a.nombre_completo.trim() !== '');
 
   if (toProcess.length === 0) {
     error('Ninguna fila tiene nacionalidad + nombre_completo.');
@@ -87,8 +86,8 @@ async function uploadAuthorsCore(ctx: AuthorsContext): Promise<void> {
     return;
   }
 
-  const anoFasciculo = extractYear(issue.dtaPublicacion);
-  if (!anoFasciculo) {
+  const issueYear = extractYear(issue.dtaPublicacion);
+  if (!issueYear) {
     error(`No se pudo determinar el año del fascículo (dtaPublicacion="${issue.dtaPublicacion}").`);
     return;
   }
@@ -104,13 +103,13 @@ async function uploadAuthorsCore(ctx: AuthorsContext): Promise<void> {
 
   const result = await runAuthorsUpload(session, toProcess, {
     progressTracker,
-    anoFasciculo,
+    anoFasciculo: issueYear,
     onProgress: showProgress,
     onRetry: (row, attempt, err) => warning(`Fila ${row}: intento ${attempt} (${err.message})`),
     onTokenExpiring: () => warning('Token próximo a expirar. Los próximos requests podrían fallar.'),
     onWarning: warning,
     onPickPerson: buildPersonPicker(),
-    onPause: (segundos) => info(`Pausa de ${segundos}s antes del siguiente autor...`),
+    onPause: (seconds) => info(`Pausa de ${seconds}s antes del siguiente autor...`),
   });
 
   progressTracker.trySyncSidecar();
@@ -148,10 +147,10 @@ function extractYear(dta: string | undefined | null): number | null {
 function buildPersonPicker() {
   return async (candidates: PersonSearchResult[], author: AuthorRow): Promise<PersonSearchResult | null> => {
     console.log('');
-    const motivo = author.identificacion
+    const reason = author.identificacion
       ? `el documento "${author.identificacion}" no encontró coincidencia`
       : 'no se proporcionó identificación';
-    warning(`Fila ${author._fila}: ${motivo}. Se buscó por nombre "${author.nombre_completo}" y hay ${candidates.length} resultado(s).`);
+    warning(`Fila ${author._fila}: ${reason}. Se buscó por nombre "${author.nombre_completo}" y hay ${candidates.length} resultado(s).`);
 
     showPickerReference({
       _fila: author._fila,

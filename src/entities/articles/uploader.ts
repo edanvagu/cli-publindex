@@ -11,8 +11,8 @@ import { sleep } from '../../utils/async';
 export interface RunnerOptions {
   progressTracker: ProgressTracker;
   onProgress: (current: number, total: number, titulo: string, ok: boolean, timeMs: number, error?: string) => void;
-  onPause: (segundos: number) => void;
-  onRemainingTime: (segundos: number, processed: number, total: number) => void;
+  onPause: (seconds: number) => void;
+  onRemainingTime: (seconds: number, processed: number, total: number) => void;
   onRetry: (row: number, attempt: number, error: Error) => void;
   onTokenExpiring: () => void;
   onWarning: (msg: string) => void;
@@ -82,10 +82,10 @@ export async function runUpload(
       const remaining = estimateRemainingTimeSeconds(processed, articles.length, Date.now() - startTime);
       options.onRemainingTime(remaining, processed, articles.length);
 
-      const pausa = randomPauseMs();
-      options.onPause(Math.round(pausa / 1000));
+      const pauseMs = randomPauseMs();
+      options.onPause(Math.round(pauseMs / 1000));
       try {
-        await sleep(pausa, options.abortSignal);
+        await sleep(pauseMs, options.abortSignal);
       } catch {
         break;
       }
@@ -99,8 +99,8 @@ export async function runUpload(
   };
 }
 
-export function estimateTimeSeconds(cantidad: number): number {
-  return Math.round(cantidad * DEFAULTS.ESTIMATED_SECONDS_PER_ARTICLE);
+export function estimateTimeSeconds(count: number): number {
+  return Math.round(count * DEFAULTS.ESTIMATED_SECONDS_PER_ARTICLE);
 }
 
 export function estimateRemainingTimeSeconds(
@@ -111,6 +111,6 @@ export function estimateRemainingTimeSeconds(
   const remainingCount = total - processed;
   if (remainingCount <= 0) return 0;
   if (processed <= 0) return estimateTimeSeconds(remainingCount);
-  const promedioMs = elapsedMs / processed;
-  return Math.round((remainingCount * promedioMs) / 1000);
+  const averageMs = elapsedMs / processed;
+  return Math.round((remainingCount * averageMs) / 1000);
 }
