@@ -1,7 +1,35 @@
 import { authedRequest } from '../../io/publindex-http';
-import { ENDPOINTS } from '../../config/constants';
+import { ENDPOINTS, buildArticlesByFasciculoUrl } from '../../config/constants';
 import { Session } from '../auth/types';
 import { ArticlePayload } from './types';
+
+// GET /fasciculos/{id}/articulos returns objects keyed by `id` (not `idArticulo`) and title by `txtTituloArticulo`. The other fields are mostly nulled out in the list endpoint (only id/title/doi/pages are populated).
+export interface ServerArticle {
+  id: number;
+  txtTituloArticulo: string;
+  txtDoi?: string | null;
+  [key: string]: unknown;
+}
+
+export async function listArticlesByFasciculo(
+  session: Session,
+  idFasciculo: number,
+): Promise<ServerArticle[]> {
+  const url = buildArticlesByFasciculoUrl(idFasciculo);
+  const response = await authedRequest<ServerArticle[]>(session, url, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (response.status < 200 || response.status >= 300) {
+    const msg = typeof response.data === 'string'
+      ? response.data
+      : (response.data as any)?.mensaje || (response.data as any)?.message || JSON.stringify(response.data);
+    throw new Error(`HTTP ${response.status} al listar artículos del fascículo ${idFasciculo}: ${msg}`);
+  }
+
+  return Array.isArray(response.data) ? response.data : [];
+}
 
 export async function createArticle(session: Session, payload: ArticlePayload): Promise<number> {
   const jsonStr = JSON.stringify(payload);

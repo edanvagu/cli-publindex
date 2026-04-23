@@ -17,6 +17,14 @@ export function buildReviewersByFasciculoUrl(idFasciculo: number | string): stri
   return `${BASE_URL}/evaluadores/fasciculos/${idFasciculo}`;
 }
 
+export function buildArticlesByFasciculoUrl(idFasciculo: number | string): string {
+  return `${BASE_URL}/fasciculos/${idFasciculo}/articulos`;
+}
+
+export function buildAuthorsByArticleUrl(idArticulo: number | string): string {
+  return `${BASE_URL}/autores/articulos/${idArticulo}`;
+}
+
 export const DEFAULTS = {
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY_MS: 2000,

@@ -1,6 +1,6 @@
 import { AuthorRow, AuthorsUploadResult, PersonSearchResult } from './types';
 import { Session } from '../auth/types';
-import { searchPersons, getTrayectoria, linkAuthor } from './api';
+import { searchPersons, getTrayectoria, linkAuthor, listAuthorsByArticle } from './api';
 import { tokenValid } from '../auth/session';
 import { withRetry } from '../../utils/retry';
 import { AUTHOR_STATES, DEFAULTS, NATIONALITIES } from '../../config/constants';
@@ -66,7 +66,9 @@ export async function runAuthorsUpload(
   authors: AuthorRow[],
   options: AuthorsUploadOptions,
 ): Promise<AuthorsUploadResult> {
-  const pass1 = await runAuthorsPass(session, authors, options);
+  const linkedByArticle = new Map<number, Set<string>>();
+
+  const pass1 = await runAuthorsPass(session, authors, linkedByArticle, options);
 
   const retryableRows = new Set(
     pass1.failed.filter(f => f.error === NOT_FOUND_ERROR).map(f => f.row),
@@ -79,7 +81,7 @@ export async function runAuthorsUpload(
     .filter(a => retryableRows.has(a._fila))
     .map(a => ({ ...a, nacionalidad: flipNationality(a.nacionalidad) }));
 
-  const pass2 = await runAuthorsPass(session, flipped, options);
+  const pass2 = await runAuthorsPass(session, flipped, linkedByArticle, options);
 
   return {
     successful: [...pass1.successful, ...pass2.successful],
@@ -91,9 +93,32 @@ export async function runAuthorsUpload(
   };
 }
 
+// Idempotency guard: if the editor already linked some authors from the UI (or from a previous half-completed run), skip them without POST. The cache is keyed by idArticulo and each entry holds the codRh of the people already linked to that article.
+async function ensureLinkedAuthorsFor(
+  session: Session,
+  idArticulo: number,
+  cache: Map<number, Set<string>>,
+  onWarning: (msg: string) => void,
+): Promise<Set<string>> {
+  const cached = cache.get(idArticulo);
+  if (cached) return cached;
+  try {
+    const linked = await listAuthorsByArticle(session, idArticulo);
+    const set = new Set(linked.map(a => a.codRh).filter(Boolean));
+    cache.set(idArticulo, set);
+    return set;
+  } catch (err) {
+    onWarning(`No se pudo obtener la lista de autores ya vinculados al artículo ${idArticulo}: ${(err as Error).message}. Se continuará sin pre-filtro de duplicados para ese artículo.`);
+    const empty = new Set<string>();
+    cache.set(idArticulo, empty);
+    return empty;
+  }
+}
+
 async function runAuthorsPass(
   session: Session,
   authors: AuthorRow[],
+  linkedByArticle: Map<number, Set<string>>,
   options: AuthorsUploadOptions,
 ): Promise<AuthorsUploadResult> {
   const startTime = Date.now();
@@ -117,6 +142,22 @@ async function runAuthorsPass(
         writeError(options.progressTracker, author, msg, 'Registrar autor manualmente en Publindex', options.onWarning);
         failed.push({ row: author._fila, nombre, error: msg });
         options.onProgress(i + 1, authors.length, nombre, false, Date.now() - start, msg);
+        continue;
+      }
+
+      const articleId = parseInt(author.id_articulo, 10);
+      const alreadyLinked = await ensureLinkedAuthorsFor(session, articleId, linkedByArticle, options.onWarning);
+      if (alreadyLinked.has(person.codRh)) {
+        options.progressTracker.updateAuthor(
+          {
+            row: author._fila,
+            uploadState: AUTHOR_STATES.UPLOADED,
+            requiredAction: 'Ya vinculado al artículo (detectado por codRh)',
+          },
+          options.onWarning,
+        );
+        successful.push({ row: author._fila, nombre });
+        options.onProgress(i + 1, authors.length, nombre, true, Date.now() - start);
         continue;
       }
 
@@ -144,12 +185,13 @@ async function runAuthorsPass(
         continue;
       }
 
-      const articleId = parseInt(author.id_articulo, 10);
       await subcallPause(options.abortSignal);
       await withRetry(
         () => linkAuthor(session, { ...enriched, idArticulo: articleId, anoFasciculo: options.anoFasciculo }),
         { onRetry: (attempt, error) => options.onRetry(author._fila, attempt, error) },
       );
+
+      alreadyLinked.add(person.codRh);
 
       // Without a current institutional affiliation, Publindex defaults to INTERNAL (the editor journal's institution). Linking still succeeds; the editor must correct it via CvLAC afterwards if the real affiliation is elsewhere.
       const hasCurrentAffiliation = Array.isArray(enriched.instituciones) && enriched.instituciones.length > 0;

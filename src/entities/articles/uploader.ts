@@ -1,12 +1,13 @@
 import { ArticleRow, UploadResult } from './types';
 import { Session } from '../auth/types';
-import { createArticle } from './api';
+import { createArticle, listArticlesByFasciculo, ServerArticle } from './api';
 import { rowToPayload } from './mapper';
 import { tokenValid } from '../auth/session';
 import { withRetry } from '../../utils/retry';
 import { DEFAULTS, ARTICLE_STATES } from '../../config/constants';
 import { ProgressTracker } from '../../io/progress';
 import { sleep } from '../../utils/async';
+import { normalizeTitle } from '../../utils/text';
 
 export interface RunnerOptions {
   progressTracker: ProgressTracker;
@@ -34,6 +35,11 @@ export async function runUpload(
   const successful: UploadResult['successful'] = [];
   const failed: UploadResult['failed'] = [];
 
+  const alreadyOnServer = await fetchAlreadyUploadedArticles(session, idFasciculo, options.onWarning);
+  if (alreadyOnServer.size > 0) {
+    options.onWarning(`Pre-check: ${alreadyOnServer.size} artículo(s) ya están en el fascículo. Se saltarán si su título coincide.`);
+  }
+
   for (let i = 0; i < articles.length; i++) {
     if (options.abortSignal?.aborted) break;
 
@@ -44,6 +50,20 @@ export async function runUpload(
     }
 
     const start = Date.now();
+
+    const existingId = alreadyOnServer.get(normalizeTitle(article.titulo));
+    if (existingId !== undefined) {
+      successful.push({ row: article._fila, titulo: article.titulo });
+      options.onProgress(i + 1, articles.length, article.titulo, true, Date.now() - start);
+      options.progressTracker.update(
+        { row: article._fila, state: ARTICLE_STATES.UPLOADED, articleId: existingId },
+        options.onWarning,
+      );
+      options.onArticleCreated?.(article, existingId);
+      options.onWarning(`Fila ${article._fila}: ya existe en el servidor (id=${existingId}), saltando POST.`);
+      continue;
+    }
+
     const payload = rowToPayload(article, idFasciculo);
 
     try {
@@ -65,6 +85,7 @@ export async function runUpload(
         options.onWarning
       );
       options.onArticleCreated?.(article, articleId);
+      alreadyOnServer.set(normalizeTitle(article.titulo), articleId);
     } catch (err) {
       const elapsed = Date.now() - start;
       const errorMsg = err instanceof Error ? err.message : String(err);
@@ -97,6 +118,25 @@ export async function runUpload(
     failed,
     totalTimeMs: Date.now() - startTime,
   };
+}
+
+// Idempotency guard: if the editor manually created some articles in the UI, skip them here to avoid duplicates. Matching is by normalized title (accents stripped, lowercased, whitespace collapsed) because Publindex may round-trip the stored title through its own normalization.
+async function fetchAlreadyUploadedArticles(
+  session: Session,
+  idFasciculo: number,
+  onWarning: (msg: string) => void,
+): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  try {
+    const existing = await listArticlesByFasciculo(session, idFasciculo);
+    for (const a of existing) {
+      if (!a.txtTituloArticulo || typeof a.id !== 'number') continue;
+      map.set(normalizeTitle(a.txtTituloArticulo), a.id);
+    }
+  } catch (err) {
+    onWarning(`No se pudo obtener la lista de artículos ya cargados del fascículo: ${(err as Error).message}. Se continuará sin pre-filtro de duplicados.`);
+  }
+  return map;
 }
 
 export function estimateTimeSeconds(count: number): number {
