@@ -10,7 +10,7 @@
     "start": "tsx bin/publindex.ts",
     "build": "tsc",
     "build:bundle": "esbuild bin/publindex.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist/publindex.js",
-    "build:bin": "npm run ext:build && npm run embed:ext && npm run build:bundle && pkg dist/publindex.js --targets node20-win-x64,node20-macos-arm64,node20-macos-x64 --out-path dist/",
+    "build:bin": "npm run ext:build && npm run embed:ext && npm run build:bundle && pkg dist/publindex.js --targets node20-win-x64 --out-path dist/",
     "embed:ext": "node scripts/embed-extension.mjs",
     "test": "vitest run",
     "ext:build": "npm run build --prefix extension",

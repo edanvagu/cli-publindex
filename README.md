@@ -10,20 +10,14 @@ Automatiza el flujo que en la interfaz web toma minutos por artículo: importa m
 
 ### 1. Descargar el ejecutable
 
-En la [página de releases](../../releases/latest) elija el archivo que corresponda a su sistema:
+En la [página de releases](../../releases/latest) descargue `publindex-windows-x64.exe`.
 
-| Sistema                   | Archivo                     |
-| ------------------------- | --------------------------- |
-| Windows                   | `publindex-windows-x64.exe` |
-| Mac (chip Apple M1/M2/M3) | `publindex-macos-arm64`     |
-
-> Macs con procesador Intel (fabricados antes de 2021) no tienen binario disponible; necesitan instalar Node.js y correr desde el código fuente — escríbame si es su caso.
+> **Sistema operativo soportado en esta versión:** Windows 10 / 11 (64-bit).
+> En macOS / Linux no hay binario oficial; si tiene Node.js puede correr el CLI desde código fuente con `npm install && npm start`.
 
 ### 2. Primera ejecución
 
-**Windows:** doble clic sobre el `.exe`. La primera vez Windows mostrará una advertencia "Windows protegió su PC" — haga clic en "Más información" y luego "Ejecutar de todas formas". Solo aparece la primera vez (y tras cada actualización).
-
-**Mac:** abra Terminal, arrastre el archivo descargado a la ventana para pegar su ruta y presione Enter. La primera vez Mac dirá "no se puede verificar el desarrollador" — vaya a Ajustes del sistema → Privacidad y seguridad → haga clic en "Abrir de todas formas", y vuelva a ejecutar.
+Doble clic sobre el `.exe`. La primera vez Windows mostrará una advertencia "Windows protegió su PC" — haga clic en "Más información" y luego "Ejecutar de todas formas". Solo aparece la primera vez (y tras cada actualización).
 
 ### 3. Flujo de trabajo
 
@@ -67,7 +61,7 @@ El bundle con `esbuild` ya funciona en Node 18+, pero la etapa `pkg` requiere No
 
 ```bash
 npm run build:bundle  # produce dist/publindex.js (~5 MB)
-npm run build:bin     # produce binarios Windows + Mac en dist/
+npm run build:bin     # produce el binario Windows x64 en dist/
 ```
 
 ### Arquitectura
@@ -90,13 +84,13 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-El workflow en `.github/workflows/release.yml` compila en Windows, Mac ARM y Mac Intel, y publica los binarios en una release de GitHub.
+El workflow en `.github/workflows/release.yml` compila en Windows, corre tests, y publica el binario en una release de GitHub con las notas tomadas de `RELEASE_NOTES.md`.
 
 ---
 
 ## Limitaciones conocidas
 
-- **Sin firma de código:** los binarios no están firmados, lo que causa las advertencias de primera ejecución descritas arriba. Firmar en Windows cuesta ~$200/año y en Mac ~$99/año; por ahora no se justifica.
-- **Mac Linux:** Linux no tiene diálogo nativo de archivos sin instalar dependencias adicionales; los usuarios Linux pueden correr el CLI vía Node (`node dist/publindex.js`) y usar la opción "escribir ruta manualmente".
+- **Sin firma de código:** el binario no está firmado, lo que causa la advertencia de SmartScreen en la primera ejecución. Firmar en Windows cuesta ~$200/año; por ahora no se justifica.
+- **Solo Windows en esta versión:** el binario oficial es Windows x64. Desde código fuente corre en cualquier SO con Node.js 20+, pero los diálogos nativos de archivos degradan a prompt manual en macOS/Linux.
 - **Autores no-CvLAC colombianos:** Publindex bloquea la vinculación de autores colombianos sin CvLAC. El CLI detecta este caso y marca el error en el Excel con una acción requerida.
 - **Filiación no vigente:** si un autor no tiene filiación profesional vigente en su CvLAC, Publindex lo asume automáticamente como filiación interna de la revista. El CLI avisa para que el editor lo corrija en CvLAC.

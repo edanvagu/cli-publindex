@@ -9,17 +9,7 @@ permissions:
 
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            target: node20-win-x64
-            output: publindex-windows-x64.exe
-          - os: macos-latest
-            target: node20-macos-arm64
-            output: publindex-macos-arm64
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,16 +19,17 @@ jobs:
       - run: npm test
       - run: npm run build:bundle
       - name: Package binary
-        run: npx pkg dist/publindex.js --targets ${{ matrix.target }} --output dist/${{ matrix.output }}
+        run: npx pkg dist/publindex.js --targets node20-win-x64 --output dist/publindex-windows-x64.exe
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.output }}
-          path: dist/${{ matrix.output }}
+          name: publindex-windows-x64.exe
+          path: dist/publindex-windows-x64.exe
 
   release:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -50,5 +41,5 @@ jobs:
           gh release create "${GITHUB_REF_NAME}" \
             --repo "${GITHUB_REPOSITORY}" \
             --title "Publindex CLI ${GITHUB_REF_NAME}" \
-            --generate-notes \
+            --notes-file RELEASE_NOTES.md \
             artifacts/*
