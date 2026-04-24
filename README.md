@@ -39,6 +39,12 @@ El CLI presenta un menú. El orden recomendado es:
 
 Durante toda la corrida el Excel se va actualizando con el estado de cada artículo y autor (`subido`, `error:...`, etc.), por lo que puede cerrar el CLI y retomar desde donde quedó.
 
+### Canal alternativo: extensión de navegador
+
+Además del CLI (que hace POSTs directos al backend), existe una extensión de Chromium que detecta los formularios de Publindex en el navegador y los rellena desde la misma plantilla Excel. El editor navega manualmente y revisa cada formulario antes de guardar — útil si el backend bloquea automatización o si se prefiere un flujo más visual.
+
+**Instalación fácil** (sin `npm`): en el menú del CLI elige "Instalar extensión de navegador". El CLI extrae la extensión a una carpeta del sistema y abre Chrome. Luego en `chrome://extensions/` → modo desarrollador → "Cargar descomprimida" → seleccionar la carpeta que el CLI abrió.
+
 ### 4. Salir y volver
 
 El CLI se queda abierto en bucle hasta que se elige "Salir". Si algún flujo falla a mitad de camino, el menú reaparece — los datos ya guardados en el Excel no se pierden.

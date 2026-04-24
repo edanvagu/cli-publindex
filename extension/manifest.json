@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Publindex Autofill",
+  "version": "0.1.0",
+  "description": "Rellena formularios de Publindex desde una plantilla Excel generada por la CLI.",
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "Publindex Autofill"
+  },
+  "background": {
+    "service_worker": "src/background.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://scienti.minciencias.gov.co/*"],
+      "js": ["src/content/index.ts"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": ["storage"],
+  "host_permissions": ["https://scienti.minciencias.gov.co/*"]
+}

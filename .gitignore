@@ -5,3 +5,8 @@ dist/
 .claude/
 /samples
 skills-lock.json
+
+extension/dist/
+extension/node_modules/
+
+.playwright-mcp/

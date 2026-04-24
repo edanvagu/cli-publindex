@@ -1,7 +1,7 @@
 import { AUTHOR_STATES } from '../../config/constants';
 import { PersonSearchResult } from '../persons/types';
 
-export { PersonSearchCriteria, PersonSearchResult } from '../persons/types';
+export type { PersonSearchCriteria, PersonSearchResult } from '../persons/types';
 
 export interface AuthorRow {
   titulo_articulo: string;

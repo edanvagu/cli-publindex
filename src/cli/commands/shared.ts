@@ -1,3 +1,4 @@
+import { exec } from 'child_process';
 import { spinner, error, info, warning } from '../logger';
 import { promptCredentials, selectIssue, confirmContinue } from '../prompts';
 import { login } from '../../entities/auth/api';
@@ -35,6 +36,17 @@ export async function fetchAndSelectIssue(session: Session): Promise<Issue> {
     throw new Error('No se encontraron fascículos en esta revista');
   }
   return selectIssue(issues);
+}
+
+export function openInDefaultApp(target: string): void {
+  // `start ""` on Windows requires the empty title argument; macOS / Linux use `open` / `xdg-open`. The command fires asynchronously — errors are swallowed because we always print the path/URL alongside so the editor can fall back to copy-paste.
+  const cmd =
+    process.platform === 'win32'
+      ? `start "" "${target.replace(/"/g, '\\"')}"`
+      : process.platform === 'darwin'
+        ? `open "${target}"`
+        : `xdg-open "${target}"`;
+  exec(cmd, () => {});
 }
 
 export function extractYear(dta: string | undefined | null): number | null {

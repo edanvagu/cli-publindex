@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Publindex Autofill</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Publindex Autofill</h1>
+      <div id="file-info">Sin datos cargados</div>
+    </header>
+
+    <section id="upload-section">
+      <input type="file" id="file-input" accept=".xlsx" hidden />
+      <button id="load-button" type="button">Cargar Excel</button>
+      <button id="open-publindex" type="button">Abrir Publindex</button>
+      <button id="show-widget" type="button">Mostrar widget</button>
+      <button id="clear-button" type="button" hidden>Limpiar</button>
+    </section>
+
+    <section id="summary-section" hidden>
+      <div class="counts">
+        <span>Artículos <strong id="articles-count">0</strong></span>
+        <span>Autores <strong id="authors-count">0</strong></span>
+        <span>Evaluadores <strong id="reviewers-count">0</strong></span>
+      </div>
+    </section>
+
+    <section id="list-section" hidden>
+      <div class="tabs">
+        <button class="tab-button active" data-tab="articles" type="button">Artículos</button>
+        <button class="tab-button" data-tab="authors" type="button">Autores</button>
+        <button class="tab-button" data-tab="reviewers" type="button">Evaluadores</button>
+      </div>
+      <ul id="item-list"></ul>
+    </section>
+
+    <footer>
+      <small>Abre el formulario en Publindex; usa el botón flotante para rellenarlo.</small>
+    </footer>
+
+    <script src="./popup.ts" type="module"></script>
+  </body>
+</html>

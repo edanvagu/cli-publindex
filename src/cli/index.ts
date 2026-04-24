@@ -5,6 +5,7 @@ import { uploadArticles } from './commands/upload-articles';
 import { importOjs } from './commands/import-ojs';
 import { uploadAuthors } from './commands/upload-authors';
 import { uploadReviewers } from './commands/upload-reviewers';
+import { installExtension } from './commands/install-extension';
 
 export async function run(options: { forcedMode?: ExecutionMode } = {}): Promise<void> {
   banner();
@@ -42,5 +43,7 @@ async function dispatch(mode: ExecutionMode): Promise<void> {
       return uploadAuthors();
     case 'reviewers-upload':
       return uploadReviewers();
+    case 'install-extension':
+      return installExtension();
   }
 }

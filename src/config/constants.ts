@@ -1,5 +1,8 @@
 export const BASE_URL = 'https://scienti.minciencias.gov.co/publindex/api';
 
+// Editor-facing SPA (what the extension opens in Chrome). Derived from BASE_URL by stripping the `/api` suffix so we can't drift out of sync.
+export const PUBLINDEX_APP_URL = BASE_URL.replace(/\/api$/, '/');
+
 export const ENDPOINTS = {
   LOGIN: `${BASE_URL}/autenticacion/autenticarEditor`,
   ISSUES: `${BASE_URL}/fasciculos`,

@@ -203,8 +203,45 @@ Tomar `entities/authors/` como referencia. Pasos típicos:
 
 No se debería tocar `articles/`, `authors/`, `auth/`, `io/` (excepto si hay un nuevo formato de archivo), ni `utils/`. Ese es el punto del diseño por entidad.
 
+## Canales de carga
+
+El proyecto soporta dos canales paralelos para subir datos a Publindex:
+
+```
+                      ┌─ CLI (src/)                       ─┐
+ XML OJS + CSV        │  POSTs directos a /articulos,       │
+ ──────────────►  ─────┤  /autores, /evaluadores con JWT    │
+ Excel plantilla      │  Automatiza todo; rápido pero       │
+                      │  susceptible a rate-limiting.       │
+                      │                                     │
+                      ├─ Extensión (extension/)            ─┤
+                      │  El editor navega Publindex; la     │
+                      │  extensión detecta formularios y    │
+                      │  los rellena desde el mismo Excel.  │
+                      └─ Submit manual, tráfico humano.    ─┘
+```
+
+La **CLI** es el canal original: secuencial, con retries y pre-chequeos idempotentes. Ver el resto de este documento.
+
+La **extensión** (ver `docs/EXTENSION.md`) es un Chromium MV3 standalone; comparte `src/config/constants.ts` (diccionarios label→código para dropdowns) y el shape de `ArticleRow`/`AuthorRow`/`ReviewerRow` pero **no importa de `src/entities/*/api.ts` ni de `src/io/publindex-http.ts`** — toda la capa de red del CLI queda out-of-scope en la extensión.
+
+Estructura:
+
+```
+extension/
+  manifest.json         (MV3)
+  vite.config.ts        (@crxjs/vite-plugin)
+  src/
+    background.ts       (service worker)
+    content/            (detector + filler + widget flotante)
+    popup/              (UI de carga Excel + listas)
+    shared/             (mapper row→form fields, parser Excel browser)
+    storage.ts          (wrapper sobre chrome.storage.local)
+```
+
+Dependency rule: `extension/src/content/` usa `extension/src/shared/` y `extension/src/storage.ts`. `extension/src/shared/` puede importar relativo a `src/config/` y a los `types.ts` de `src/entities/*/` para reutilizar las interfaces, pero nunca `src/io/` ni los `api.ts`/`uploader.ts` del CLI.
+
 ## Puntos abiertos conocidos
 
 - `ExecutionMode` vive en `entities/articles/types.ts` pero conceptualmente es un enum cross-entity. Si crecen los comandos, mover a `shared/types.ts` o `cli/types.ts`.
 - No hay tests para `cli/commands/*` (los comandos orquestan I/O y son difíciles de testear sin mocks pesados de inquirer). Los tests cubren la lógica de dominio (`entities/`) y de I/O (`io/`).
-- Los identificadores que mirror-ean contratos externos (API Publindex, columnas Excel) siguen intencionalmente en español — ver la tabla de la sección "Convenciones de código".

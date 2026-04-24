@@ -1,6 +1,8 @@
 import * as path from 'path';
 import { spinner, success, error, info, warning } from '../logger';
-import { promptOjsFilePath, promptJournalBaseUrl, promptSavePath, promptUrlFailureAction, promptOptionalReviewsCsvPath } from '../prompts';
+import { promptOjsFilePath, promptJournalBaseUrl, promptSavePath, promptUrlFailureAction, promptOptionalReviewsCsvPath, confirmContinue } from '../prompts';
+import { openInDefaultApp } from './shared';
+import { PUBLINDEX_APP_URL } from '../../config/constants';
 import { buildArticleUrl } from '../../utils/urls';
 import { formatTimestampCompact } from '../../utils/dates';
 import { probeUrl } from '../../io/http-probe';
@@ -136,6 +138,14 @@ export async function importOjs(): Promise<void> {
     info('La hoja "Evaluadores" quedó vacía: pude llenarla manualmente o re-ejecutar este comando suministrando el CSV de revisiones de OJS.');
   }
   info('Luego ejecute: (1) "Validar y cargar artículos" → (2) "Vincular autores a artículos cargados" → (3) "Vincular evaluadores al fascículo".');
+  info('Si prefiere el canal de la extensión: abra su Chrome, cargue la plantilla en el popup de Publindex Autofill, y rellene los formularios manualmente con el widget flotante.');
+
+  console.log('');
+  const openNow = await confirmContinue('¿Abrir la plantilla en su aplicación por defecto y Publindex en el navegador ahora?');
+  if (openNow) {
+    openInDefaultApp(outputPath);
+    openInDefaultApp(PUBLINDEX_APP_URL);
+  }
 }
 
 function readReviewersForFasciculo(

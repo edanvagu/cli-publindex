@@ -316,6 +316,7 @@ export async function mainMenu(): Promise<ExecutionMode> {
         { name: '3. Vincular autores a artículos cargados', value: 'authors-upload' as ExecutionMode },
         { name: '4. Vincular evaluadores al fascículo', value: 'reviewers-upload' as ExecutionMode },
         new inquirer.Separator(),
+        { name: 'Instalar extensión de navegador (canal alternativo)', value: 'install-extension' as ExecutionMode },
         { name: 'Salir', value: 'exit' as ExecutionMode },
       ],
     },
