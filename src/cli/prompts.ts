@@ -345,12 +345,13 @@ export async function autoMenuPrompt(): Promise<AutoMenuChoice> {
   ]);
 }
 
-type ExtMenuChoice = Extract<LeafAction, 'install-extension' | 'open-publindex'> | NavAction;
+type ExtMenuChoice = Extract<LeafAction, 'install-extension' | 'open-publindex' | 'help-extension'> | NavAction;
 
 export async function extMenuPrompt(): Promise<ExtMenuChoice> {
   return promptList<ExtMenuChoice>('¿Qué desea hacer?', [
     { name: '1. Instalar / actualizar extensión', value: 'install-extension' },
     { name: '2. Abrir Publindex en el navegador', value: 'open-publindex' },
+    { name: '3. Cómo usar la extensión', value: 'help-extension' },
     ...BACK_EXIT,
   ]);
 }

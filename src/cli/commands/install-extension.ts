@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { exec } from 'child_process';
 import { EXTENSION_FILES, EXTENSION_FILE_COUNT } from '../generated/extension-bundle';
 import { success, info, warning, error } from '../logger';
 import { openInDefaultApp } from './shared';
@@ -33,17 +32,14 @@ export async function installExtension(): Promise<void> {
   success('Extensión lista.');
 
   openInDefaultApp(EXTENSION_INSTALL_DIR);
-  // chrome:// URLs aren't registered protocols with the Windows shell, so `start "" "chrome://..."` silently fails. We have to invoke `chrome` as the executable (cmd resolves it via the "App Paths" registry entry even when chrome.exe isn't in PATH). The empty "" title is mandatory before the command.
-  if (process.platform === 'win32') {
-    exec('start "" chrome "chrome://extensions/"', () => {});
-  } else if (process.platform === 'darwin') {
-    exec('open -a "Google Chrome" "chrome://extensions/"', () => {});
-  }
 
   console.log('');
   info('Pasos en Chrome:');
-  info('  1. Active el toggle "Modo de desarrollador" (arriba a la derecha).');
-  info('  2. Click en "Cargar descomprimida" y seleccione la carpeta que se abrió.');
-  info('  3. Si ya la había instalado antes, click en recargar (↻) en la tarjeta.');
+  info('  1. Abra Chrome y pegue en la barra de direcciones:');
+  info('       chrome://extensions/');
+  info('  2. Active el toggle "Modo de desarrollador" (arriba a la derecha).');
+  info('  3. Click en "Cargar extensión sin empaquetar" y seleccione esta carpeta:');
+  info(`       ${EXTENSION_INSTALL_DIR}`);
+  info('  4. Si ya la había instalado antes, click en recargar (↻) en la tarjeta.');
   warning('Mantenga esta carpeta — si la borra, Chrome perderá la extensión.');
 }

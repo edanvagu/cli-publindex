@@ -43,7 +43,7 @@ Durante toda la corrida el Excel se va actualizando con el estado de cada artíc
 
 Además del CLI (que hace POSTs directos al backend), existe una extensión de Chromium que detecta los formularios de Publindex en el navegador y los rellena desde la misma plantilla Excel. El editor navega manualmente y revisa cada formulario antes de guardar — útil si el backend bloquea automatización o si se prefiere un flujo más visual.
 
-**Instalación fácil** (sin `npm`): en el menú del CLI elige "Instalar extensión de navegador". El CLI extrae la extensión a una carpeta del sistema y abre Chrome. Luego en `chrome://extensions/` → modo desarrollador → "Cargar descomprimida" → seleccionar la carpeta que el CLI abrió.
+**Instalación fácil** (sin `npm`): en el menú del CLI elige "Instalar extensión de navegador". El CLI extrae la extensión a una carpeta del sistema y abre Chrome. Luego en `chrome://extensions/` → modo desarrollador → "Cargar extensión sin empaquetar" → seleccionar la carpeta que el CLI abrió.
 
 ### 4. Salir y volver
 

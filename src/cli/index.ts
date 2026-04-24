@@ -12,6 +12,7 @@ import { uploadAuthors } from './commands/upload-authors';
 import { uploadReviewers } from './commands/upload-reviewers';
 import { installExtension } from './commands/install-extension';
 import { showOjsExportHelp } from './commands/help-ojs-export';
+import { showExtensionUsageHelp } from './commands/help-extension-usage';
 import { openPublindex } from './commands/open-publindex';
 
 export async function run(options: { forcedMode?: ExecutionMode } = {}): Promise<void> {
@@ -83,5 +84,6 @@ async function runLeaf(action: LeafAction): Promise<void> {
     case 'install-extension': return installExtension();
     case 'open-publindex':    return openPublindex();
     case 'help-ojs':          return showOjsExportHelp();
+    case 'help-extension':    return showExtensionUsageHelp();
   }
 }

@@ -41,6 +41,10 @@ describe('dispatch - navegación', () => {
   it('ext-menu + open-publindex ejecuta la acción', () => {
     expect(dispatch('ext-menu', 'open-publindex')).toEqual({ kind: 'run', action: 'open-publindex' });
   });
+
+  it('ext-menu + help-extension ejecuta la acción', () => {
+    expect(dispatch('ext-menu', 'help-extension')).toEqual({ kind: 'run', action: 'help-extension' });
+  });
 });
 
 describe('dispatch - back y exit', () => {

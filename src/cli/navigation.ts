@@ -12,7 +12,7 @@ const LEAVES_BY_VIEW = {
   'main':           ['import-ojs', 'help-ojs'],
   'upload-channel': [],
   'auto-menu':      ['upload-articles', 'upload-authors', 'upload-reviewers'],
-  'ext-menu':       ['install-extension', 'open-publindex'],
+  'ext-menu':       ['install-extension', 'open-publindex', 'help-extension'],
 } as const;
 
 export type LeafAction = typeof LEAVES_BY_VIEW[View][number];
