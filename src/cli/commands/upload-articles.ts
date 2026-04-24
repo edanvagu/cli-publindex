@@ -1,13 +1,11 @@
 import { spinner, success, error, info, warning, showValidation, showProgress, showSummary, showPause, showRemainingTime } from '../logger';
 import { promptFilePath, confirmContinue, confirmResume, confirmTimeEstimate } from '../prompts';
-import { tokenValid } from '../../entities/auth/session';
 import { formatIssue } from '../../entities/issues/api';
 import { readArticles, ReadResult } from '../../io/excel-reader';
 import { validateBatch } from '../../entities/articles/validator';
 import { runUpload, estimateTimeSeconds } from '../../entities/articles/uploader';
 import { ProgressTracker } from '../../io/progress';
 import { ArticleRow } from '../../entities/articles/types';
-import { uploadAuthorsWithContext } from './upload-authors';
 import { loginOrThrow, fetchAndSelectIssue, ensureTokenCoversEstimate } from './shared';
 
 export async function uploadArticles(): Promise<void> {
@@ -95,19 +93,6 @@ export async function uploadArticles(): Promise<void> {
   }
 
   success('Carga de artículos finalizada.');
-
-  if (result.successful.length > 0) {
-    console.log('');
-    const linkAuthorsNow = await confirmContinue('¿Continuar con la vinculación de autores?');
-    if (linkAuthorsNow) {
-      if (!tokenValid(session)) {
-        warning('El token está por expirar. Si el flow falla, reinicie el CLI y vaya directo a "Vincular autores".');
-      }
-      await uploadAuthorsWithContext({ file, session, issue });
-    } else {
-      info('Puede ejecutar la vinculación de autores más tarde desde el menú principal.');
-    }
-  }
 }
 
 function buildUploadOptions(progressTracker: ProgressTracker, isRetry: boolean) {

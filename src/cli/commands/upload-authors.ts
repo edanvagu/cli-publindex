@@ -12,7 +12,7 @@ import { AuthorRow, PersonSearchResult } from '../../entities/authors/types';
 import { buildPersonPicker } from '../pickers';
 import { loginOrThrow, fetchAndSelectIssue, ensureTokenCoversEstimate, extractYear } from './shared';
 
-export interface AuthorsContext {
+interface AuthorsContext {
   file: string;
   session: Session;
   issue: Issue;
@@ -23,10 +23,6 @@ export async function uploadAuthors(): Promise<void> {
   const session = await loginOrThrow();
   const issue = await fetchAndSelectIssue(session);
   await uploadAuthorsCore({ file, session, issue });
-}
-
-export async function uploadAuthorsWithContext(ctx: AuthorsContext): Promise<void> {
-  await uploadAuthorsCore(ctx);
 }
 
 async function uploadAuthorsCore(ctx: AuthorsContext): Promise<void> {

@@ -70,12 +70,15 @@ export interface ArticlePayload {
 
 export type ArticleState = typeof ARTICLE_STATES[keyof typeof ARTICLE_STATES];
 
+// ExecutionMode is the scripted entry-point for `forcedMode` (non-interactive runs). It mirrors the leaf actions of the interactive menu (see src/cli/navigation.ts). 'exit' stays here so callers can short-circuit the run() without entering the menu loop.
 export type ExecutionMode =
-  | 'upload'
   | 'import-ojs'
-  | 'authors-upload'
-  | 'reviewers-upload'
+  | 'upload-articles'
+  | 'upload-authors'
+  | 'upload-reviewers'
   | 'install-extension'
+  | 'open-publindex'
+  | 'help-ojs'
   | 'exit';
 
 // UploadResult.successful/failed items keep `titulo` (Spanish) because it mirrors the `titulo` column of ArticleRow / the Excel template. Other fields of these internal result structs are in English.

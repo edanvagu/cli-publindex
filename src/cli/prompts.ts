@@ -2,9 +2,9 @@ import inquirer from 'inquirer';
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import { Issue } from '../entities/issues/types';
-import { ExecutionMode } from '../entities/articles/types';
 import { formatIssue } from '../entities/issues/api';
 import { formatDuration } from '../utils/time';
+import { LeafAction, View, NavAction } from './navigation';
 
 export async function promptCredentials(): Promise<{ username: string; password: string }> {
   const { username } = await inquirer.prompt([
@@ -91,7 +91,7 @@ export async function promptOptionalReviewsCsvPath(): Promise<string | null> {
     {
       type: 'confirm',
       name: 'include',
-      message: '¿Tiene también el CSV de revisiones exportado desde OJS (para pre-llenar la hoja Evaluadores)?',
+      message: '¿Tiene también el CSV de revisiones exportado desde OJS (para prellenar la hoja Evaluadores)?',
       default: false,
     },
   ]);
@@ -288,40 +288,81 @@ export async function promptJournalBaseUrl(): Promise<string | null> {
   return trimmed ? trimmed : null;
 }
 
-export async function promptUrlFailureAction(): Promise<'retry' | 'skip'> {
-  const { action } = await inquirer.prompt([
-    {
-      type: 'list',
-      name: 'action',
-      message: '¿Qué desea hacer?',
-      choices: [
-        { name: 'Ingresar de nuevo la URL base', value: 'retry' },
-        { name: 'Omitir y completar las URLs manualmente en el Excel', value: 'skip' },
-      ],
-    },
-  ]);
-  return action;
-}
+type Choice<T extends string> = { name: string; value: T } | InstanceType<typeof inquirer.Separator>;
 
-export async function mainMenu(): Promise<ExecutionMode> {
-  const { option } = await inquirer.prompt([
-    {
-      type: 'list',
-      name: 'option',
-      message: '¿Qué desea hacer?',
-      pageSize: 8,
-      choices: [
-        { name: '1. Importar desde OJS (genera plantilla prellena)', value: 'import-ojs' as ExecutionMode },
-        { name: '2. Validar y cargar artículos', value: 'upload' as ExecutionMode },
-        { name: '3. Vincular autores a artículos cargados', value: 'authors-upload' as ExecutionMode },
-        { name: '4. Vincular evaluadores al fascículo', value: 'reviewers-upload' as ExecutionMode },
-        new inquirer.Separator(),
-        { name: 'Instalar extensión de navegador (canal alternativo)', value: 'install-extension' as ExecutionMode },
-        { name: 'Salir', value: 'exit' as ExecutionMode },
-      ],
-    },
+async function promptList<T extends string>(message: string, choices: Choice<T>[]): Promise<T> {
+  const { option } = await inquirer.prompt<{ option: T }>([
+    { type: 'list', name: 'option', message, choices, pageSize: choices.length + 1 },
   ]);
   return option;
+}
+
+const SEP = new inquirer.Separator();
+const BACK_EXIT: Choice<NavAction>[] = [
+  SEP,
+  { name: 'Volver', value: 'back' },
+  { name: 'Salir', value: 'exit' },
+];
+
+export async function promptUrlFailureAction(): Promise<'retry' | 'skip'> {
+  return promptList<'retry' | 'skip'>('¿Qué desea hacer?', [
+    { name: 'Ingresar de nuevo la URL base', value: 'retry' },
+    { name: 'Omitir y completar las URLs manualmente en el Excel', value: 'skip' },
+  ]);
+}
+
+type MainChoice = Extract<LeafAction, 'import-ojs' | 'help-ojs'> | Extract<View, 'upload-channel'> | Extract<NavAction, 'exit'>;
+
+export async function mainMenuPrompt(): Promise<MainChoice> {
+  return promptList<MainChoice>('¿Qué desea hacer?', [
+    { name: '1. Preparar plantilla desde OJS', value: 'import-ojs' },
+    { name: '2. Cargar a Publindex', value: 'upload-channel' },
+    { name: '3. Ayuda: cómo exportar desde OJS', value: 'help-ojs' },
+    SEP,
+    { name: 'Salir', value: 'exit' },
+  ]);
+}
+
+type UploadChannelChoice = Extract<View, 'auto-menu' | 'ext-menu'> | NavAction;
+
+export async function uploadChannelPrompt(): Promise<UploadChannelChoice> {
+  return promptList<UploadChannelChoice>('¿Qué ruta desea usar?', [
+    { name: 'a) Ruta automatizada (el CLI carga a Publindex por usted)', value: 'auto-menu' },
+    { name: 'b) Ruta con extensión (usted rellena los formularios en el navegador)', value: 'ext-menu' },
+    ...BACK_EXIT,
+  ]);
+}
+
+type AutoMenuChoice = Extract<LeafAction, 'upload-articles' | 'upload-authors' | 'upload-reviewers'> | NavAction;
+
+export async function autoMenuPrompt(): Promise<AutoMenuChoice> {
+  return promptList<AutoMenuChoice>('¿Qué desea hacer?', [
+    { name: '1. Validar y cargar artículos', value: 'upload-articles' },
+    { name: '2. Vincular autores a artículos cargados', value: 'upload-authors' },
+    { name: '3. Vincular evaluadores al fascículo', value: 'upload-reviewers' },
+    ...BACK_EXIT,
+  ]);
+}
+
+type ExtMenuChoice = Extract<LeafAction, 'install-extension' | 'open-publindex'> | NavAction;
+
+export async function extMenuPrompt(): Promise<ExtMenuChoice> {
+  return promptList<ExtMenuChoice>('¿Qué desea hacer?', [
+    { name: '1. Instalar / actualizar extensión', value: 'install-extension' },
+    { name: '2. Abrir Publindex en el navegador', value: 'open-publindex' },
+    ...BACK_EXIT,
+  ]);
+}
+
+export async function confirmOjsReady(): Promise<'ready' | 'show-help' | 'cancel'> {
+  return promptList<'ready' | 'show-help' | 'cancel'>(
+    '¿Ya exportó el XML (y opcionalmente el CSV) desde OJS?',
+    [
+      { name: 'Sí, continuar', value: 'ready' },
+      { name: 'No, mostrar los pasos', value: 'show-help' },
+      { name: 'Cancelar y volver al menú', value: 'cancel' },
+    ],
+  );
 }
 
 export async function confirmResume(alreadyUploaded: number, pending: number): Promise<'skip' | 'all'> {

@@ -157,4 +157,21 @@ describe('generateTemplateWithData — validaciones dinámicas', () => {
     const formulae = matching.flatMap(cf => cf.rules.flatMap(r => r.formulae ?? []));
     expect(formulae.some(f => f.includes('REQ_PALABRAS_CLAVE'))).toBe(true);
   });
+
+  it('la hoja Instrucciones etiqueta las columnas Auto como "Auto (ruta automatizada)"', async () => {
+    const out = path.join(tempDir, 'test.xlsx');
+    await generateTemplateWithData([fictitiousArticle], out);
+
+    const wb = await loadWorkbook(out);
+    const ws = wb.getWorksheet('Instrucciones');
+    expect(ws).toBeDefined();
+
+    const obligatorioValues: string[] = [];
+    for (let r = 1; r <= ws!.rowCount; r++) {
+      const v = ws!.getCell(r, 2).value;
+      if (typeof v === 'string') obligatorioValues.push(v);
+    }
+    expect(obligatorioValues).toContain('Auto (ruta automatizada)');
+    expect(obligatorioValues).not.toContain('Auto');
+  });
 });

@@ -16,9 +16,9 @@ program
   .option('--ojs', 'Forzar modo importar desde OJS (sin menú)')
   .action(async (options) => {
     let forcedMode: ExecutionMode | undefined;
-    if (options.cargar) forcedMode = 'upload';
-    else if (options.autores) forcedMode = 'authors-upload';
-    else if (options.evaluadores) forcedMode = 'reviewers-upload';
+    if (options.cargar) forcedMode = 'upload-articles';
+    else if (options.autores) forcedMode = 'upload-authors';
+    else if (options.evaluadores) forcedMode = 'upload-reviewers';
     else if (options.ojs) forcedMode = 'import-ojs';
 
     await run({ forcedMode });

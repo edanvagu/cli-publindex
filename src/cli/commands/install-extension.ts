@@ -32,25 +32,18 @@ export async function installExtension(): Promise<void> {
 
   success('Extensión lista.');
 
-  info('\nAbriendo el explorador de archivos y Chrome...');
   openInDefaultApp(EXTENSION_INSTALL_DIR);
-  // chrome:// URLs aren't registered protocols with the Windows shell, so `start "" "chrome://..."` silently fails. We have to invoke `chrome` as the executable (cmd resolves it via the "App Paths" registry entry even when chrome.exe isn't in PATH). The empty "" title is mandatory before the command — without it, `start` treats the first arg as the title.
+  // chrome:// URLs aren't registered protocols with the Windows shell, so `start "" "chrome://..."` silently fails. We have to invoke `chrome` as the executable (cmd resolves it via the "App Paths" registry entry even when chrome.exe isn't in PATH). The empty "" title is mandatory before the command.
   if (process.platform === 'win32') {
     exec('start "" chrome "chrome://extensions/"', () => {});
   } else if (process.platform === 'darwin') {
     exec('open -a "Google Chrome" "chrome://extensions/"', () => {});
   }
 
-  info('\n══════════════════════════════════════════════════');
-  info('PASOS PARA INSTALAR LA EXTENSIÓN EN CHROME:');
-  info('══════════════════════════════════════════════════');
-  info('  1. Abre Chrome (si no se abrió solo) y ve a:');
-  info('       chrome://extensions/');
-  info('  2. Activa el toggle "Modo de desarrollador" (esquina superior derecha).');
-  info('  3. Click en "Cargar descomprimida".');
-  info(`  4. Selecciona esta carpeta:\n       ${EXTENSION_INSTALL_DIR}`);
-  info('');
-  info('Si ya instalaste la extensión antes, haz click en el ícono de recargar (↻)');
-  info('en su tarjeta para que Chrome tome los archivos actualizados.');
-  warning('\nMantén esta carpeta — si la borras, Chrome perderá la extensión.');
+  console.log('');
+  info('Pasos en Chrome:');
+  info('  1. Active el toggle "Modo de desarrollador" (arriba a la derecha).');
+  info('  2. Click en "Cargar descomprimida" y seleccione la carpeta que se abrió.');
+  info('  3. Si ya la había instalado antes, click en recargar (↻) en la tarjeta.');
+  warning('Mantenga esta carpeta — si la borra, Chrome perderá la extensión.');
 }
