@@ -10,7 +10,7 @@ import { Issue } from '../../entities/issues/types';
 import { ReviewerRow } from '../../entities/reviewers/types';
 import { PersonSearchResult } from '../../entities/persons/types';
 import { buildPersonPicker } from '../pickers';
-import { loginOrThrow, fetchAndSelectIssue, ensureTokenCoversEstimate, extractYear } from './shared';
+import { loginOrThrow, fetchAndSelectIssue, ensureTokenCoversEstimate, extractYear, flushProgressInteractive } from './shared';
 
 export interface ReviewersContext {
   file: string;
@@ -20,6 +20,7 @@ export interface ReviewersContext {
 
 export async function uploadReviewers(): Promise<void> {
   const file = await promptFilePath();
+  new ProgressTracker(file).trySyncSidecar();
   const session = await loginOrThrow();
   const issue = await fetchAndSelectIssue(session);
   await uploadReviewersCore({ file, session, issue });
@@ -108,7 +109,7 @@ async function uploadReviewersCore(ctx: ReviewersContext): Promise<void> {
     onPause: (seconds) => info(`Pausa de ${seconds}s antes del siguiente evaluador...`),
   });
 
-  progressTracker.trySyncSidecar();
+  await flushProgressInteractive(progressTracker);
 
   console.log('');
   success(`Vinculaciones exitosas: ${result.successful.length}`);

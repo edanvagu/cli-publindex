@@ -1,5 +1,6 @@
 import { exec } from 'child_process';
-import { spinner, error, info, warning } from '../logger';
+import inquirer from 'inquirer';
+import { spinner, success, error, info, warning } from '../logger';
 import { promptCredentials, selectIssue, confirmContinue } from '../prompts';
 import { login } from '../../entities/auth/api';
 import { listIssues } from '../../entities/issues/api';
@@ -7,6 +8,7 @@ import { Session } from '../../entities/auth/types';
 import { Issue } from '../../entities/issues/types';
 import { DEFAULTS } from '../../config/constants';
 import { formatDuration } from '../../utils/time';
+import { ProgressTracker } from '../../io/progress';
 
 export async function loginOrThrow(): Promise<Session> {
   const { username, password } = await promptCredentials();
@@ -81,4 +83,34 @@ export async function ensureTokenCoversEstimate(
 
   info('Cerrando sesión y volviendo a autenticar...');
   return await loginOrThrow();
+}
+
+// Drives the sidecar → xlsx merge. When Excel is still locking the file, offers the editor an interactive retry loop — without this, a silent failure leaves the progress stranded in the JSON file until the next command run.
+export async function flushProgressInteractive(tracker: ProgressTracker): Promise<void> {
+  if (tracker.trySyncSidecar()) return;
+
+  console.log('');
+  warning('El progreso quedó en un archivo JSON temporal porque el Excel está abierto.');
+  while (true) {
+    const { action } = await inquirer.prompt<{ action: 'retry' | 'later' }>([
+      {
+        type: 'list',
+        name: 'action',
+        message: '¿Qué desea hacer?',
+        choices: [
+          { name: 'Cerré el Excel, guardar progreso ahora', value: 'retry' },
+          { name: 'Dejar el JSON temporal (se sincronizará la próxima vez)', value: 'later' },
+        ],
+      },
+    ]);
+    if (action === 'later') {
+      info('El progreso quedó en el archivo .progreso.json. La próxima vez que corra esta opción con el Excel cerrado se guardará automáticamente.');
+      return;
+    }
+    if (tracker.trySyncSidecar()) {
+      success('Progreso guardado en el Excel.');
+      return;
+    }
+    warning('El archivo sigue bloqueado. ¿Ya cerró el Excel?');
+  }
 }

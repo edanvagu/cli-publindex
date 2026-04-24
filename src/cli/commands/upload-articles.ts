@@ -6,10 +6,13 @@ import { validateBatch } from '../../entities/articles/validator';
 import { runUpload, estimateTimeSeconds } from '../../entities/articles/uploader';
 import { ProgressTracker } from '../../io/progress';
 import { ArticleRow } from '../../entities/articles/types';
-import { loginOrThrow, fetchAndSelectIssue, ensureTokenCoversEstimate } from './shared';
+import { loginOrThrow, fetchAndSelectIssue, ensureTokenCoversEstimate, flushProgressInteractive } from './shared';
 
 export async function uploadArticles(): Promise<void> {
   const file = await promptFilePath();
+
+  // Absorb any leftover sidecar from a previous run where Excel was open. Silent: if the file is still locked, the upload loop's fallback + the end-of-run interactive flush will handle it.
+  new ProgressTracker(file).trySyncSidecar();
 
   const readSpinner = spinner(`Leyendo ${file}...`);
   let readResult: ReadResult;
@@ -86,7 +89,6 @@ export async function uploadArticles(): Promise<void> {
   const progressTracker = new ProgressTracker(file);
 
   const result = await runUpload(session, validation.valid, issue.id, buildUploadOptions(progressTracker, false));
-  progressTracker.trySyncSidecar();
   showSummary(result);
 
   if (result.failed.length > 0) {
@@ -99,11 +101,11 @@ export async function uploadArticles(): Promise<void> {
       console.log('');
 
       const retryResult = await runUpload(session, articlesToRetry, issue.id, buildUploadOptions(progressTracker, true));
-      progressTracker.trySyncSidecar();
       showSummary(retryResult);
     }
   }
 
+  await flushProgressInteractive(progressTracker);
   success('Carga de artículos finalizada.');
 }
 

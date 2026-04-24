@@ -10,7 +10,7 @@ import { Session } from '../../entities/auth/types';
 import { Issue } from '../../entities/issues/types';
 import { AuthorRow, PersonSearchResult } from '../../entities/authors/types';
 import { buildPersonPicker } from '../pickers';
-import { loginOrThrow, fetchAndSelectIssue, ensureTokenCoversEstimate, extractYear } from './shared';
+import { loginOrThrow, fetchAndSelectIssue, ensureTokenCoversEstimate, extractYear, flushProgressInteractive } from './shared';
 
 interface AuthorsContext {
   file: string;
@@ -20,6 +20,7 @@ interface AuthorsContext {
 
 export async function uploadAuthors(): Promise<void> {
   const file = await promptFilePath();
+  new ProgressTracker(file).trySyncSidecar();
   const session = await loginOrThrow();
   const issue = await fetchAndSelectIssue(session);
   await uploadAuthorsCore({ file, session, issue });
@@ -108,7 +109,7 @@ async function uploadAuthorsCore(ctx: AuthorsContext): Promise<void> {
     onPause: (seconds) => info(`Pausa de ${seconds}s antes del siguiente autor...`),
   });
 
-  progressTracker.trySyncSidecar();
+  await flushProgressInteractive(progressTracker);
 
   console.log('');
   success(`Vinculaciones exitosas: ${result.successful.length}`);

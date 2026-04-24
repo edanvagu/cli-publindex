@@ -103,12 +103,13 @@ export class ProgressTracker {
     }
   }
 
-  // After an article is created, writes its `articleId` to every row in the Autores sheet whose `titulo_articulo` matches. No-op when the workbook has no Autores sheet (older templates without the second sheet).
+  // After an article is created, writes its `articleId` to every row in the Autores sheet whose `titulo_articulo` matches. No-op when the workbook has no Autores sheet (older templates without the second sheet). When the tracker already fell back to sidecar mode, defer: trySyncSidecar() will fan the ID out to the Autores rows when it merges the article records, so attempting an xlsx write here would only surface a misleading EBUSY warning.
   propagateArticleIdToAuthors(
     articleTitle: string,
     articleId: number,
     onWarning?: (msg: string) => void,
   ): number {
+    if (this.useSidecar) return 0;
     try {
       const cache = this.ensureXlsxCache();
       const authorsName = cache.authorsSheetName;
@@ -230,6 +231,7 @@ export class ProgressTracker {
           }
         }
         cache.dirty.add(cache.articlesSheetName);
+        this.propagateSidecarArticleIdsToAuthors(cache, sidecar.records);
       }
 
       if (sidecar.authors && cache.authorsSheetName && sidecar.authors.length > 0) {
@@ -297,6 +299,31 @@ export class ProgressTracker {
     }
 
     return states;
+  }
+
+  // Mirrors the live `propagateArticleIdToAuthors` but drives off the articles' own titulo stored in the cache (not passed in) — so trySyncSidecar can recover the live propagation that was skipped while useSidecar was active.
+  private propagateSidecarArticleIdsToAuthors(cache: XlsxCache, records: ProgressSidecar['records']): void {
+    if (!cache.authorsSheetName) return;
+    const articlesCache = cache.sheets.get(cache.articlesSheetName)!;
+    const authorsCache = cache.sheets.get(cache.authorsSheetName)!;
+    const articlesTituloCol = findHeader(articlesCache.headers, 'titulo');
+    const authorsTituloCol = findHeader(authorsCache.headers, AUTHOR_COLUMNS.TITULO_ARTICULO);
+    const authorsIdCol = findHeader(authorsCache.headers, AUTHOR_COLUMNS.ID_ARTICULO);
+    if (!articlesTituloCol || !authorsTituloCol || !authorsIdCol) return;
+
+    for (const rec of records) {
+      if (rec.articleId === undefined) continue;
+      const index = rec.row - 2;
+      if (index < 0 || index >= articlesCache.data.length) continue;
+      const titulo = String(articlesCache.data[index][articlesTituloCol] ?? '').trim();
+      if (!titulo) continue;
+      for (const authorRow of authorsCache.data) {
+        if (String(authorRow[authorsTituloCol] ?? '').trim() === titulo) {
+          authorRow[authorsIdCol] = rec.articleId;
+          cache.dirty.add(cache.authorsSheetName);
+        }
+      }
+    }
   }
 
   private fallbackToSidecar(onWarning?: (msg: string) => void): void {
