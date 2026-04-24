@@ -9,7 +9,7 @@ const program = new Command();
 program
   .name('publindex')
   .description('Carga masiva de artículos en Publindex (Minciencias)')
-  .version('1.0.0')
+  .version('1.1.0')
   .option('--cargar', 'Forzar modo cargar artículos (sin menú)')
   .option('--autores', 'Forzar modo vincular autores (sin menú)')
   .option('--evaluadores', 'Forzar modo vincular evaluadores (sin menú)')

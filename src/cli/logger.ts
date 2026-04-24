@@ -7,7 +7,7 @@ export function banner() {
   // The box width is derived from the widest line so any future edit to the banner stays aligned without manual counting.
   const lines: { text: string; bold?: boolean }[] = [
     { text: 'Carga eficiente de datos a la plataforma Publindex (2026)', bold: true },
-    { text: 'v1.0.0' },
+    { text: 'v1.1.0' },
     { text: '' },
     { text: 'Desarrollada por Edward Vásquez' },
     { text: 'Contacto: eavasquezgu@gmail.com' },
