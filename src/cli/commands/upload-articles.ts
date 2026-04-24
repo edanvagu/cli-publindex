@@ -1,5 +1,5 @@
 import { spinner, success, error, info, warning, showValidation, showProgress, showSummary, showPause, showRemainingTime } from '../logger';
-import { promptFilePath, confirmContinue, confirmResume, confirmTimeEstimate } from '../prompts';
+import { promptFilePath, confirmContinue, confirmResume, confirmTimeEstimate, promptArticlesToUpload } from '../prompts';
 import { formatIssue } from '../../entities/issues/api';
 import { readArticles, ReadResult } from '../../io/excel-reader';
 import { validateBatch } from '../../entities/articles/validator';
@@ -33,6 +33,18 @@ export async function uploadArticles(): Promise<void> {
     } else {
       warning('Se procesarán TODOS los artículos, incluyendo los ya cargados.');
     }
+  }
+
+  if (articlesToProcess.length === 0) {
+    error('No hay artículos para cargar.');
+    return;
+  }
+
+  // Picker BEFORE validation so editors can exclude rows they haven't filled yet — only picked rows go through validate + POST, the rest stay untouched in the Excel.
+  articlesToProcess = await promptArticlesToUpload(articlesToProcess);
+  if (articlesToProcess.length === 0) {
+    info('No se seleccionó ningún artículo. Operación cancelada.');
+    return;
   }
 
   const validation = validateBatch(articlesToProcess, readResult.unknownHeaders);

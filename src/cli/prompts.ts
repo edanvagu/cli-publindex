@@ -5,6 +5,7 @@ import { Issue } from '../entities/issues/types';
 import { formatIssue } from '../entities/issues/api';
 import { formatDuration } from '../utils/time';
 import { LeafAction, View, NavAction } from './navigation';
+import { ArticleRow } from '../entities/articles/types';
 
 export async function promptCredentials(): Promise<{ username: string; password: string }> {
   const { username } = await inquirer.prompt([
@@ -428,4 +429,33 @@ export async function confirmReviewersStart(quantity: number): Promise<boolean> 
     },
   ]);
   return proceed;
+}
+
+const MAX_TITLE_CHARS = 80;
+
+export function truncateTitle(titulo: string | undefined): string {
+  if (!titulo || titulo.trim() === '') return '(sin título)';
+  if (titulo.length <= MAX_TITLE_CHARS) return titulo;
+  return `${titulo.slice(0, MAX_TITLE_CHARS - 3)}...`;
+}
+
+export async function promptArticlesToUpload(articles: ArticleRow[]): Promise<ArticleRow[]> {
+  const choices = articles.map(a => ({
+    name: `Fila ${a._fila} · ${truncateTitle(a.titulo)}`,
+    value: a._fila,
+    checked: true,
+  }));
+
+  const { rows } = await inquirer.prompt<{ rows: number[] }>([
+    {
+      type: 'checkbox',
+      name: 'rows',
+      message: 'Marque los artículos a subir:',
+      choices,
+      pageSize: Math.min(choices.length + 2, 20),
+    },
+  ]);
+
+  const picked = new Set(rows);
+  return articles.filter(a => picked.has(a._fila));
 }
