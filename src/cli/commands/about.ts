@@ -11,8 +11,8 @@ export async function showAbout(): Promise<void> {
   console.log('');
   info(`  GitHub:        ${GITHUB_URL}`);
   console.log('');
-  info('  Si la herramienta te fue de utilidad y quieres apoyar nuevos desarrollos,');
-  info(`  puedes enviar una donación por Bre-B a esta llave: ${BREB_KEY}`);
+  info('  Si la herramienta le fue de utilidad y quiere apoyar nuevos desarrollos,');
+  info(`  puede enviar una donación por Bre-B a esta llave: ${BREB_KEY}`);
   console.log('');
 
   await inquirer.prompt([
