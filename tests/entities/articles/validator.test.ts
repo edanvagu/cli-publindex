@@ -249,6 +249,88 @@ describe('validateBatch - numéricos', () => {
   });
 });
 
+describe('validateBatch - obligatoriedad por tipo_documento', () => {
+  it('tipo 1 sin palabras_clave → error en palabras_clave', () => {
+    const result = validateBatch([validArticle({ palabras_clave: '' })], []);
+    expect(result.errors.some(e => e.field === 'palabras_clave')).toBe(true);
+  });
+
+  it('tipo 1 sin titulo_ingles → error en titulo_ingles', () => {
+    const result = validateBatch([validArticle({ titulo_ingles: '' })], []);
+    expect(result.errors.some(e => e.field === 'titulo_ingles')).toBe(true);
+  });
+
+  it('tipo 7 (Cartas al editor) sin palabras_clave → sin error', () => {
+    const result = validateBatch([validArticle({
+      tipo_documento: 'Cartas al editor',
+      palabras_clave: '',
+    })], []);
+    expect(result.errors.some(e => e.field === 'palabras_clave')).toBe(false);
+  });
+
+  it('tipo 11 (Reseña bibliográfica) sin titulo_ingles → sin error', () => {
+    const result = validateBatch([validArticle({
+      tipo_documento: 'Reseña bibliográfica',
+      titulo_ingles: '',
+    })], []);
+    expect(result.errors.some(e => e.field === 'titulo_ingles')).toBe(false);
+  });
+
+  it('tipo 8 (Editorial) con solo campos núcleo → válido', () => {
+    const minimal: Partial<import('../../../src/entities/articles/types').ArticleRow> = {
+      titulo: 'Editorial del número de abril de 2026',
+      url: 'https://example.com/editorial',
+      gran_area: 'Humanidades',
+      area: 'Historia y Arqueología',
+      tipo_documento: 'Editorial',
+      palabras_clave: '',
+      titulo_ingles: '',
+      resumen: '',
+      _fila: 2,
+    };
+    const result = validateBatch([minimal as import('../../../src/entities/articles/types').ArticleRow], []);
+    expect(result.errors).toEqual([]);
+    expect(result.valid).toHaveLength(1);
+  });
+
+  it('cualquier tipo sin titulo → error en titulo', () => {
+    const result = validateBatch([validArticle({ tipo_documento: 'Editorial', titulo: '' })], []);
+    expect(result.errors.some(e => e.field === 'titulo')).toBe(true);
+  });
+
+  it('cualquier tipo sin gran_area → error en gran_area', () => {
+    const result = validateBatch([validArticle({ tipo_documento: 'Editorial', gran_area: '' })], []);
+    expect(result.errors.some(e => e.field === 'gran_area')).toBe(true);
+  });
+});
+
+describe('validateBatch - constraints de longitud y rango', () => {
+  it('titulo de 256 caracteres → error (max 255)', () => {
+    const result = validateBatch([validArticle({ titulo: 'A'.repeat(256) })], []);
+    expect(result.errors.some(e => e.field === 'titulo')).toBe(true);
+  });
+
+  it('pagina_inicial = "99999" → error (max 9999)', () => {
+    const result = validateBatch([validArticle({ pagina_inicial: '99999' })], []);
+    expect(result.errors.some(e => e.field === 'pagina_inicial')).toBe(true);
+  });
+
+  it('pagina_inicial = "0" → error (min 1)', () => {
+    const result = validateBatch([validArticle({ pagina_inicial: '0' })], []);
+    expect(result.errors.some(e => e.field === 'pagina_inicial')).toBe(true);
+  });
+
+  it('numero_pares_evaluadores = "0" → válido (min 0)', () => {
+    const result = validateBatch([validArticle({ numero_pares_evaluadores: '0' })], []);
+    expect(result.errors.filter(e => e.field === 'numero_pares_evaluadores')).toEqual([]);
+  });
+
+  it('doi en formato URL (https://doi.org/...) → error por pattern', () => {
+    const result = validateBatch([validArticle({ doi: 'https://doi.org/10.1234/abc' })], []);
+    expect(result.errors.some(e => e.field === 'doi')).toBe(true);
+  });
+});
+
 describe('validateBatch - integridad del lote', () => {
   it('rechaza lote vacío', () => {
     const result = validateBatch([], []);

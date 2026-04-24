@@ -6,14 +6,39 @@ import {
 } from '../config/constants';
 import { AREAS_TREE } from '../entities/areas/tree';
 import { ArticleRow } from '../entities/articles/types';
+import {
+  FIELD_CONSTRAINTS, docTypeLabelsRequiring,
+  alwaysRequiredFields, conditionallyRequiredFields,
+} from '../config/article-form-rules';
 
-const REQUIRED_FIELDS = ['titulo', 'url', 'gran_area', 'area', 'tipo_documento', 'palabras_clave', 'titulo_ingles', 'resumen'];
 const ALERT_FILL: ExcelJS.FillPattern = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEB9C' } };
 
-// Number of rows that get data-validation rules applied. 500 covers any real journal.
+// ExcelJS quirk: direct cell fills honor `fgColor`, but conditional-formatting rule styles honor `bgColor` for the solid color (`fgColor` there is the pattern-over-pattern color). If you use `fgColor` in a CF rule, Excel paints the cell blank. Setting both keeps rendering correct regardless of which Excel reader is parsing the file.
+const ALERT_FILL_CF: ExcelJS.FillPattern = {
+  type: 'pattern',
+  pattern: 'solid',
+  fgColor: { argb: 'FFFFEB9C' },
+  bgColor: { argb: 'FFFFEB9C' },
+};
+
+// A solid fill hides Excel's default gridline underneath. Re-drawing a matching thin grey border on the CF style keeps the cell visually aligned with its neighbors.
+const ALERT_BORDER_CF: Partial<ExcelJS.Borders> = {
+  top:    { style: 'thin', color: { argb: 'FFD9D9D9' } },
+  left:   { style: 'thin', color: { argb: 'FFD9D9D9' } },
+  bottom: { style: 'thin', color: { argb: 'FFD9D9D9' } },
+  right:  { style: 'thin', color: { argb: 'FFD9D9D9' } },
+};
+
 const DATA_VALIDATION_ROWS = 500;
 
-// Integer-only strings are written as numbers so that Excel does not flag the cells with the "Number stored as text" warning in pagina_inicial, pagina_final, numero_autores, etc. DOIs and dates do not match this regex and stay as strings.
+// Fields that already receive a list validation (dropdown). Skipping them in the text/integer constraint loop prevents ExcelJS from overwriting the dropdown with a length/range rule.
+const LIST_VALIDATED_FIELDS = new Set([
+  'tipo_documento', 'idioma', 'otro_idioma', 'tipo_resumen', 'tipo_especialista',
+  'eval_interna', 'eval_nacional', 'eval_internacional',
+  'gran_area', 'area', 'subarea',
+]);
+
+// Integer-only strings are written as numbers so Excel does not flag the cells with "Number stored as text" in pagina_inicial, pagina_final, numero_autores, etc. DOIs and dates do not match this regex and stay as strings.
 const INTEGER_RE = /^\d+$/;
 
 export interface AuthorTemplateRow {
@@ -67,8 +92,9 @@ function buildArticlesSheet(wb: ExcelJS.Workbook, articles: Partial<ArticleRow>[
 
   ws.columns = headers.map(h => ({ width: Math.max(h.length + 2, 18) }));
 
-  highlightEmptyRequired(ws, headers, articles);
   addDataValidations(ws, headers);
+  addDynamicRequiredHighlighting(ws, headers);
+  addCrossFieldHighlighting(ws, headers);
 }
 
 // `identificacion` is NOT required: when present it powers a document-based search; when absent the uploader falls back to name search + interactive picker.
@@ -141,19 +167,81 @@ function coerceCellValue(v: unknown): unknown {
   return v;
 }
 
-function highlightEmptyRequired(ws: ExcelJS.Worksheet, headers: string[], articles: Partial<ArticleRow>[]): void {
-  const requiredIndexes = headers
-    .map((h, i) => REQUIRED_FIELDS.includes(h) ? i : -1)
-    .filter(i => i >= 0);
+function addDynamicRequiredHighlighting(ws: ExcelJS.Worksheet, headers: string[]): void {
+  const tituloIdx = headers.indexOf('titulo') + 1;
+  const tipoIdx = headers.indexOf('tipo_documento') + 1;
+  if (tituloIdx === 0 || tipoIdx === 0) return;
+  const tituloCol = numberToColLetter(tituloIdx);
+  const tipoCol = numberToColLetter(tipoIdx);
 
-  articles.forEach((art, rowIdx) => {
-    for (const colIdx of requiredIndexes) {
-      const header = headers[colIdx];
-      const value = (art as Record<string, unknown>)[header];
-      if (value !== '' && value !== undefined && value !== null) continue;
-      ws.getCell(rowIdx + 2, colIdx + 1).fill = ALERT_FILL;
-    }
-  });
+  // "Active row" = editor has started filling it (titulo or tipo_documento populated). Without this guard the 500 blank rows reserved for future data all light up yellow, drowning the signal. Excel's ISBLANK() returns FALSE for cells containing "" (empty string) and every row we write sets missing fields to "" via `?? ''`, so we compare with `=""` / `<>""`.
+  const rowIsActive = `OR($${tituloCol}2<>"", $${tipoCol}2<>"")`;
+
+  for (const field of alwaysRequiredFields()) {
+    const fIdx = headers.indexOf(field) + 1;
+    if (fIdx === 0) continue;
+    const fCol = numberToColLetter(fIdx);
+    ws.addConditionalFormatting({
+      ref: `${fCol}2:${fCol}${DATA_VALIDATION_ROWS + 1}`,
+      rules: [{
+        type: 'expression',
+        formulae: [`AND($${fCol}2="", ${rowIsActive})`],
+        style: { fill: ALERT_FILL_CF, border: ALERT_BORDER_CF },
+        priority: 1,
+      }],
+    });
+  }
+
+  for (const field of conditionallyRequiredFields()) {
+    const fIdx = headers.indexOf(field) + 1;
+    if (fIdx === 0) continue;
+    const fCol = numberToColLetter(fIdx);
+    const rangeName = `REQ_${field.toUpperCase()}`;
+    // The MATCH against REQ_* already requires `tipo_documento` to be populated, which by definition makes the row active — no extra guard needed here.
+    ws.addConditionalFormatting({
+      ref: `${fCol}2:${fCol}${DATA_VALIDATION_ROWS + 1}`,
+      rules: [{
+        type: 'expression',
+        formulae: [`AND($${fCol}2="", NOT(ISNA(MATCH($${tipoCol}2, ${rangeName}, 0))))`],
+        style: { fill: ALERT_FILL_CF, border: ALERT_BORDER_CF },
+        priority: 1,
+      }],
+    });
+  }
+}
+
+function addCrossFieldHighlighting(ws: ExcelJS.Worksheet, headers: string[]): void {
+  const pIniIdx = headers.indexOf('pagina_inicial') + 1;
+  const pFinIdx = headers.indexOf('pagina_final') + 1;
+  if (pIniIdx > 0 && pFinIdx > 0) {
+    const pIniCol = numberToColLetter(pIniIdx);
+    const pFinCol = numberToColLetter(pFinIdx);
+    ws.addConditionalFormatting({
+      ref: `${pFinCol}2:${pFinCol}${DATA_VALIDATION_ROWS + 1}`,
+      rules: [{
+        type: 'expression',
+        formulae: [`AND($${pIniCol}2<>"", $${pFinCol}2<>"", $${pFinCol}2<=$${pIniCol}2)`],
+        style: { fill: ALERT_FILL_CF, border: ALERT_BORDER_CF },
+        priority: 1,
+      }],
+    });
+  }
+
+  const fRecIdx = headers.indexOf('fecha_recepcion') + 1;
+  const fAccIdx = headers.indexOf('fecha_aceptacion') + 1;
+  if (fRecIdx > 0 && fAccIdx > 0) {
+    const fRecCol = numberToColLetter(fRecIdx);
+    const fAccCol = numberToColLetter(fAccIdx);
+    ws.addConditionalFormatting({
+      ref: `${fAccCol}2:${fAccCol}${DATA_VALIDATION_ROWS + 1}`,
+      rules: [{
+        type: 'expression',
+        formulae: [`AND($${fRecCol}2<>"", $${fAccCol}2<>"", $${fAccCol}2<$${fRecCol}2)`],
+        style: { fill: ALERT_FILL_CF, border: ALERT_BORDER_CF },
+        priority: 1,
+      }],
+    });
+  }
 }
 
 function addDataValidations(ws: ExcelJS.Worksheet, headers: string[]): void {
@@ -206,6 +294,48 @@ function addDataValidations(ws: ExcelJS.Worksheet, headers: string[]): void {
         formulae: [`INDIRECT("SUB_"&VLOOKUP($${areaLetter}${r},AREA_LOOKUP,2,FALSE))`],
       };
     }
+  }
+
+  for (const [field, c] of Object.entries(FIELD_CONSTRAINTS)) {
+    if (LIST_VALIDATED_FIELDS.has(field)) continue;
+    const i = colIdx(field);
+    if (i === 0) continue;
+
+    if (c.kind === 'text' && (c.min !== undefined || c.max !== undefined)) {
+      applyTextLengthValidation(ws, i, c.min ?? 0, c.max ?? 99999);
+    } else if (c.kind === 'integer') {
+      applyWholeValidation(ws, i, c.min ?? 0, c.max ?? 99999);
+    }
+    // `date` kind is handled by the cross-field conditional formatting (fecha_aceptacion vs fecha_recepcion).
+  }
+}
+
+function applyTextLengthValidation(ws: ExcelJS.Worksheet, col: number, min: number, max: number): void {
+  for (let r = 2; r <= DATA_VALIDATION_ROWS + 1; r++) {
+    ws.getCell(r, col).dataValidation = {
+      type: 'textLength',
+      operator: 'between',
+      allowBlank: true,
+      formulae: [min, max],
+      showErrorMessage: true,
+      // `warning` — non-blocking: Excel shows a message but still accepts the value. User explicitly wants this UX.
+      errorStyle: 'warning',
+      error: `Longitud esperada entre ${min} y ${max} caracteres`,
+    };
+  }
+}
+
+function applyWholeValidation(ws: ExcelJS.Worksheet, col: number, min: number, max: number): void {
+  for (let r = 2; r <= DATA_VALIDATION_ROWS + 1; r++) {
+    ws.getCell(r, col).dataValidation = {
+      type: 'whole',
+      operator: 'between',
+      allowBlank: true,
+      formulae: [min, max],
+      showErrorMessage: true,
+      errorStyle: 'warning',
+      error: `Entero esperado entre ${min} y ${max}`,
+    };
   }
 }
 
@@ -263,6 +393,16 @@ function buildLookupsSheet(wb: ExcelJS.Workbook): void {
       col++;
     }
   }
+
+  // REQ_<FIELD> ranges feed the conditional-formatting MATCH() on the articles sheet. Only conditional fields need these — always-required fields use a simpler blank-only rule. Field names are snake_case ASCII so uppercasing yields valid Excel named-range identifiers.
+  for (const field of conditionallyRequiredFields()) {
+    const labels = docTypeLabelsRequiring(field);
+    if (labels.length === 0) continue;
+    const name = `REQ_${field.toUpperCase()}`;
+    ws.getColumn(col).values = [name, ...labels];
+    defineRange(wb, ws.name, name, col, col, labels.length);
+    col++;
+  }
 }
 
 function defineRange(wb: ExcelJS.Workbook, sheetName: string, name: string, colIdx: number, _endCol: number, count: number): void {
@@ -290,46 +430,68 @@ function numberToColLetter(n: number): string {
 
 function buildInstructionsSheet(wb: ExcelJS.Workbook): void {
   const ws = wb.addWorksheet('Instrucciones');
+
+  ws.mergeCells('A1:D1');
+  const note = ws.getCell('A1');
+  note.value = 'Nota: las celdas amarillas son campos obligatorios vacíos según el tipo_documento de esa fila, o violan longitud/rango. Cambie tipo_documento y el amarillo se vuelve a evaluar automáticamente.';
+  note.alignment = { wrapText: true, vertical: 'middle' };
+  note.font = { italic: true };
+  ws.getRow(1).height = 40;
+
   const rows = [
+    ['', '', '', ''],
     ['Campo', 'Obligatorio', 'Descripción', 'Ejemplo'],
-    ['titulo', 'Sí', 'Título del artículo (mínimo 10 caracteres)', 'Título del artículo de ejemplo para Publindex'],
-    ['doi', 'No', 'DOI sin URL (formato 10.xxxx/yyyy). NO use https://doi.org/...', '10.1234/abc'],
-    ['url', 'Sí', 'URL del artículo con http:// o https://', 'https://revistas.ejemplo.edu.co/article/1'],
-    ['pagina_inicial', 'No', 'Número de página inicial', '1'],
-    ['pagina_final', 'No', 'Número de página final (debe ser mayor que pagina_inicial)', '15'],
-    ['numero_autores', 'No', 'Cantidad de autores del artículo', '3'],
-    ['numero_pares_reviewers', 'No', 'Cantidad de pares que evaluaron el artículo', '2'],
-    ['proyecto', 'No', 'Nombre del proyecto de investigación asociado', ''],
+    ['Hoja "Artículos"', '', '', ''],
+    ['titulo', 'Sí', 'Título del artículo (mín. 10, máx. 255 caracteres)', 'Título del artículo de ejemplo para Publindex'],
+    ['doi', 'No', 'DOI sin URL (formato 10.xxxx/yyyy, máx. 300 caracteres). NO use https://doi.org/...', '10.0000/fake.0001'],
+    ['url', 'Sí', 'URL del artículo con http:// o https:// (máx. 300 caracteres)', 'https://revistas.ejemplo.edu.co/article/1'],
+    ['pagina_inicial', 'No', 'Página inicial (entero 1–9999)', '1'],
+    ['pagina_final', 'No', 'Página final (entero 1–9999; debe ser > pagina_inicial)', '15'],
+    ['numero_autores', 'No', 'Cantidad de autores del artículo (entero 1–9999)', '3'],
+    ['numero_pares_evaluadores', 'No', 'Cantidad de pares que evaluaron el artículo (entero 0–9999)', '2'],
+    ['proyecto', 'No', 'Nombre del proyecto de investigación asociado (máx. 2000 caracteres)', ''],
     ['gran_area', 'Sí', 'Dropdown con las grandes áreas de conocimiento Minciencias', 'Ciencias Sociales'],
     ['area', 'Sí', 'Dropdown con las áreas hijas de la gran_area seleccionada (cascada)', 'Sociología'],
     ['subarea', 'No', 'Dropdown con las subáreas hijas del area seleccionada (cascada)', 'Sociología General'],
-    ['numero_referencias', 'No', 'Cantidad de referencias bibliográficas', '30'],
+    ['numero_referencias', 'No', 'Cantidad de referencias bibliográficas (entero 0–9999)', '30'],
     ['tipo_documento', 'Sí', 'Dropdown con los 12 tipos de documento Publindex', 'Artículo de investigación científica y tecnológica'],
-    ['palabras_clave', 'Sí', 'Palabras clave separadas por punto y coma (;)', 'sociología; cultura'],
-    ['palabras_clave_otro_idioma', 'No', 'Palabras clave en otro idioma, separadas por ;', 'sociology; culture'],
-    ['titulo_ingles', 'Sí', 'Título del artículo en inglés (mínimo 10 caracteres)', 'Title of the article in English'],
-    ['fecha_recepcion', 'No', 'Fecha de recepción formato YYYY-MM-DD', '2026-01-15'],
-    ['fecha_aceptacion', 'No', 'Fecha de aceptación (debe ser >= fecha_recepcion)', '2026-03-20'],
+    ['palabras_clave', 'Sí (tipos 1–6)', 'Palabras clave separadas por punto y coma (;) (máx. 2000 caracteres)', 'sociología; cultura'],
+    ['palabras_clave_otro_idioma', 'No', 'Palabras clave en otro idioma, separadas por ; (máx. 2000 caracteres)', 'sociology; culture'],
+    ['titulo_ingles', 'Sí (tipos 1–6)', 'Título paralelo en inglés (mín. 10, máx. 255 caracteres)', 'Title of the article in English'],
+    ['fecha_recepcion', 'No', 'Fecha de recepción (formato YYYY-MM-DD)', '2026-01-15'],
+    ['fecha_aceptacion', 'No', 'Fecha de aceptación (YYYY-MM-DD; debe ser >= fecha_recepcion)', '2026-03-20'],
     ['idioma', 'No', 'Dropdown con el idioma original del artículo', 'Español'],
     ['otro_idioma', 'No', 'Dropdown con otro idioma (no puede ser igual a idioma)', 'Inglés'],
-    ['eval_interna', 'No', 'Evaluación interna institucional: T=Sí, F=No', 'F'],
-    ['eval_nacional', 'No', 'Evaluación por pares nacionales: T=Sí, F=No', 'T'],
-    ['eval_internacional', 'No', 'Evaluación por pares internacionales: T=Sí, F=No', 'T'],
-    ['tipo_resumen', 'No', 'Dropdown con los tipos de resumen (Analítico/Descriptivo/Analítico sintético)', 'Analítico'],
-    ['tipo_especialista', 'No', 'Dropdown con los tipos de especialista (Autor/Editor/Bibliotecólogo/Especialista)', 'Especialista en el área'],
-    ['resumen', 'Sí', 'Resumen del artículo (mínimo 10 caracteres)', 'Resumen del artículo...'],
-    ['resumen_otro_idioma', 'No', 'Resumen en segundo idioma', 'Abstract of the article...'],
-    ['resumen_idioma_adicional', 'No', 'Resumen en tercer idioma', ''],
+    ['eval_interna', 'No', 'Evaluación por pares interna institucional: T=Sí, F=No', 'F'],
+    ['eval_nacional', 'No', 'Evaluación por pares externos nacionales: T=Sí, F=No', 'T'],
+    ['eval_internacional', 'No', 'Evaluación por pares externos internacionales: T=Sí, F=No', 'T'],
+    ['tipo_resumen', 'No', 'Dropdown: Analítico / Descriptivo / Analítico sintético', 'Analítico'],
+    ['tipo_especialista', 'No', 'Dropdown: Autor / Editor / Bibliotecólogo / Especialista en el área', 'Especialista en el área'],
+    ['resumen', 'Sí (tipos 1–6)', 'Resumen del artículo (mín. 10, máx. 4000 caracteres)', 'Resumen del artículo...'],
+    ['resumen_otro_idioma', 'No', 'Resumen en otro idioma (máx. 4000 caracteres)', 'Abstract of the article...'],
+    ['resumen_idioma_adicional', 'No', 'Resumen en idioma adicional (máx. 4000 caracteres)', ''],
     ['', '', '', ''],
-    ['Columnas de estado (NO EDITAR — son automáticas)', '', '', ''],
-    ['estado', 'Auto', 'Se llena automáticamente: pendiente, subido o error', 'subido'],
-    ['fecha_subida', 'Auto', 'Fecha/hora en que el artículo se cargó exitosamente', '2026-04-19T10:30:00.000Z'],
+    ['Columnas de estado de Artículos (NO EDITAR — automáticas)', '', '', ''],
+    ['estado', 'Auto', 'pendiente / subido / error', 'subido'],
+    ['fecha_subida', 'Auto', 'Fecha/hora ISO en que el artículo se cargó exitosamente', '2026-04-19T10:30:00Z'],
     ['ultimo_error', 'Auto', 'Mensaje de error si la carga falló', ''],
+    ['id_articulo', 'Auto', 'ID asignado por Publindex tras la carga exitosa', '123456'],
+    ['', '', '', ''],
+    ['Hoja "Autores" (autores por artículo)', '', '', ''],
+    ['titulo_articulo', 'Sí', 'Debe coincidir exactamente con el titulo de un artículo', 'Título del artículo de ejemplo para Publindex'],
+    ['id_articulo', 'Auto', 'Se completa automáticamente al cargar artículos', '123456'],
+    ['nombre_completo', 'Sí', 'Nombre completo del autor', 'Jane Doe Ficticio'],
+    ['identificacion', 'No', 'Cédula/doc. Si está vacío se busca por nombre con picker interactivo', '00000000'],
+    ['nacionalidad', 'Sí', 'Dropdown: Colombiana / Extranjera', 'Colombiana'],
+    ['filiacion_institucional', 'No', 'Afiliación del autor (de OJS si disponible)', 'Universidad Ficticia'],
+    ['tiene_cvlac', 'Auto', 'Se llena automáticamente según staCertificado', 'Sí'],
+    ['estado_carga', 'Auto', 'pendiente / subido / error', 'subido'],
+    ['accion_requerida', 'Auto', 'Mensaje de acción en caso de error o advertencia', ''],
     ['', '', '', ''],
     ['Hoja "Evaluadores" (pares del fascículo)', '', '', ''],
     ['nombre_completo', 'Sí', 'Nombre completo del evaluador (par revisor)', 'Jane Doe Ficticio'],
     ['nacionalidad', 'Sí', 'Dropdown: Colombiana / Extranjera', 'Extranjera'],
-    ['identificacion', 'No', 'Cédula/doc. Si está vacío, se buscará por nombre con picker interactivo', '00000000'],
+    ['identificacion', 'No', 'Cédula/doc. Si está vacío se busca por nombre con picker interactivo', '00000000'],
     ['filiacion_institucional', 'No', 'Afiliación del evaluador (de OJS si disponible)', 'Universidad Ficticia'],
     ['tiene_cvlac', 'Auto', 'Se llena automáticamente según staCertificado', 'Sí'],
     ['estado_carga', 'Auto', 'pendiente / subido / error', 'subido'],
@@ -337,6 +499,15 @@ function buildInstructionsSheet(wb: ExcelJS.Workbook): void {
   ];
 
   rows.forEach(r => ws.addRow(r));
-  ws.getRow(1).font = { bold: true };
-  ws.columns = [{ width: 30 }, { width: 12 }, { width: 70 }, { width: 55 }];
+  ws.columns = [{ width: 30 }, { width: 16 }, { width: 75 }, { width: 55 }];
+
+  for (let r = 2; r <= ws.rowCount; r++) {
+    const firstCell = ws.getCell(r, 1).value;
+    if (typeof firstCell !== 'string') continue;
+    if (firstCell === 'Campo') {
+      ws.getRow(r).font = { bold: true };
+    } else if (firstCell.startsWith('Hoja "') || firstCell.startsWith('Columnas de estado')) {
+      ws.getRow(r).font = { bold: true };
+    }
+  }
 }

@@ -128,6 +128,21 @@ Las 7 entidades actuales:
 
 **Los nombres de las constantes están en inglés**; los **valores** en español están permitidos solo cuando son strings que terminan en el Excel que ve el editor o que matchean el catálogo Publindex.
 
+## Reglas de validación del artículo
+
+El formulario "Crear artículo" de Publindex tiene reglas de obligatoriedad que
+dependen del `tipo_documento` elegido en cada fila, y restricciones de longitud
+por campo. Ambas viven en un único archivo: `src/config/article-form-rules.ts`.
+Es la fuente única de verdad, consumida por dos caminos:
+
+1. **`src/io/excel-writer.ts`** emite la plantilla `.xlsx` con conditional
+   formatting (amarillo dinámico que se re-evalúa al cambiar `tipo_documento`)
+   y data validation nativa (`textLength` / `whole` con `errorStyle: 'warning'`).
+
+2. **`src/entities/articles/validator.ts`** corre antes de cargar cada fila
+   a la API. Usa las mismas reglas, así que los errores que reporta coinciden
+   con los amarillos que ya aparecen en Excel — sin drift entre ambas capas.
+
 ## Flujo end-to-end (orden recomendado)
 
 ```

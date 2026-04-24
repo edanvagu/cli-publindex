@@ -129,7 +129,7 @@ export async function importOjs(): Promise<void> {
   }
 
   console.log('');
-  warning('Las celdas resaltadas en AMARILLO son campos obligatorios que quedaron vacíos — debe completarlos antes de validar.');
+  warning('Las celdas amarillas son campos obligatorios vacíos según el tipo_documento elegido en esa fila, o violan longitud/rango. Cambie tipo_documento y se vuelven a evaluar automáticamente.');
   info('Abra la plantilla en Excel. En la hoja "Artículos" complete los campos amarillos.');
   info('En la hoja "Autores" puede opcionalmente agregar la `identificacion` de cada autor (si la tiene). Sin identificación el CLI busca por nombre con un picker interactivo.');
   if (csvPath) {

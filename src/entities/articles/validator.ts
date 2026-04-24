@@ -4,6 +4,9 @@ import {
   getGranAreas, getChildAreas, getChildSubareas,
 } from '../areas/tree';
 import { DOCUMENT_TYPES, SUMMARY_TYPES, SPECIALIST_TYPES, LANGUAGES } from '../../config/constants';
+import {
+  DocTypeCode, FieldConstraint, FIELD_CONSTRAINTS, isRequired, potentiallyRequiredFields,
+} from '../../config/article-form-rules';
 import { parseDate } from '../../utils/dates';
 
 export function validateBatch(articles: ArticleRow[], unknownHeaders: string[]): ValidationResult {
@@ -49,98 +52,43 @@ export function validateBatch(articles: ArticleRow[], unknownHeaders: string[]):
   return { valid, errors, warnings };
 }
 
+function codeForLabel(label: string | undefined, dict: Record<string, string>): string | undefined {
+  if (!label) return undefined;
+  const match = Object.entries(dict).find(([, v]) => v === label);
+  return match?.[0];
+}
+
 function validateArticle(art: ArticleRow, errors: ValidationError[]) {
   const row = art._fila;
+  const docTypeCode = codeForLabel(art.tipo_documento, DOCUMENT_TYPES) as DocTypeCode | undefined;
+  const record = art as unknown as Record<string, unknown>;
 
-  if (!art.titulo) {
-    errors.push({ row, field: 'titulo', message: 'Campo obligatorio' });
-  } else if (art.titulo.length < 10) {
-    errors.push({ row, field: 'titulo', message: `"${art.titulo}" tiene ${art.titulo.length} caracteres (mínimo 10)` });
+  for (const field of potentiallyRequiredFields()) {
+    if (!isRequired(field, docTypeCode)) continue;
+    const value = record[field];
+    if (typeof value !== 'string' || value.trim() === '') {
+      errors.push({ row, field, message: 'Campo obligatorio' });
+    }
   }
 
-  if (!art.url) {
-    errors.push({ row, field: 'url', message: 'Campo obligatorio' });
-  } else if (!art.url.startsWith('http://') && !art.url.startsWith('https://')) {
+  for (const [field, constraint] of Object.entries(FIELD_CONSTRAINTS)) {
+    const value = record[field];
+    if (typeof value === 'string' && value !== '') {
+      validateConstraint(value, field, constraint, row, errors);
+    }
+  }
+
+  if (art.url && !art.url.startsWith('http://') && !art.url.startsWith('https://')) {
     errors.push({ row, field: 'url', message: `"${art.url}" debe comenzar con http:// o https://` });
   }
 
-  const granAreaCode = art.gran_area ? getGranAreaCodeByName(art.gran_area) : undefined;
-  if (!art.gran_area) {
-    errors.push({ row, field: 'gran_area', message: 'Campo obligatorio' });
-  } else if (!granAreaCode) {
-    errors.push({
-      row, field: 'gran_area',
-      message: `"${art.gran_area}" no es una gran área válida`,
-      suggestion: `Valores válidos: ${getGranAreas().map(g => g.name).join(', ')}`,
-    });
-  }
+  validateAreaCascade(art, row, errors);
 
-  let areaCode: string | undefined;
-  if (!art.area) {
-    errors.push({ row, field: 'area', message: 'Campo obligatorio' });
-  } else if (granAreaCode) {
-    areaCode = getAreaCodeByName(art.area, granAreaCode);
-    if (!areaCode) {
-      const validAreas = getChildAreas(granAreaCode);
-      errors.push({
-        row, field: 'area',
-        message: `"${art.area}" no pertenece a ${art.gran_area}`,
-        suggestion: `Áreas válidas bajo "${art.gran_area}": ${validAreas.map(a => a.name).join(', ')}`,
-      });
-    }
-  }
-
-  if (art.subarea && areaCode) {
-    const subCode = getSubareaCodeByName(art.subarea, areaCode);
-    if (!subCode) {
-      const validSubs = getChildSubareas(areaCode);
-      errors.push({
-        row, field: 'subarea',
-        message: `"${art.subarea}" no pertenece a ${art.area}`,
-        suggestion: `Subáreas válidas bajo "${art.area}": ${validSubs.map(s => s.name).join(', ')}`,
-      });
-    }
-  }
-
-  validateEnumLabel(art.tipo_documento, 'tipo_documento', DOCUMENT_TYPES, true, row, errors);
+  validateEnumLabel(art.tipo_documento, 'tipo_documento', DOCUMENT_TYPES, false, row, errors);
   validateEnumLabel(art.tipo_resumen, 'tipo_resumen', SUMMARY_TYPES, false, row, errors);
   validateEnumLabel(art.tipo_especialista, 'tipo_especialista', SPECIALIST_TYPES, false, row, errors);
   validateEnumLabel(art.idioma, 'idioma', LANGUAGES, false, row, errors);
   validateEnumLabel(art.otro_idioma, 'otro_idioma', LANGUAGES, false, row, errors);
-
-  if (!art.palabras_clave) {
-    errors.push({ row, field: 'palabras_clave', message: 'Campo obligatorio' });
-  }
-
-  if (!art.titulo_ingles) {
-    errors.push({ row, field: 'titulo_ingles', message: 'Campo obligatorio' });
-  } else if (art.titulo_ingles.length < 10) {
-    errors.push({ row, field: 'titulo_ingles', message: `"${art.titulo_ingles}" tiene ${art.titulo_ingles.length} caracteres (mínimo 10)` });
-  }
-
-  if (!art.resumen) {
-    errors.push({ row, field: 'resumen', message: 'Campo obligatorio' });
-  } else if (art.resumen.length < 10) {
-    errors.push({ row, field: 'resumen', message: `Tiene ${art.resumen.length} caracteres (mínimo 10)` });
-  }
-
-  if (art.doi) {
-    if (art.doi.length < 10) {
-      errors.push({ row, field: 'doi', message: `"${art.doi}" tiene ${art.doi.length} caracteres (mínimo 10)` });
-    } else if (!/^10\.\S+\/\S+/.test(art.doi)) {
-      errors.push({
-        row, field: 'doi',
-        message: `"${art.doi}" no es un DOI válido. Debe empezar con "10." y tener el formato 10.xxxx/yyyy`,
-        suggestion: 'Ejemplo válido: 10.1234/abc123. NO use formato URL (https://doi.org/...).',
-      });
-    }
-  }
-
-  validatePositiveNumber(art.pagina_inicial, 'pagina_inicial', row, errors);
-  validatePositiveNumber(art.pagina_final, 'pagina_final', row, errors);
-  validatePositiveNumber(art.numero_autores, 'numero_autores', row, errors);
-  validatePositiveNumber(art.numero_pares_evaluadores, 'numero_pares_evaluadores', row, errors);
-  validatePositiveNumber(art.numero_referencias, 'numero_referencias', row, errors);
 
   if (art.pagina_inicial && art.pagina_final) {
     const ini = parseInt(art.pagina_inicial, 10);
@@ -173,6 +121,79 @@ function validateArticle(art: ArticleRow, errors: ValidationError[]) {
   validateTF(art.eval_internacional, 'eval_internacional', row, errors);
 }
 
+function validateConstraint(value: string, field: string, c: FieldConstraint, row: number, errors: ValidationError[]) {
+  if (c.kind === 'text') {
+    if (c.min !== undefined && value.length < c.min) {
+      errors.push({ row, field, message: `"${value.slice(0, 30)}" tiene ${value.length} caracteres (mínimo ${c.min})` });
+      return;
+    }
+    if (c.max !== undefined && value.length > c.max) {
+      errors.push({ row, field, message: `Tiene ${value.length} caracteres (máximo ${c.max})` });
+      return;
+    }
+    if (c.pattern && !c.pattern.test(value)) {
+      errors.push({
+        row, field,
+        message: `"${value}" no cumple el formato esperado`,
+        suggestion: field === 'doi'
+          ? 'Ejemplo válido: 10.1234/abc123. NO use formato URL (https://doi.org/...).'
+          : c.patternMessage,
+      });
+      return;
+    }
+  } else if (c.kind === 'integer') {
+    const n = parseInt(value, 10);
+    if (isNaN(n)) {
+      errors.push({ row, field, message: `"${value}" debe ser un número entero` });
+      return;
+    }
+    if (c.min !== undefined && n < c.min) {
+      errors.push({ row, field, message: `"${value}" debe ser >= ${c.min}` });
+      return;
+    }
+    if (c.max !== undefined && n > c.max) {
+      errors.push({ row, field, message: `"${value}" debe ser <= ${c.max}` });
+      return;
+    }
+  }
+}
+
+function validateAreaCascade(art: ArticleRow, row: number, errors: ValidationError[]) {
+  const granAreaCode = art.gran_area ? getGranAreaCodeByName(art.gran_area) : undefined;
+  if (art.gran_area && !granAreaCode) {
+    errors.push({
+      row, field: 'gran_area',
+      message: `"${art.gran_area}" no es una gran área válida`,
+      suggestion: `Valores válidos: ${getGranAreas().map(g => g.name).join(', ')}`,
+    });
+  }
+
+  let areaCode: string | undefined;
+  if (art.area && granAreaCode) {
+    areaCode = getAreaCodeByName(art.area, granAreaCode);
+    if (!areaCode) {
+      const validAreas = getChildAreas(granAreaCode);
+      errors.push({
+        row, field: 'area',
+        message: `"${art.area}" no pertenece a ${art.gran_area}`,
+        suggestion: `Áreas válidas bajo "${art.gran_area}": ${validAreas.map(a => a.name).join(', ')}`,
+      });
+    }
+  }
+
+  if (art.subarea && areaCode) {
+    const subCode = getSubareaCodeByName(art.subarea, areaCode);
+    if (!subCode) {
+      const validSubs = getChildSubareas(areaCode);
+      errors.push({
+        row, field: 'subarea',
+        message: `"${art.subarea}" no pertenece a ${art.area}`,
+        suggestion: `Subáreas válidas bajo "${art.area}": ${validSubs.map(s => s.name).join(', ')}`,
+      });
+    }
+  }
+}
+
 function validateEnumLabel(
   value: string | undefined,
   field: string,
@@ -192,14 +213,6 @@ function validateEnumLabel(
       message: `"${value}" no válido`,
       suggestion: `Valores válidos: ${valid.join(', ')}`,
     });
-  }
-}
-
-function validatePositiveNumber(value: string | undefined, field: string, row: number, errors: ValidationError[]) {
-  if (!value) return;
-  const num = parseInt(value, 10);
-  if (isNaN(num) || num < 0) {
-    errors.push({ row, field, message: `"${value}" debe ser un número entero positivo` });
   }
 }
 
