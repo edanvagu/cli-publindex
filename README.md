@@ -1,6 +1,6 @@
 # Publindex CLI
 
-Herramienta de línea de comandos para cargar masivamente artículos y autores en el sistema [Publindex](https://scienti.minciencias.gov.co/publindex/) de Minciencias (Colombia).
+Herramienta de línea de comandos para cargar masivamente artículos, autores y evaluadores en el sistema [Publindex](https://scienti.minciencias.gov.co/publindex/) de Minciencias (Colombia).
 
 Automatiza el flujo que en la interfaz web toma minutos por artículo: importa metadatos desde un export XML de OJS, genera un Excel prellenado, y luego carga el lote completo al servidor de Publindex vinculando también a los autores a sus artículos respectivos.
 
@@ -35,7 +35,7 @@ Durante toda la corrida el Excel se va actualizando con el estado de cada artíc
 
 ### Canal alternativo: extensión de navegador
 
-Además del CLI (que hace POSTs directos al backend), existe una extensión de Chromium que detecta los formularios de Publindex en el navegador y los rellena desde la misma plantilla Excel. El editor navega manualmente y revisa cada formulario antes de guardar — útil si el backend bloquea automatización o si se prefiere un flujo más visual.
+Además del CLI, existe una extensión de Chromium que detecta los formularios de Publindex en el navegador y los rellena desde la misma plantilla Excel. El editor navega manualmente y revisa cada formulario antes de guardar — útil si el backend bloquea automatización o si se prefiere un flujo más visual.
 
 **Instalación fácil** (sin `npm`): en el menú del CLI elige "Instalar extensión de navegador". El CLI extrae la extensión a una carpeta del sistema y abre Chrome. Luego en `chrome://extensions/` → modo desarrollador → "Cargar extensión sin empaquetar" → seleccionar la carpeta que el CLI abrió.
 
