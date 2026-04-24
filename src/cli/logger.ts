@@ -4,11 +4,29 @@ import { ValidationResult, UploadResult } from '../entities/articles/types';
 import { formatDuration } from '../utils/time';
 
 export function banner() {
+  // The box width is derived from the widest line so any future edit to the banner stays aligned without manual counting.
+  const lines: { text: string; bold?: boolean }[] = [
+    { text: 'Carga eficiente de datos a la plataforma Publindex (2026)', bold: true },
+    { text: 'v1.0.0' },
+    { text: '' },
+    { text: 'Desarrollada por Edward Vásquez' },
+    { text: 'Contacto: eavasquezgu@gmail.com' },
+  ];
+  const innerWidth = Math.max(...lines.map(l => l.text.length));
+  const border = '─'.repeat(innerWidth + 2);
+
   console.log('');
-  console.log(chalk.bold.yellow('  ┌──────────────────────────────────────────────┐'));
-  console.log(chalk.bold.yellow('  │') + chalk.bold.white('  Publindex - Carga masiva de artículos        ') + chalk.bold.yellow('│'));
-  console.log(chalk.bold.yellow('  │') + chalk.white('  v1.0.0                                       ') + chalk.bold.yellow('│'));
-  console.log(chalk.bold.yellow('  └──────────────────────────────────────────────┘'));
+  console.log(chalk.bold.yellow('  ┌' + border + '┐'));
+  for (const line of lines) {
+    const padded = line.text.padEnd(innerWidth, ' ');
+    const content = line.bold ? chalk.bold.white(padded) : chalk.white(padded);
+    console.log(chalk.bold.yellow('  │ ') + content + chalk.bold.yellow(' │'));
+  }
+  console.log(chalk.bold.yellow('  └' + border + '┘'));
+  console.log('');
+  console.log(chalk.dim('  Herramienta gratuita y de código abierto: https://github.com/edanvagu/cli-publindex'));
+  console.log(chalk.dim('  El usuario es responsable de verificar los datos antes de cargarlos'));
+  console.log(chalk.dim('  y de cualquier problema derivado de su uso.'));
   console.log('');
 }
 

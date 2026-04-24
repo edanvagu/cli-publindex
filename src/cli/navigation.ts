@@ -9,7 +9,7 @@ export type View = keyof typeof VIEW_LABELS;
 
 // `upload-channel` has an empty set on purpose: it only branches into sub-views (auto-menu / ext-menu) and has no leaf action of its own. A missing key would also work but an explicit empty set keeps the table exhaustive.
 const LEAVES_BY_VIEW = {
-  'main':           ['import-ojs', 'help-ojs'],
+  'main':           ['import-ojs', 'help-ojs', 'about'],
   'upload-channel': [],
   'auto-menu':      ['upload-articles', 'upload-authors', 'upload-reviewers'],
   'ext-menu':       ['install-extension', 'open-publindex', 'help-extension'],

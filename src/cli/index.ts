@@ -14,6 +14,7 @@ import { installExtension } from './commands/install-extension';
 import { showOjsExportHelp } from './commands/help-ojs-export';
 import { showExtensionUsageHelp } from './commands/help-extension-usage';
 import { openPublindex } from './commands/open-publindex';
+import { showAbout } from './commands/about';
 
 export async function run(options: { forcedMode?: ExecutionMode } = {}): Promise<void> {
   banner();
@@ -85,5 +86,6 @@ async function runLeaf(action: LeafAction): Promise<void> {
     case 'open-publindex':    return openPublindex();
     case 'help-ojs':          return showOjsExportHelp();
     case 'help-extension':    return showExtensionUsageHelp();
+    case 'about':             return showAbout();
   }
 }

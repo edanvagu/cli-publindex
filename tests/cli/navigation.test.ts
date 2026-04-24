@@ -10,6 +10,10 @@ describe('dispatch - navegación', () => {
     expect(dispatch('main', 'help-ojs')).toEqual({ kind: 'run', action: 'help-ojs' });
   });
 
+  it('main + about ejecuta la acción', () => {
+    expect(dispatch('main', 'about')).toEqual({ kind: 'run', action: 'about' });
+  });
+
   it('main + upload-channel empuja la vista de canales', () => {
     expect(dispatch('main', 'upload-channel')).toEqual({ kind: 'push', view: 'upload-channel' });
   });

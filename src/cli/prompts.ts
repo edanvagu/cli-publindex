@@ -312,13 +312,14 @@ export async function promptUrlFailureAction(): Promise<'retry' | 'skip'> {
   ]);
 }
 
-type MainChoice = Extract<LeafAction, 'import-ojs' | 'help-ojs'> | Extract<View, 'upload-channel'> | Extract<NavAction, 'exit'>;
+type MainChoice = Extract<LeafAction, 'import-ojs' | 'help-ojs' | 'about'> | Extract<View, 'upload-channel'> | Extract<NavAction, 'exit'>;
 
 export async function mainMenuPrompt(): Promise<MainChoice> {
   return promptList<MainChoice>('¿Qué desea hacer?', [
     { name: '1. Preparar plantilla desde OJS', value: 'import-ojs' },
     { name: '2. Cargar a Publindex', value: 'upload-channel' },
     { name: '3. Ayuda: cómo exportar desde OJS', value: 'help-ojs' },
+    { name: '4. Sobre el proyecto / donar', value: 'about' },
     SEP,
     { name: 'Salir', value: 'exit' },
   ]);
