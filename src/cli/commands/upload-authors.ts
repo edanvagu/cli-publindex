@@ -11,8 +11,9 @@ import { Issue } from '../../entities/issues/types';
 import { AuthorRow, PersonSearchResult } from '../../entities/authors/types';
 import { buildPersonPicker } from '../pickers';
 import { loginOrThrow, fetchAndSelectIssue, ensureTokenCoversEstimate, extractYear, flushProgressInteractive } from './shared';
+import { uploadReviewersWithContext } from './upload-reviewers';
 
-interface AuthorsContext {
+export interface AuthorsContext {
   file: string;
   session: Session;
   issue: Issue;
@@ -24,6 +25,10 @@ export async function uploadAuthors(): Promise<void> {
   const session = await loginOrThrow();
   const issue = await fetchAndSelectIssue(session);
   await uploadAuthorsCore({ file, session, issue });
+}
+
+export async function uploadAuthorsWithContext(ctx: AuthorsContext): Promise<void> {
+  await uploadAuthorsCore(ctx);
 }
 
 async function uploadAuthorsCore(ctx: AuthorsContext): Promise<void> {
@@ -120,6 +125,12 @@ async function uploadAuthorsCore(ctx: AuthorsContext): Promise<void> {
     }
   }
   success('Proceso finalizado.');
+
+  const continueToReviewers = await confirmContinue('¿Continuar con la vinculación de evaluadores ahora (sin volver a pedir credenciales)?');
+  if (continueToReviewers) {
+    console.log('');
+    await uploadReviewersWithContext({ file, session, issue });
+  }
 }
 
 function validateAuthors(authors: AuthorRow[]): string[] {

@@ -7,6 +7,7 @@ import { runUpload, estimateTimeSeconds } from '../../entities/articles/uploader
 import { ProgressTracker } from '../../io/progress';
 import { ArticleRow } from '../../entities/articles/types';
 import { loginOrThrow, fetchAndSelectIssue, ensureTokenCoversEstimate, flushProgressInteractive } from './shared';
+import { uploadAuthorsWithContext } from './upload-authors';
 
 export async function uploadArticles(): Promise<void> {
   const file = await promptFilePath();
@@ -107,6 +108,12 @@ export async function uploadArticles(): Promise<void> {
 
   await flushProgressInteractive(progressTracker);
   success('Carga de artículos finalizada.');
+
+  const continueToAuthors = await confirmContinue('¿Continuar con la vinculación de autores ahora (sin volver a pedir credenciales)?');
+  if (continueToAuthors) {
+    console.log('');
+    await uploadAuthorsWithContext({ file, session, issue });
+  }
 }
 
 function buildUploadOptions(progressTracker: ProgressTracker, isRetry: boolean) {
