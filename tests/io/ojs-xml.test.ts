@@ -274,6 +274,50 @@ describe('parsePublication — prioridad de español en titulo/resumen/palabras_
   });
 });
 
+describe('parsePublication — decodificación de entities numéricas (regresión)', () => {
+  const PUBLICATION_WITH_NUMERIC_ENTITIES = `<publication locale="es_ES" version="1">
+    <title locale="es_ES">An&#xE1;lisis hist&#xF3;rico de la regi&#xF3;n &#x201C;andina&#x201D;</title>
+    <title locale="en_US">Doe&#x2019;s legacy in Latin America</title>
+    <abstract locale="es_ES">&lt;p&gt;Resumen con &#xE1;cidos org&#xE1;nicos.&lt;/p&gt;</abstract>
+    <keywords locale="es_ES">
+      <keyword>econom&#xED;a</keyword>
+      <keyword>pol&#xED;tica</keyword>
+    </keywords>
+    <keywords locale="en_US">
+      <keyword>economy</keyword>
+    </keywords>
+    <authors>
+      <author seq="1">
+        <givenname locale="es_ES">Mar&#xED;a</givenname>
+        <familyname locale="es_ES">N&#xFA;&#xF1;ez</familyname>
+        <country>CO</country>
+      </author>
+    </authors>
+  </publication>`;
+
+  it('decodifica entities numéricas hex en títulos', () => {
+    const art = parsePublication(PUBLICATION_WITH_NUMERIC_ENTITIES);
+    expect(art.titulo).toBe('Análisis histórico de la región “andina”');
+    expect(art.tituloIngles).toBe('Doe’s legacy in Latin America');
+  });
+
+  it('decodifica entities numéricas hex en keywords', () => {
+    const art = parsePublication(PUBLICATION_WITH_NUMERIC_ENTITIES);
+    expect(art.palabrasClave).toBe('economía; política');
+    expect(art.palabrasClaveOtroIdioma).toBe('economy');
+  });
+
+  it('decodifica entities numéricas hex en nombres de autores', () => {
+    const art = parsePublication(PUBLICATION_WITH_NUMERIC_ENTITIES);
+    expect(art.autores[0].nombre_completo).toBe('María Núñez');
+  });
+
+  it('sigue decodificando entities en resúmenes (no rompe el flujo previo de cleanHtml)', () => {
+    const art = parsePublication(PUBLICATION_WITH_NUMERIC_ENTITIES);
+    expect(art.resumen).toBe('Resumen con ácidos orgánicos.');
+  });
+});
+
 describe('detectNonStandardPages', () => {
   it('retorna índices de artículos con paginasRaw presente', () => {
     const articles = [

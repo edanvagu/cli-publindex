@@ -65,10 +65,12 @@ const ARRAY_TAGS = new Set([
   'affiliation',
 ]);
 
+// htmlEntities decodes &#xED; → í, etc. Without it, only abstracts survived (via cleanHtml); titles, keywords, and author names reached the Excel raw.
 const parser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: '@_',
   isArray: (name) => ARRAY_TAGS.has(name),
+  htmlEntities: true,
 });
 
 const SUBMISSION_FILE_BLOCK_RE = /<submission_file\b[\s\S]*?<\/submission_file>/g;
