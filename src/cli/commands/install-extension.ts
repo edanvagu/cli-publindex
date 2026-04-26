@@ -1,22 +1,15 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
 import { EXTENSION_FILES, EXTENSION_FILE_COUNT } from '../generated/extension-bundle';
 import { success, info, warning, error } from '../logger';
 import { openInDefaultApp } from './shared';
 import { EXTENSION_VERSION } from '../../config/version';
-
-const PUBLINDEX_HOME =
-  process.platform === 'darwin'
-    ? path.join(os.homedir(), 'Library', 'Application Support', 'Publindex')
-    : path.join(os.homedir(), '.publindex');
-
-export const EXTENSION_INSTALL_DIR = path.join(PUBLINDEX_HOME, 'extension');
+import { PUBLINDEX_HOME, EXTENSION_INSTALL_DIR } from '../../utils/paths';
 
 export async function installExtension(): Promise<void> {
   if (EXTENSION_FILE_COUNT === 0) {
     error(
-      'Esta versión del CLI no incluye la extensión empacada. Si eres desarrollador, ejecuta:\n  npm run ext:build && npm run embed:ext\nSi eres editor, actualiza a la última release desde GitHub.',
+      'Esta versión del CLI no incluye la extensión empacada. Si usted es un desarrollador, ejecute:\n  npm run ext:build && npm run embed:ext\nSi es editor, actualice a la última release desde GitHub.',
     );
     return;
   }
@@ -44,5 +37,5 @@ export async function installExtension(): Promise<void> {
   info('     o haga click en "Cargar extensión sin empaquetar" y seleccione:');
   info(`       ${EXTENSION_INSTALL_DIR}`);
   info('  4. Si ya la había instalado antes, click en recargar (↻) en la tarjeta.');
-  warning('Mantenga esta carpeta, ya que si la borra, el navegador perderá la extensión.');
+  warning('Mantenga esta carpeta, ya que si la borra el navegador perderá la extensión.');
 }

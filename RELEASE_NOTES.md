@@ -39,8 +39,10 @@ Ahora el release publica binarios para los tres sistemas operativos:
 
 1. Descargue `publindex-macos-arm64.zip`.
 2. Doble-click sobre el `.zip` para descomprimir. Quedará el archivo `publindex-macos-arm64`.
-3. **Solo la primera vez**: haga control-click (o click derecho) sobre `publindex-macos-arm64` → seleccione "Abrir" → confirme el diálogo de seguridad. Esto se hace una sola vez por instalación.
-4. A partir de ahí, doble-click abre la aplicación normalmente.
+3. Doble-click sobre el archivo. macOS bloqueará la apertura con un mensaje del tipo "no se puede verificar el desarrollador". Click en **Listo** (en inglés: _Done_). **No** elija "Mover a la Papelera" (_Move to Trash_).
+4. Abra **Ajustes del Sistema** (menú Apple → Ajustes del Sistema; en inglés: _System Settings_) → **Privacidad y Seguridad** (_Privacy & Security_) → en el panel derecho, scroll hacia abajo hasta ver el aviso "publindex-macos-arm64 se bloqueó para proteger tu Mac" → click en **Abrir igualmente** (_Open Anyway_).
+5. Aparece un diálogo de confirmación. Click en **Abrir igualmente** otra vez. Si pide Touch ID o contraseña, confírmela.
+6. La CLI arranca. Esto se hace una sola vez por instalación; las próximas veces el doble-click la abre directo.
 
 ### Mac con procesador Intel
 

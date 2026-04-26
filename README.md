@@ -10,14 +10,19 @@ Automatiza el flujo que en la interfaz web toma minutos por artículo: importa m
 
 ### 1. Descargar el ejecutable
 
-En la [página de releases](../../releases/latest) descargue `publindex-windows-x64.exe`.
+En la [página de releases](../../releases/latest) descargue el archivo correspondiente a su sistema:
 
-> **Sistema operativo soportado en esta versión:** Windows 10 / 11 (64-bit).
-> En macOS / Linux no hay binario oficial; si tiene Node.js puede correr el CLI desde código fuente con `npm install && npm start`.
+- **Windows 10/11 (64-bit)**: `publindex-windows-x64.exe`
+- **Mac con chip Apple (M1/M2/M3/M4)**: `publindex-macos-arm64.zip`
+- **Mac con procesador Intel**: `publindex-macos-x64.zip`
+
+> ¿Mi Mac es Apple Silicon o Intel? Click en el menú Apple (esquina superior izquierda) → "Acerca de este Mac". Si dice "Chip M1/M2/M3/M4" es Apple Silicon. Si dice "Procesador Intel" es Intel.
 
 ### 2. Primera ejecución
 
-Doble clic sobre el `.exe`. La primera vez Windows mostrará una advertencia "Windows protegió su PC" — haga clic en "Más información" y luego "Ejecutar de todas formas". Solo aparece la primera vez (y tras cada actualización).
+**Windows**: doble-click sobre el `.exe`. La primera vez Windows mostrará "Windows protegió su PC" — click en "Más información" → "Ejecutar de todas formas". Solo aparece la primera vez (y tras cada actualización).
+
+**Mac**: doble-click sobre el `.zip` para descomprimir, después doble-click sobre el binario. macOS bloqueará la apertura con un mensaje de Gatekeeper. Click en **Listo** (en inglés: _Done_) — no en "Mover a la Papelera" (_Move to Trash_). Después abra **Ajustes del Sistema** (_System Settings_) → **Privacidad y Seguridad** (_Privacy & Security_), scroll hasta el aviso de bloqueo, y click en **Abrir igualmente** (_Open Anyway_) → confirme con Touch ID o contraseña. Después de esta primera vez, doble-click la abre directo.
 
 ### 3. Flujo de trabajo
 
@@ -47,21 +52,24 @@ El CLI se queda abierto en bucle hasta que se elige "Salir". Si algún flujo fal
 
 ## Para desarrolladores
 
-Requisitos: **Node.js 20 o superior**.
+Requisitos: **Node.js 20.19 o superior** (la etapa `pkg` requiere ≥20.19 para hacer `require()` de módulos ESM).
 
 ```bash
 npm install
-npm test              # 203 tests, todos verdes
+npm test              # vitest, todos verdes
 npm start             # corre en modo TypeScript con tsx
 ```
 
 ### Empaquetar binarios
 
-El bundle con `esbuild` ya funciona en Node 18+, pero la etapa `pkg` requiere Node 20+:
+`pkg` puede cross-compilar entre arquitecturas. Los scripts disponibles son:
 
 ```bash
-npm run build:bundle  # produce dist/publindex.js (~5 MB)
-npm run build:bin     # produce el binario Windows x64 en dist/
+npm run build:bundle      # produce dist/publindex.js (~5 MB) — paso intermedio
+npm run build:bin         # alias de build:bin:win, para el dev workflow local
+npm run build:bin:win     # produce dist/publindex-windows-x64.exe
+npm run build:bin:mac-arm64  # produce dist/publindex-macos-arm64
+npm run build:bin:mac-x64    # produce dist/publindex-macos-x64
 ```
 
 ### Arquitectura
@@ -80,17 +88,17 @@ cli/   →   entities/   →   io/   →   utils/
 ### Release
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.2.1
+git push origin v1.2.1
 ```
 
-El workflow en `.github/workflows/release.yml` compila en Windows, corre tests, y publica el binario en una release de GitHub con las notas tomadas de `RELEASE_NOTES.md`.
+El workflow en `.github/workflows/release.yml` corre una matriz de tres jobs en paralelo (`windows-latest`, `macos-14` para Apple Silicon, `macos-13` para Intel), cada uno produce su binario, y un job final publica los tres en una release de GitHub con las notas tomadas de `RELEASE_NOTES.md`.
 
 ---
 
 ## Limitaciones conocidas
 
-- **Sin firma de código:** el binario no está firmado, lo que causa la advertencia de SmartScreen en la primera ejecución. Firmar en Windows cuesta ~$200/año; por ahora no se justifica.
-- **Solo Windows en esta versión:** el binario oficial es Windows x64. Desde código fuente corre en cualquier SO con Node.js 20+, pero los diálogos nativos de archivos degradan a prompt manual en macOS/Linux.
+- **Sin firma de código:** los binarios no están firmados, lo que causa la advertencia de SmartScreen en Windows y de Gatekeeper en macOS en la primera ejecución. Firmar en Windows cuesta ~$200/año y en macOS requiere Apple Developer ID ($99/año + notarización); por ahora no se justifica.
+- **Sin soporte oficial Linux:** no hay binario empacado para Linux. Desde código fuente corre con Node.js 20.19+ vía `npm install && npm start`.
 - **Autores no-CvLAC colombianos:** Publindex bloquea la vinculación de autores colombianos sin CvLAC. El CLI detecta este caso y marca el error en el Excel con una acción requerida.
 - **Filiación no vigente:** si un autor no tiene filiación profesional vigente en su CvLAC, Publindex lo asume automáticamente como filiación interna de la revista. El CLI avisa para que el editor lo corrija en CvLAC.

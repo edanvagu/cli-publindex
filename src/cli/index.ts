@@ -1,6 +1,7 @@
-import { banner, info, error } from './logger';
+import { banner, info, error, updateNotice } from './logger';
 import { mainMenuPrompt, uploadChannelPrompt, autoMenuPrompt, extMenuPrompt } from './prompts';
 import { ExecutionMode } from '../entities/articles/types';
+import { checkForUpdates } from '../utils/update-check';
 import { LeafAction, View, MenuSelection, dispatch, breadcrumb } from './navigation';
 import { uploadArticles } from './commands/upload-articles';
 import { importOjs } from './commands/import-ojs';
@@ -13,7 +14,14 @@ import { openPublindex } from './commands/open-publindex';
 import { showAbout } from './commands/about';
 
 export async function run(options: { forcedMode?: ExecutionMode } = {}): Promise<void> {
+  // Kick off the update check before banner() so the network call overlaps with startup output. Cap the wait at 1s — if GitHub is slow, the underlying request keeps running in the background, populates the cache, and next session shows the notice without paying the latency twice.
+  const updatePromise = checkForUpdates().catch(() => null);
   banner();
+  const update = await Promise.race([
+    updatePromise,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 1000)),
+  ]);
+  if (update) updateNotice(update);
 
   if (options.forcedMode && options.forcedMode !== 'exit') {
     await runLeaf(options.forcedMode);

@@ -3,6 +3,7 @@ import ora, { Ora } from 'ora';
 import { ValidationResult, UploadResult } from '../entities/articles/types';
 import { formatDuration } from '../utils/time';
 import { APP_VERSION } from '../config/version';
+import type { UpdateInfo } from '../utils/update-check';
 
 export function banner() {
   // The box width is derived from the widest line so any future edit to the banner stays aligned without manual counting.
@@ -26,8 +27,20 @@ export function banner() {
   console.log(chalk.bold.yellow('  └' + border + '┘'));
   console.log('');
   console.log(chalk.dim('  Herramienta gratuita y de código abierto: https://github.com/edanvagu/cli-publindex'));
-  console.log(chalk.dim('  El usuario es responsable de verificar los datos antes de cargarlos'));
-  console.log(chalk.dim('  y de cualquier problema derivado de su uso.'));
+  console.log(
+    chalk.dim(
+      '  El usuario es responsable de verificar los datos antes de cargarlos y de cualquier problema derivado de su uso.',
+    ),
+  );
+  console.log('');
+}
+
+export function updateNotice(info: UpdateInfo): void {
+  console.log(
+    chalk.bold.cyan(`  ⚡ Hay una versión nueva disponible: v${info.latestVersion}`) +
+      chalk.dim(`  (actualmente v${info.currentVersion})`),
+  );
+  console.log(chalk.dim(`     Descárguela aquí: ${info.url}`));
   console.log('');
 }
 
