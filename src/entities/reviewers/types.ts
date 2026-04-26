@@ -21,6 +21,9 @@ export type LinkReviewerPayload = PersonSearchResult & {
 
 export interface ReviewersUploadResult {
   successful: { row: number; nombre: string }[];
+  // 5xx / network / malformed — eligible for retry.
   failed: { row: number; nombre: string; error: string }[];
+  // Editor must act outside the tool (register in Publindex, complete CvLAC). Not retried.
+  skipped: { row: number; nombre: string; reason: string }[];
   totalTimeMs: number;
 }

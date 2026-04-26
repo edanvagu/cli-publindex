@@ -1,6 +1,7 @@
 import { httpRequest, BROWSER_HEADERS, updateCookiesFromResponse } from '../../io/publindex-http';
 import { ENDPOINTS } from '../../config/constants';
 import { LoginResponse, Session } from './types';
+import { extractErrorMessage } from '../../utils/http-errors';
 
 export async function login(username: string, password: string): Promise<Session> {
   const body = JSON.stringify({
@@ -8,6 +9,7 @@ export async function login(username: string, password: string): Promise<Session
     txtContrasena: password,
   });
 
+  // Login is intentionally NOT routed through retry/circuit-breaker: a wrong password retried 3x can lock the account at the server level. The plain Error keeps the existing CLI try/catch working without forcing a retry decision upstream.
   const response = await httpRequest<LoginResponse>(ENDPOINTS.LOGIN, {
     method: 'POST',
     headers: {
@@ -18,11 +20,7 @@ export async function login(username: string, password: string): Promise<Session
   });
 
   if (response.status !== 200 || !response.data?.token) {
-    const msg =
-      typeof response.data === 'string'
-        ? response.data
-        : (response.data as any)?.mensaje || (response.data as any)?.message || `Error HTTP ${response.status}`;
-    throw new Error(`Login fallido: ${msg}`);
+    throw new Error(`Login fallido: ${extractErrorMessage(response.data, response.status)}`);
   }
 
   const data = response.data;

@@ -6,6 +6,8 @@ import { withRetry } from '../../utils/retry';
 import { AUTHOR_STATES, DEFAULTS, NATIONALITIES } from '../../config/constants';
 import { ProgressTracker } from '../../io/progress';
 import { sleep } from '../../utils/async';
+import { CircuitBreaker } from '../../utils/circuit-breaker';
+import { handleUploadFailure } from '../../utils/upload-failure';
 
 export interface AuthorsUploadOptions {
   progressTracker: ProgressTracker;
@@ -67,11 +69,14 @@ export async function runAuthorsUpload(
   options: AuthorsUploadOptions,
 ): Promise<AuthorsUploadResult> {
   const linkedByArticle = new Map<number, Set<string>>();
+  // Shared breaker across both passes: if Publindex is unhealthy in pass 1, pass 2 should not even start.
+  const breaker = new CircuitBreaker();
 
-  const pass1 = await runAuthorsPass(session, authors, linkedByArticle, options);
+  const pass1 = await runAuthorsPass(session, authors, linkedByArticle, options, breaker);
 
-  const retryableRows = new Set(pass1.failed.filter((f) => f.error === NOT_FOUND_ERROR).map((f) => f.row));
-  if (retryableRows.size === 0) return pass1;
+  // Common Publindex quirk: a Colombian was registered as foreign or vice-versa. Pass 2 retries with the nationality flipped before declaring "not found".
+  const retryableRows = new Set(pass1.skipped.filter((s) => s.reason === NOT_FOUND_ERROR).map((s) => s.row));
+  if (breaker.isTripped() || retryableRows.size === 0) return pass1;
 
   options.onWarning(`Ronda 2: reintentando ${retryableRows.size} autor(es) con nacionalidad cruzada...`);
 
@@ -79,11 +84,12 @@ export async function runAuthorsUpload(
     .filter((a) => retryableRows.has(a._fila))
     .map((a) => ({ ...a, nacionalidad: flipNationality(a.nacionalidad) }));
 
-  const pass2 = await runAuthorsPass(session, flipped, linkedByArticle, options);
+  const pass2 = await runAuthorsPass(session, flipped, linkedByArticle, options, breaker);
 
   return {
     successful: [...pass1.successful, ...pass2.successful],
-    failed: [...pass1.failed.filter((f) => !retryableRows.has(f.row)), ...pass2.failed],
+    failed: [...pass1.failed, ...pass2.failed],
+    skipped: [...pass1.skipped.filter((s) => !retryableRows.has(s.row)), ...pass2.skipped],
     totalTimeMs: pass1.totalTimeMs + pass2.totalTimeMs,
   };
 }
@@ -117,12 +123,15 @@ async function runAuthorsPass(
   authors: AuthorRow[],
   linkedByArticle: Map<number, Set<string>>,
   options: AuthorsUploadOptions,
+  breaker: CircuitBreaker,
 ): Promise<AuthorsUploadResult> {
   const startTime = Date.now();
   const successful: AuthorsUploadResult['successful'] = [];
   const failed: AuthorsUploadResult['failed'] = [];
+  const skipped: AuthorsUploadResult['skipped'] = [];
+  if (breaker.isTripped()) return { successful, failed, skipped, totalTimeMs: 0 };
   for (let i = 0; i < authors.length; i++) {
-    if (options.abortSignal?.aborted) break;
+    if (options.abortSignal?.aborted || breaker.isTripped()) break;
 
     const author = authors[i];
     const nombre = author.nombre_completo;
@@ -135,16 +144,16 @@ async function runAuthorsPass(
     try {
       const person = await resolvePerson(session, author, options);
       if (!person) {
-        const msg = NOT_FOUND_ERROR;
+        const reason = NOT_FOUND_ERROR;
         await writeError(
           options.progressTracker,
           author,
-          msg,
+          reason,
           'Registrar autor manualmente en Publindex',
           options.onWarning,
         );
-        failed.push({ row: author._fila, nombre, error: msg });
-        options.onProgress(i + 1, authors.length, nombre, false, Date.now() - start, msg);
+        skipped.push({ row: author._fila, nombre, reason });
+        options.onProgress(i + 1, authors.length, nombre, false, Date.now() - start, reason);
         continue;
       }
 
@@ -161,36 +170,41 @@ async function runAuthorsPass(
         );
         successful.push({ row: author._fila, nombre });
         options.onProgress(i + 1, authors.length, nombre, true, Date.now() - start);
+        breaker.recordSuccess();
         continue;
       }
 
       await subcallPause(options.abortSignal);
       const enriched = await withRetry(() => getTrayectoria(session, person.codRh, options.anoFasciculo), {
         onRetry: (attempt, error) => options.onRetry(author._fila, attempt, error),
+        abortSignal: options.abortSignal,
       });
 
       const hasCvlac = enriched.staCertificado === 'T';
 
       if (author.nacionalidad === NATIONALITIES.C && !hasCvlac) {
-        const msg = 'Colombiano sin CvLAC';
+        const reason = 'Colombiano sin CvLAC';
         await options.progressTracker.updateAuthor(
           {
             row: author._fila,
-            uploadState: `${AUTHOR_STATES.ERROR}:${msg}`,
+            uploadState: `${AUTHOR_STATES.ERROR}:${reason}`,
             hasCvlac: 'No',
             requiredAction: 'Registrar al autor en CvLAC (https://scienti.minciencias.gov.co/cvlac/) y reintentar',
           },
           options.onWarning,
         );
-        failed.push({ row: author._fila, nombre, error: msg });
-        options.onProgress(i + 1, authors.length, nombre, false, Date.now() - start, msg);
+        skipped.push({ row: author._fila, nombre, reason });
+        options.onProgress(i + 1, authors.length, nombre, false, Date.now() - start, reason);
         continue;
       }
 
       await subcallPause(options.abortSignal);
       await withRetry(
         () => linkAuthor(session, { ...enriched, idArticulo: articleId, anoFasciculo: options.anoFasciculo }),
-        { onRetry: (attempt, error) => options.onRetry(author._fila, attempt, error) },
+        {
+          onRetry: (attempt, error) => options.onRetry(author._fila, attempt, error),
+          abortSignal: options.abortSignal,
+        },
       );
 
       alreadyLinked.add(person.codRh);
@@ -199,7 +213,7 @@ async function runAuthorsPass(
       const hasCurrentAffiliation = Array.isArray(enriched.instituciones) && enriched.instituciones.length > 0;
       const requiredAction = hasCurrentAffiliation
         ? ''
-        : 'Registrar experiencia profesional en CvLAC — sin filiación vigente, el sistema asumirá automáticamente que la filiación es interna (de la institución editora de la revista)';
+        : 'Registrar experiencia profesional en CvLAC. Sin filiación vigente, el sistema asumirá automáticamente que la filiación es interna (de la institución editora de la revista)';
 
       await options.progressTracker.updateAuthor(
         {
@@ -219,11 +233,20 @@ async function runAuthorsPass(
 
       successful.push({ row: author._fila, nombre });
       options.onProgress(i + 1, authors.length, nombre, true, Date.now() - start);
+      breaker.recordSuccess();
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       await writeError(options.progressTracker, author, errorMsg, 'Revisar error y reintentar', options.onWarning);
       failed.push({ row: author._fila, nombre, error: errorMsg });
       options.onProgress(i + 1, authors.length, nombre, false, Date.now() - start, errorMsg);
+
+      const abort = handleUploadFailure(
+        err,
+        breaker,
+        { rowLabel: `Fila ${author._fila}`, errorMessage: errorMsg },
+        options.onWarning,
+      );
+      if (abort) break;
     }
 
     if (i + 1 < authors.length) {
@@ -242,6 +265,7 @@ async function runAuthorsPass(
   return {
     successful,
     failed,
+    skipped,
     totalTimeMs: Date.now() - startTime,
   };
 }

@@ -136,9 +136,7 @@ export async function uploadArticles(): Promise<void> {
   await flushProgressInteractive(progressTracker);
   success('Carga de artículos finalizada.');
 
-  const continueToAuthors = await confirmContinue(
-    '¿Continuar con la vinculación de autores ahora (sin volver a pedir credenciales)?',
-  );
+  const continueToAuthors = await confirmContinue('¿Continuar con la vinculación de autores ahora?');
   if (continueToAuthors) {
     console.log('');
     await uploadAuthorsWithContext({ file, session, issue });

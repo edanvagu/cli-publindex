@@ -1,8 +1,7 @@
-import { authedRequest } from '../../io/publindex-http';
+import { authedRequest, ensureOk } from '../../io/publindex-http';
 import { ENDPOINTS, buildReviewersByFasciculoUrl } from '../../config/constants';
 import { Session } from '../auth/types';
 import { PersonSearchResult } from '../persons/types';
-import { extractErrorMessage } from '../persons/api';
 import { LinkReviewerPayload } from './types';
 
 export async function linkReviewer(session: Session, payload: LinkReviewerPayload): Promise<void> {
@@ -11,11 +10,7 @@ export async function linkReviewer(session: Session, payload: LinkReviewerPayloa
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-
-  if (response.status < 200 || response.status >= 300) {
-    const msg = extractErrorMessage(response.data, response.status);
-    throw new Error(`HTTP ${response.status} al vincular evaluador: ${msg}`);
-  }
+  ensureOk(response, 'al vincular evaluador');
 }
 
 export async function listReviewersByFasciculo(session: Session, idFasciculo: number): Promise<PersonSearchResult[]> {
@@ -24,11 +19,6 @@ export async function listReviewersByFasciculo(session: Session, idFasciculo: nu
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
   });
-
-  if (response.status < 200 || response.status >= 300) {
-    const msg = extractErrorMessage(response.data, response.status);
-    throw new Error(`HTTP ${response.status} al listar evaluadores del fascículo ${idFasciculo}: ${msg}`);
-  }
-
+  ensureOk(response, `al listar evaluadores del fascículo ${idFasciculo}`);
   return Array.isArray(response.data) ? response.data : [];
 }

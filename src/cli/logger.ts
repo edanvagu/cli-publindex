@@ -193,6 +193,34 @@ function pad(s: string, width: number): string {
   return trimmed.padEnd(width);
 }
 
+export interface LinkSummaryEntry {
+  row: number;
+  nombre: string;
+}
+
+export interface LinkSummary {
+  successful: LinkSummaryEntry[];
+  skipped: (LinkSummaryEntry & { reason: string })[];
+  failed: (LinkSummaryEntry & { error: string })[];
+}
+
+export function showLinkSummary(result: LinkSummary): void {
+  console.log('');
+  success(`Vinculaciones exitosas: ${result.successful.length}`);
+  if (result.skipped.length > 0) {
+    info(`Saltados: ${result.skipped.length}`);
+    for (const s of result.skipped) {
+      console.log(`    Fila ${s.row}: ${s.nombre} — ${s.reason}`);
+    }
+  }
+  if (result.failed.length > 0) {
+    warning(`Fallidos: ${result.failed.length}`);
+    for (const f of result.failed) {
+      console.log(`    Fila ${f.row}: ${f.nombre} — ${f.error}`);
+    }
+  }
+}
+
 export function showSummary(result: UploadResult) {
   const timeSec = (result.totalTimeMs / 1000).toFixed(1);
 

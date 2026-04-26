@@ -8,6 +8,8 @@ import { DEFAULTS, ARTICLE_STATES } from '../../config/constants';
 import { ProgressTracker } from '../../io/progress';
 import { sleep } from '../../utils/async';
 import { normalizeTitle } from '../../utils/text';
+import { CircuitBreaker } from '../../utils/circuit-breaker';
+import { handleUploadFailure } from '../../utils/upload-failure';
 
 export interface RunnerOptions {
   progressTracker: ProgressTracker;
@@ -34,6 +36,7 @@ export async function runUpload(
   const startTime = Date.now();
   const successful: UploadResult['successful'] = [];
   const failed: UploadResult['failed'] = [];
+  const breaker = new CircuitBreaker();
 
   const alreadyOnServer = await fetchAlreadyUploadedArticles(session, idFasciculo, options.onWarning);
   if (alreadyOnServer.size > 0) {
@@ -63,6 +66,7 @@ export async function runUpload(
       );
       await options.onArticleCreated?.(article, existingId);
       options.onWarning(`Fila ${article._fila}: ya existe en el servidor (id=${existingId}), saltando POST.`);
+      breaker.recordSuccess();
       continue;
     }
 
@@ -73,6 +77,7 @@ export async function runUpload(
         onRetry: (attempt, error) => {
           options.onRetry(article._fila, attempt, error);
         },
+        abortSignal: options.abortSignal,
       });
 
       const elapsed = Date.now() - start;
@@ -85,6 +90,7 @@ export async function runUpload(
       );
       await options.onArticleCreated?.(article, articleId);
       alreadyOnServer.set(normalizeTitle(article.titulo), articleId);
+      breaker.recordSuccess();
     } catch (err) {
       const elapsed = Date.now() - start;
       const errorMsg = err instanceof Error ? err.message : String(err);
@@ -95,6 +101,14 @@ export async function runUpload(
         { row: article._fila, state: ARTICLE_STATES.ERROR, error: errorMsg },
         options.onWarning,
       );
+
+      const abort = handleUploadFailure(
+        err,
+        breaker,
+        { rowLabel: `Fila ${article._fila}`, errorMessage: errorMsg },
+        options.onWarning,
+      );
+      if (abort) break;
     }
 
     const processed = i + 1;

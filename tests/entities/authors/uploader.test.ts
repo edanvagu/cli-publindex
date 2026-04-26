@@ -123,7 +123,7 @@ describe('runAuthorsUpload', () => {
     );
   });
 
-  it('marca error si el usuario escoge "Ninguno" en el picker', async () => {
+  it('clasifica como skipped (no error) si el usuario escoge "Ninguno" en el picker', async () => {
     vi.mocked(api.searchPersons).mockResolvedValueOnce([]).mockResolvedValueOnce([PERSON]).mockResolvedValue([]);
 
     const onPickPerson = vi.fn().mockResolvedValue(null);
@@ -131,8 +131,9 @@ describe('runAuthorsUpload', () => {
 
     const result = await runAuthorsUpload(mockSession(), [buildAuthor()], options);
 
-    expect(result.failed).toHaveLength(1);
-    expect(result.failed[0].error).toBe('No encontrado en Publindex');
+    expect(result.skipped).toHaveLength(1);
+    expect(result.skipped[0].reason).toBe('No encontrado en Publindex');
+    expect(result.failed).toHaveLength(0);
     expect(api.linkAuthor).not.toHaveBeenCalled();
     expect(options.progressTracker.updateAuthor).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -143,14 +144,15 @@ describe('runAuthorsUpload', () => {
     );
   });
 
-  it('marca error si ambas búsquedas devuelven 0 resultados (incluso tras el fallback de nacionalidad)', async () => {
+  it('clasifica como skipped si ambas búsquedas devuelven 0 resultados (incluso tras el fallback de nacionalidad)', async () => {
     vi.mocked(api.searchPersons).mockResolvedValue([]);
 
     const options = buildOptions();
     const result = await runAuthorsUpload(mockSession(), [buildAuthor()], options);
 
-    expect(result.failed).toHaveLength(1);
-    expect(result.failed[0].error).toBe('No encontrado en Publindex');
+    expect(result.skipped).toHaveLength(1);
+    expect(result.skipped[0].reason).toBe('No encontrado en Publindex');
+    expect(result.failed).toHaveLength(0);
     expect(api.linkAuthor).not.toHaveBeenCalled();
   });
 
@@ -191,8 +193,9 @@ describe('runAuthorsUpload', () => {
     const options = buildOptions();
     const result = await runAuthorsUpload(mockSession(), [buildAuthor({ nacionalidad: 'Colombiana' })], options);
 
-    expect(result.failed).toHaveLength(1);
-    expect(result.failed[0].error).toBe('Colombiano sin CvLAC');
+    expect(result.skipped).toHaveLength(1);
+    expect(result.skipped[0].reason).toBe('Colombiano sin CvLAC');
+    expect(result.failed).toHaveLength(0);
     expect(api.linkAuthor).not.toHaveBeenCalled();
     expect(options.progressTracker.updateAuthor).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -322,28 +325,30 @@ describe('fallback de nacionalidad (ronda 2)', () => {
     expect(options.onWarning).toHaveBeenCalledWith(expect.stringMatching(/Ronda 2/i));
   });
 
-  it('si ronda 2 también falla, queda como error sin duplicar la fila', async () => {
+  it('si ronda 2 también falla, queda como skipped sin duplicar la fila', async () => {
     vi.mocked(api.searchPersons).mockResolvedValue([]);
 
     const options = buildOptions();
     const result = await runAuthorsUpload(mockSession(), [buildAuthor()], options);
 
-    expect(result.failed).toHaveLength(1);
-    expect(result.failed[0].error).toBe('No encontrado en Publindex');
+    expect(result.skipped).toHaveLength(1);
+    expect(result.skipped[0].reason).toBe('No encontrado en Publindex');
+    expect(result.failed).toHaveLength(0);
     expect(result.successful).toHaveLength(0);
     expect(api.searchPersons).toHaveBeenCalledTimes(4);
     expect(options.onWarning).toHaveBeenCalledWith(expect.stringMatching(/Ronda 2/i));
   });
 
-  it('NO dispara ronda 2 cuando el error de ronda 1 es "Colombiano sin CvLAC"', async () => {
+  it('NO dispara ronda 2 cuando el caso de ronda 1 es "Colombiano sin CvLAC"', async () => {
     vi.mocked(api.searchPersons).mockResolvedValueOnce([PERSON]);
     vi.mocked(api.getTrayectoria).mockResolvedValueOnce({ ...PERSON, staCertificado: 'F' });
 
     const options = buildOptions();
     const result = await runAuthorsUpload(mockSession(), [buildAuthor({ nacionalidad: 'Colombiana' })], options);
 
-    expect(result.failed).toHaveLength(1);
-    expect(result.failed[0].error).toBe('Colombiano sin CvLAC');
+    expect(result.skipped).toHaveLength(1);
+    expect(result.skipped[0].reason).toBe('Colombiano sin CvLAC');
+    expect(result.failed).toHaveLength(0);
     expect(api.searchPersons).toHaveBeenCalledTimes(1);
     expect(options.onWarning).not.toHaveBeenCalledWith(expect.stringMatching(/Ronda 2/i));
   });

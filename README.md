@@ -27,7 +27,7 @@ El CLI presenta un menú. El orden recomendado es:
 
 2. Abrir el Excel en su aplicación habitual y completar las celdas amarillas (principalmente el área de conocimiento, tipo de documento, y los números de identificación de los autores).
 
-3. **Validar y cargar artículos** — El CLI valida el Excel, le pide credenciales de Publindex, selecciona el fascículo y sube los artículos uno por uno. Al terminar, ofrece continuar con la vinculación de autores sin volver a pedir credenciales.
+3. **Validar y cargar artículos** — El CLI valida el Excel, le pide credenciales de Publindex, selecciona el fascículo y sube los artículos uno por uno. Al terminar, ofrece continuar con la vinculación de autores.
 
 4. **Vincular autores** (si no aceptó continuar en el paso anterior) — Busca cada autor en la base de Publindex por número de documento y lo asocia al artículo correspondiente. Si un autor no se encuentra por documento, busca por nombre y le pide al editor escoger de una lista de hasta 20 candidatos.
 

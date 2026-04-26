@@ -100,15 +100,16 @@ describe('runReviewersUpload', () => {
     expect(personsApi.getTrayectoria).not.toHaveBeenCalled();
   });
 
-  it('rechaza colombiano sin CvLAC', async () => {
+  it('clasifica colombiano sin CvLAC como skipped (caso de negocio)', async () => {
     vi.mocked(personsApi.searchPersons).mockResolvedValueOnce([PERSON]);
     vi.mocked(personsApi.getTrayectoria).mockResolvedValueOnce({ ...PERSON, staCertificado: 'F' });
 
     const result = await runReviewersUpload(mockSession(), [buildReviewer()], buildOptions());
 
     expect(result.successful).toHaveLength(0);
-    expect(result.failed).toHaveLength(1);
-    expect(result.failed[0].error).toBe('Colombiano sin CvLAC');
+    expect(result.skipped).toHaveLength(1);
+    expect(result.skipped[0].reason).toBe('Colombiano sin CvLAC');
+    expect(result.failed).toHaveLength(0);
     expect(reviewersApi.linkReviewer).not.toHaveBeenCalled();
   });
 

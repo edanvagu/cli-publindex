@@ -1,4 +1,4 @@
-import { spinner, success, error, info, warning, showProgress } from '../logger';
+import { spinner, success, error, info, warning, showProgress, showLinkSummary } from '../logger';
 import { promptFilePath, confirmContinue, confirmReviewersStart } from '../prompts';
 import { readReviewers, ReadReviewersResult } from '../../io/reviewers-reader';
 import { runReviewersUpload, estimateReviewersTimeSeconds } from '../../entities/reviewers/uploader';
@@ -119,14 +119,7 @@ async function uploadReviewersCore(ctx: ReviewersContext): Promise<void> {
 
   await flushProgressInteractive(progressTracker);
 
-  console.log('');
-  success(`Vinculaciones exitosas: ${result.successful.length}`);
-  if (result.failed.length > 0) {
-    warning(`Fallidas: ${result.failed.length}`);
-    for (const f of result.failed) {
-      console.log(`    Fila ${f.row}: ${f.nombre} — ${f.error}`);
-    }
-  }
+  showLinkSummary(result);
   success('Proceso finalizado.');
 }
 

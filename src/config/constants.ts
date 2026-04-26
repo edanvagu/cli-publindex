@@ -29,9 +29,10 @@ export function buildAuthorsByArticleUrl(idArticulo: number | string): string {
 }
 
 export const DEFAULTS = {
-  RETRY_ATTEMPTS: 3,
+  RETRY_ATTEMPTS: 2,
   RETRY_DELAY_MS: 2000,
   RETRY_BACKOFF: 1.5,
+  RETRY_AFTER_CAP_MS: 30_000,
   REQUEST_TIMEOUT_MS: 30000,
   TOKEN_REFRESH_MARGIN_MIN: 5,
   PAUSE_MIN_MS: 4000,
@@ -43,6 +44,10 @@ export const DEFAULTS = {
   ESTIMATED_SECONDS_PER_AUTHOR: 7,
   ESTIMATED_SECONDS_PER_REVIEWER: 7,
   PREFLIGHT_TOKEN_MARGIN_MS: 5 * 60 * 1000,
+  // Circuit breaker: if N items in a row fail, abort the run rather than blasting hundreds of requests at a server that is clearly unhealthy.
+  CIRCUIT_CONSECUTIVE_FAILURES: 5,
+  // Or: if more than this many items have failed in a single run (regardless of consecutiveness), abort. Catches the "everything is slowly going wrong" pattern.
+  CIRCUIT_TOTAL_FAILURES: 20,
 } as const;
 
 export const STATE_COLUMNS = {

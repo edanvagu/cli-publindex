@@ -8,6 +8,8 @@ import { withRetry } from '../../utils/retry';
 import { REVIEWER_STATES, DEFAULTS, NATIONALITIES } from '../../config/constants';
 import { ProgressTracker } from '../../io/progress';
 import { sleep } from '../../utils/async';
+import { CircuitBreaker } from '../../utils/circuit-breaker';
+import { handleUploadFailure } from '../../utils/upload-failure';
 
 export interface ReviewersUploadOptions {
   progressTracker: ProgressTracker;
@@ -70,11 +72,12 @@ export async function runReviewersUpload(
   options: ReviewersUploadOptions,
 ): Promise<ReviewersUploadResult> {
   const alreadyLinked = await fetchAlreadyLinked(session, options);
+  const breaker = new CircuitBreaker();
 
-  const pass1 = await runReviewersPass(session, reviewers, alreadyLinked, options);
+  const pass1 = await runReviewersPass(session, reviewers, alreadyLinked, options, breaker);
 
-  const retryableRows = new Set(pass1.failed.filter((f) => f.error === NOT_FOUND_ERROR).map((f) => f.row));
-  if (retryableRows.size === 0) return pass1;
+  const retryableRows = new Set(pass1.skipped.filter((s) => s.reason === NOT_FOUND_ERROR).map((s) => s.row));
+  if (breaker.isTripped() || retryableRows.size === 0) return pass1;
 
   options.onWarning(`Ronda 2: reintentando ${retryableRows.size} evaluador(es) con nacionalidad cruzada...`);
 
@@ -82,11 +85,12 @@ export async function runReviewersUpload(
     .filter((r) => retryableRows.has(r._fila))
     .map((r) => ({ ...r, nacionalidad: flipNationality(r.nacionalidad) }));
 
-  const pass2 = await runReviewersPass(session, flipped, alreadyLinked, options);
+  const pass2 = await runReviewersPass(session, flipped, alreadyLinked, options, breaker);
 
   return {
     successful: [...pass1.successful, ...pass2.successful],
-    failed: [...pass1.failed.filter((f) => !retryableRows.has(f.row)), ...pass2.failed],
+    failed: [...pass1.failed, ...pass2.failed],
+    skipped: [...pass1.skipped.filter((s) => !retryableRows.has(s.row)), ...pass2.skipped],
     totalTimeMs: pass1.totalTimeMs + pass2.totalTimeMs,
   };
 }
@@ -109,13 +113,16 @@ async function runReviewersPass(
   reviewers: ReviewerRow[],
   alreadyLinked: Set<string>,
   options: ReviewersUploadOptions,
+  breaker: CircuitBreaker,
 ): Promise<ReviewersUploadResult> {
   const startTime = Date.now();
   const successful: ReviewersUploadResult['successful'] = [];
   const failed: ReviewersUploadResult['failed'] = [];
+  const skipped: ReviewersUploadResult['skipped'] = [];
+  if (breaker.isTripped()) return { successful, failed, skipped, totalTimeMs: 0 };
 
   for (let i = 0; i < reviewers.length; i++) {
-    if (options.abortSignal?.aborted) break;
+    if (options.abortSignal?.aborted || breaker.isTripped()) break;
 
     const reviewer = reviewers[i];
     const nombre = reviewer.nombre_completo;
@@ -128,16 +135,16 @@ async function runReviewersPass(
     try {
       const person = await resolvePerson(session, reviewer, options);
       if (!person) {
-        const msg = NOT_FOUND_ERROR;
+        const reason = NOT_FOUND_ERROR;
         await writeError(
           options.progressTracker,
           reviewer,
-          msg,
+          reason,
           'Registrar evaluador manualmente en Publindex',
           options.onWarning,
         );
-        failed.push({ row: reviewer._fila, nombre, error: msg });
-        options.onProgress(i + 1, reviewers.length, nombre, false, Date.now() - start, msg);
+        skipped.push({ row: reviewer._fila, nombre, reason });
+        options.onProgress(i + 1, reviewers.length, nombre, false, Date.now() - start, reason);
         continue;
       }
 
@@ -152,29 +159,31 @@ async function runReviewersPass(
         );
         successful.push({ row: reviewer._fila, nombre });
         options.onProgress(i + 1, reviewers.length, nombre, true, Date.now() - start);
+        breaker.recordSuccess();
         continue;
       }
 
       await subcallPause(options.abortSignal);
       const enriched = await withRetry(() => getTrayectoria(session, person.codRh, options.anoFasciculo), {
         onRetry: (attempt, error) => options.onRetry(reviewer._fila, attempt, error),
+        abortSignal: options.abortSignal,
       });
 
       const hasCvlac = enriched.staCertificado === 'T';
 
       if (reviewer.nacionalidad === NATIONALITIES.C && !hasCvlac) {
-        const msg = 'Colombiano sin CvLAC';
+        const reason = 'Colombiano sin CvLAC';
         await options.progressTracker.updateReviewer(
           {
             row: reviewer._fila,
-            uploadState: `${REVIEWER_STATES.ERROR}:${msg}`,
+            uploadState: `${REVIEWER_STATES.ERROR}:${reason}`,
             hasCvlac: 'No',
             requiredAction: 'Registrar al evaluador en CvLAC (https://scienti.minciencias.gov.co/cvlac/) y reintentar',
           },
           options.onWarning,
         );
-        failed.push({ row: reviewer._fila, nombre, error: msg });
-        options.onProgress(i + 1, reviewers.length, nombre, false, Date.now() - start, msg);
+        skipped.push({ row: reviewer._fila, nombre, reason });
+        options.onProgress(i + 1, reviewers.length, nombre, false, Date.now() - start, reason);
         continue;
       }
 
@@ -186,7 +195,10 @@ async function runReviewersPass(
             idFasciculo: options.idFasciculo,
             anoFasciculo: options.anoFasciculo,
           }),
-        { onRetry: (attempt, error) => options.onRetry(reviewer._fila, attempt, error) },
+        {
+          onRetry: (attempt, error) => options.onRetry(reviewer._fila, attempt, error),
+          abortSignal: options.abortSignal,
+        },
       );
 
       alreadyLinked.add(person.codRh);
@@ -214,11 +226,20 @@ async function runReviewersPass(
 
       successful.push({ row: reviewer._fila, nombre });
       options.onProgress(i + 1, reviewers.length, nombre, true, Date.now() - start);
+      breaker.recordSuccess();
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       await writeError(options.progressTracker, reviewer, errorMsg, 'Revisar error y reintentar', options.onWarning);
       failed.push({ row: reviewer._fila, nombre, error: errorMsg });
       options.onProgress(i + 1, reviewers.length, nombre, false, Date.now() - start, errorMsg);
+
+      const abort = handleUploadFailure(
+        err,
+        breaker,
+        { rowLabel: `Fila ${reviewer._fila}`, errorMessage: errorMsg },
+        options.onWarning,
+      );
+      if (abort) break;
     }
 
     if (i + 1 < reviewers.length) {
@@ -237,6 +258,7 @@ async function runReviewersPass(
   return {
     successful,
     failed,
+    skipped,
     totalTimeMs: Date.now() - startTime,
   };
 }

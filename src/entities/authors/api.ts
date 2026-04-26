@@ -1,8 +1,7 @@
-import { authedRequest } from '../../io/publindex-http';
+import { authedRequest, ensureOk } from '../../io/publindex-http';
 import { ENDPOINTS, buildAuthorsByArticleUrl } from '../../config/constants';
 import { Session } from '../auth/types';
 import { PersonSearchResult } from '../persons/types';
-import { extractErrorMessage } from '../persons/api';
 import { LinkAuthorPayload } from './types';
 
 export { searchPersons, getTrayectoria } from '../persons/api';
@@ -13,11 +12,7 @@ export async function linkAuthor(session: Session, payload: LinkAuthorPayload): 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-
-  if (response.status < 200 || response.status >= 300) {
-    const msg = extractErrorMessage(response.data, response.status);
-    throw new Error(`HTTP ${response.status} al vincular autor: ${msg}`);
-  }
+  ensureOk(response, 'al vincular autor');
 }
 
 export async function listAuthorsByArticle(session: Session, idArticulo: number): Promise<PersonSearchResult[]> {
@@ -26,11 +21,6 @@ export async function listAuthorsByArticle(session: Session, idArticulo: number)
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
   });
-
-  if (response.status < 200 || response.status >= 300) {
-    const msg = extractErrorMessage(response.data, response.status);
-    throw new Error(`HTTP ${response.status} al listar autores del artículo ${idArticulo}: ${msg}`);
-  }
-
+  ensureOk(response, `al listar autores del artículo ${idArticulo}`);
   return Array.isArray(response.data) ? response.data : [];
 }

@@ -1,4 +1,4 @@
-import { spinner, success, error, info, warning, showProgress } from '../logger';
+import { spinner, success, error, info, warning, showProgress, showLinkSummary } from '../logger';
 import { promptFilePath, confirmContinue, confirmAuthorsStart } from '../prompts';
 import { readAuthors, ReadAuthorsResult } from '../../io/authors-reader';
 import { runAuthorsUpload, estimateAuthorsTimeSeconds } from '../../entities/authors/uploader';
@@ -56,14 +56,8 @@ async function uploadAuthorsCore(ctx: AuthorsContext): Promise<void> {
     return;
   }
 
+  // Authors whose parent article has not been uploaded yet have an empty id_articulo. That is the expected steady state when articles are being uploaded in batches — the author rows will be picked up automatically on a later run, once their article gets an id. No warning needed.
   const withArticleId = [...readResult.pending, ...readResult.errored].filter((a) => a.id_articulo.trim() !== '');
-  const withoutArticleId = [...readResult.pending, ...readResult.errored].filter((a) => a.id_articulo.trim() === '');
-
-  if (withoutArticleId.length > 0) {
-    warning(
-      `${withoutArticleId.length} autores sin id_articulo — probablemente el artículo asociado aún no se ha cargado. Se saltan.`,
-    );
-  }
 
   if (withArticleId.length === 0) {
     error('No hay autores pendientes con id_articulo. Primero ejecute "Validar y cargar artículos".');
@@ -123,19 +117,10 @@ async function uploadAuthorsCore(ctx: AuthorsContext): Promise<void> {
 
   await flushProgressInteractive(progressTracker);
 
-  console.log('');
-  success(`Vinculaciones exitosas: ${result.successful.length}`);
-  if (result.failed.length > 0) {
-    warning(`Fallidas: ${result.failed.length}`);
-    for (const f of result.failed) {
-      console.log(`    Fila ${f.row}: ${f.nombre} — ${f.error}`);
-    }
-  }
+  showLinkSummary(result);
   success('Proceso finalizado.');
 
-  const continueToReviewers = await confirmContinue(
-    '¿Continuar con la vinculación de evaluadores ahora (sin volver a pedir credenciales)?',
-  );
+  const continueToReviewers = await confirmContinue('¿Continuar con la vinculación de evaluadores ahora?');
   if (continueToReviewers) {
     console.log('');
     await uploadReviewersWithContext({ file, session, issue });

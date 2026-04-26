@@ -4,6 +4,7 @@ import zlib from 'zlib';
 import { URL } from 'url';
 import { DEFAULTS } from '../config/constants';
 import type { Session } from '../entities/auth/types';
+import { HttpError, NetworkError, extractErrorMessage, parseRetryAfter } from '../utils/http-errors';
 
 export interface HttpResponse<T = unknown> {
   status: number;
@@ -75,10 +76,12 @@ export function httpRequest<T = unknown>(
       },
     );
 
-    req.on('error', reject);
+    req.on('error', (err) => reject(new NetworkError(err.message, err)));
     req.on('timeout', () => {
       req.destroy();
-      reject(new Error(`Timeout: la petición a ${url} excedió ${options.timeout || DEFAULTS.REQUEST_TIMEOUT_MS}ms`));
+      reject(
+        new NetworkError(`Timeout: la petición a ${url} excedió ${options.timeout || DEFAULTS.REQUEST_TIMEOUT_MS}ms`),
+      );
     });
 
     if (options.body) {
@@ -151,4 +154,12 @@ export function formatCookieHeader(jar: Record<string, string>): string {
   const pairs = Object.entries(jar || {});
   if (pairs.length === 0) return '';
   return pairs.map(([k, v]) => `${k}=${v}`).join('; ');
+}
+
+// Centralized "did the request succeed" check used by every API wrapper. Throws HttpError for non-2xx so the retry layer and circuit breaker can decide based on status, and so the error message stays consistent across modules.
+export function ensureOk<T>(response: HttpResponse<T>, context: string): HttpResponse<T> {
+  if (response.status >= 200 && response.status < 300) return response;
+  const detail = extractErrorMessage(response.data, response.status);
+  const retryAfterMs = parseRetryAfter(response.headers?.['retry-after']);
+  throw new HttpError(response.status, `HTTP ${response.status} ${context}: ${detail}`, response.data, retryAfterMs);
 }
