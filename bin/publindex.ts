@@ -20,12 +20,14 @@ program
   .option('--autores', 'Forzar modo vincular autores (sin menú)')
   .option('--evaluadores', 'Forzar modo vincular evaluadores (sin menú)')
   .option('--ojs', 'Forzar modo importar desde OJS (sin menú)')
+  .option('--instalar', 'Forzar modo instalar extensión (sin menú)')
   .action(async (options) => {
     let forcedMode: ExecutionMode | undefined;
     if (options.cargar) forcedMode = 'upload-articles';
     else if (options.autores) forcedMode = 'upload-authors';
     else if (options.evaluadores) forcedMode = 'upload-reviewers';
     else if (options.ojs) forcedMode = 'import-ojs';
+    else if (options.instalar) forcedMode = 'install-extension';
 
     await run({ forcedMode });
   });

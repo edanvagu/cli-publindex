@@ -31,15 +31,17 @@ export async function installExtension(): Promise<void> {
 
   success('Extensión lista.');
 
-  openInDefaultApp(EXTENSION_INSTALL_DIR);
+  openInDefaultApp(PUBLINDEX_HOME);
 
   console.log('');
-  info('Pasos en Chrome:');
-  info('  1. Abra Chrome y pegue en la barra de direcciones:');
-  info('       chrome://extensions/');
+  info('Pasos en Chrome o Edge:');
+  info('  1. Abra el navegador y pegue en la barra de direcciones:');
+  info('       chrome://extensions/    (en Chrome)');
+  info('       edge://extensions/      (en Edge)');
   info('  2. Active el toggle "Modo de desarrollador" (arriba a la derecha).');
-  info('  3. Click en "Cargar extensión sin empaquetar" y seleccione esta carpeta:');
+  info('  3. Arrastre la carpeta "extension" desde el explorador a esa página,');
+  info('     o haga click en "Cargar extensión sin empaquetar" y seleccione:');
   info(`       ${EXTENSION_INSTALL_DIR}`);
   info('  4. Si ya la había instalado antes, click en recargar (↻) en la tarjeta.');
-  warning('Mantenga esta carpeta — si la borra, Chrome perderá la extensión.');
+  warning('Mantenga esta carpeta, ya que si la borra, el navegador perderá la extensión.');
 }

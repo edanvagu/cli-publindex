@@ -8,8 +8,9 @@
   },
   "scripts": {
     "start": "npm run format && tsx bin/publindex.ts",
+    "start:install": "npm run ext:build && npm run embed:ext && tsx bin/publindex.ts --instalar",
     "build": "tsc",
-    "build:bundle": "esbuild bin/publindex.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist/publindex.js",
+    "build:bundle": "esbuild bin/publindex.ts --bundle --platform=node --target=node20 --format=cjs --external:win-ca --outfile=dist/publindex.js",
     "build:bin": "npm run ext:build && npm run embed:ext && npm run build:bundle && pkg dist/publindex.js --targets node20-win-x64 --out-path dist/",
     "embed:ext": "node scripts/embed-extension.mjs",
     "test": "vitest run",
@@ -48,5 +49,14 @@
     "tsx": "^4.21.0",
     "typescript": "^6.0.3",
     "vitest": "^1.6.1"
+  },
+  "pkg": {
+    "scripts": [
+      "node_modules/win-ca/**/*.js"
+    ],
+    "assets": [
+      "node_modules/win-ca/lib/*.node",
+      "node_modules/win-ca/lib/roots.exe"
+    ]
   }
 }
