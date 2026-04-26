@@ -13,7 +13,7 @@ import { openInDefaultApp } from './shared';
 import { showOjsExportHelp } from './help-ojs-export';
 import { buildArticleUrl } from '../../utils/urls';
 import { formatTimestampCompact } from '../../utils/dates';
-import { probeUrl } from '../../io/http-probe';
+import { probeUrl, humanizeProbeFailure } from '../../io/http-probe';
 import { importFromOjs, ojsArticleToRow, articlesToAuthorRows, OjsArticle } from '../../io/ojs-xml';
 import { parseReviewsCsv, ReviewerRow } from '../../io/ojs-csv';
 import { generateTemplateWithData, ReviewerTemplateRow } from '../../io/excel-writer';
@@ -87,12 +87,11 @@ export async function importOjs(): Promise<void> {
       break;
     }
 
-    verifySpinner.warn(`${okCount}/${results.length} URLs respondieron 200`);
+    verifySpinner.warn(`${okCount} de ${results.length} URLs están accesibles`);
     for (const { idx, url, result } of results) {
       urlsByIndex.set(idx, url);
       if (!result.ok) {
-        const detail = result.status ? `status ${result.status}` : (result.error ?? 'sin respuesta');
-        urlWarnings.push(`Fila ${idx + 2}: URL ${url} no respondió 200 (${detail}).`);
+        urlWarnings.push(`Fila ${idx + 2}: ${url} — ${humanizeProbeFailure(result)}.`);
       }
     }
     break;
@@ -126,7 +125,9 @@ export async function importOjs(): Promise<void> {
 
   if (urlWarnings.length > 0) {
     console.log('');
-    warning(`${urlWarnings.length} URLs no respondieron 200 (quedaron en la plantilla, pero revise antes de cargar):`);
+    warning(
+      `${urlWarnings.length} URLs no se pudieron verificar (quedaron en la plantilla, pero revíselas antes de cargar):`,
+    );
     for (const a of urlWarnings) warning(`  ${a}`);
   }
 

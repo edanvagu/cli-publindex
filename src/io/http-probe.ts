@@ -61,7 +61,7 @@ function doRequest(
 
     req.on('timeout', () => {
       req.destroy();
-      resolve({ ok: false, error: `timeout tras ${timeoutMs}ms` });
+      resolve({ ok: false, error: 'timeout' });
     });
 
     req.on('error', (err) => {
@@ -70,4 +70,19 @@ function doRequest(
 
     req.end();
   });
+}
+
+// Editors don't know what HTTP 503 or ECONNREFUSED mean — collapse the technical detail into a handful of plain-Spanish categories for the warning log.
+export function humanizeProbeFailure(result: ProbeResult): string {
+  if (result.status !== undefined) {
+    if (result.status >= 500) return 'el sitio del editor falló al responder';
+    if (result.status === 404 || result.status === 410) return 'la página ya no está disponible';
+    if (result.status === 401 || result.status === 403) return 'el sitio bloqueó el acceso';
+    if (result.status === 429) return 'el sitio limitó las solicitudes, intente más tarde';
+    return 'el sitio rechazó la solicitud';
+  }
+  const err = result.error ?? '';
+  if (err === 'timeout') return 'el sitio tardó demasiado en responder';
+  if (err.startsWith('URL inválida')) return 'la dirección no es una URL válida';
+  return 'no se pudo conectar al sitio';
 }
