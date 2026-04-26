@@ -160,6 +160,36 @@ describe('generateTemplateWithData — validaciones dinámicas', () => {
     expect(formulae.some((f) => f.includes('REQ_PALABRAS_CLAVE'))).toBe(true);
   });
 
+  it('aplica data validation type=date a fecha_recepcion y fecha_aceptacion', async () => {
+    const out = path.join(tempDir, 'test.xlsx');
+    await generateTemplateWithData([fictitiousArticle], out);
+
+    const wb = await loadWorkbook(out);
+    const ws = wb.getWorksheet(ARTICLES_SHEET_NAME)!;
+    const headers = ws.getRow(1).values as string[];
+    const fRecCol = headers.indexOf('fecha_recepcion');
+    const dv = ws.getCell(2, fRecCol).dataValidation;
+    expect(dv).toBeDefined();
+    expect(dv!.type).toBe('date');
+  });
+
+  it('aplica numFmt dd/mm/yyyy a fecha_recepcion y fecha_aceptacion (alineado con Publindex)', async () => {
+    const out = path.join(tempDir, 'test.xlsx');
+    await generateTemplateWithData([fictitiousArticle], out);
+
+    const wb = await loadWorkbook(out);
+    const ws = wb.getWorksheet(ARTICLES_SHEET_NAME)!;
+    const headers = ws.getRow(1).values as string[];
+    const fRecCol = headers.indexOf('fecha_recepcion');
+    const fAccCol = headers.indexOf('fecha_aceptacion');
+    expect(fRecCol).toBeGreaterThan(0);
+    expect(fAccCol).toBeGreaterThan(0);
+
+    expect(ws.getCell(2, fRecCol).numFmt).toBe('dd/mm/yyyy');
+    expect(ws.getCell(2, fAccCol).numFmt).toBe('dd/mm/yyyy');
+    expect(ws.getCell(50, fRecCol).numFmt).toBe('dd/mm/yyyy');
+  });
+
   it('la hoja Instrucciones etiqueta las columnas Auto como "Auto (ruta automatizada)"', async () => {
     const out = path.join(tempDir, 'test.xlsx');
     await generateTemplateWithData([fictitiousArticle], out);

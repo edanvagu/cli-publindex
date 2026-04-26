@@ -115,8 +115,19 @@ function buildArticlesSheet(wb: ExcelJS.Workbook, articles: Partial<ArticleRow>[
   ws.columns = headers.map((h) => ({ width: Math.max(h.length + 2, 18) }));
 
   addDataValidations(ws, headers);
+  applyDateColumnFormat(ws, headers);
   addDynamicRequiredHighlighting(ws, headers);
   addCrossFieldHighlighting(ws, headers);
+}
+
+// Pinning the column format to `dd/mm/yyyy` matches what the editor sees in Publindex's p-calendar — single mental model. Without an explicit numFmt Excel re-displays dates in the OS locale's default, which varies between machines. The CLI's reader still normalizes Date cells to YYYY-MM-DD internally (cellToString in row-mapper); the extension's reader uses raw:false so it picks up the displayed dd/mm/yyyy directly.
+function applyDateColumnFormat(ws: ExcelJS.Worksheet, headers: string[]): void {
+  const dateColumns = ['fecha_recepcion', 'fecha_aceptacion', STATE_COLUMNS.UPLOAD_DATE];
+  for (const name of dateColumns) {
+    const col = headers.indexOf(name) + 1;
+    if (col === 0) continue;
+    ws.getColumn(col).numFmt = 'dd/mm/yyyy';
+  }
 }
 
 // `identificacion` is NOT required: when present it powers a document-based search; when absent the uploader falls back to name search + interactive picker.
@@ -335,49 +346,73 @@ function addDataValidations(ws: ExcelJS.Worksheet, headers: string[]): void {
       applyTextLengthValidation(ws, i, c.min ?? 0, c.max ?? 99999);
     } else if (c.kind === 'integer') {
       applyWholeValidation(ws, i, c.min ?? 0, c.max ?? 99999);
+    } else if (c.kind === 'date') {
+      applyDateValidation(ws, i);
     }
-    // `date` kind is handled by the cross-field conditional formatting (fecha_aceptacion vs fecha_recepcion).
   }
+}
+
+// `Worksheet.dataValidations` is part of ExcelJS's runtime API but not in its public .d.ts. Casting here keeps the call to a single line.
+type WorksheetWithDataValidations = ExcelJS.Worksheet & {
+  dataValidations: { add: (range: string, dv: ExcelJS.DataValidation) => void };
+};
+
+function applyValidationToColumn(ws: ExcelJS.Worksheet, col: number, validation: ExcelJS.DataValidation): void {
+  // Range-form (single sqref="B2:B501") instead of per-cell — same UX, ~500x smaller XML for the rule.
+  const letter = numberToColLetter(col);
+  (ws as WorksheetWithDataValidations).dataValidations.add(
+    `${letter}2:${letter}${DATA_VALIDATION_ROWS + 1}`,
+    validation,
+  );
 }
 
 function applyTextLengthValidation(ws: ExcelJS.Worksheet, col: number, min: number, max: number): void {
-  for (let r = 2; r <= DATA_VALIDATION_ROWS + 1; r++) {
-    ws.getCell(r, col).dataValidation = {
-      type: 'textLength',
-      operator: 'between',
-      allowBlank: true,
-      formulae: [min, max],
-      showErrorMessage: true,
-      // `warning` — non-blocking: Excel shows a message but still accepts the value. User explicitly wants this UX.
-      errorStyle: 'warning',
-      error: `Longitud esperada entre ${min} y ${max} caracteres`,
-    };
-  }
+  applyValidationToColumn(ws, col, {
+    type: 'textLength',
+    operator: 'between',
+    allowBlank: true,
+    formulae: [min, max],
+    showErrorMessage: true,
+    // `warning` — non-blocking: Excel shows a message but still accepts the value. User explicitly wants this UX.
+    errorStyle: 'warning',
+    error: `Longitud esperada entre ${min} y ${max} caracteres`,
+  });
+}
+
+// Excel rejects nonsense like "36 de octubre" only when the cell has a `date` validation rule. Range covers Publindex's plausible publication years; tighter bounds would block legitimate back-issue digitization.
+const DATE_VALIDATION_MIN = new Date(1900, 0, 1);
+const DATE_VALIDATION_MAX = new Date(2100, 11, 31);
+
+function applyDateValidation(ws: ExcelJS.Worksheet, col: number): void {
+  applyValidationToColumn(ws, col, {
+    type: 'date',
+    operator: 'between',
+    allowBlank: true,
+    formulae: [DATE_VALIDATION_MIN, DATE_VALIDATION_MAX],
+    showErrorMessage: true,
+    errorStyle: 'stop',
+    error: 'Ingrese una fecha válida (formato DD/MM/YYYY).',
+  });
 }
 
 function applyWholeValidation(ws: ExcelJS.Worksheet, col: number, min: number, max: number): void {
-  for (let r = 2; r <= DATA_VALIDATION_ROWS + 1; r++) {
-    ws.getCell(r, col).dataValidation = {
-      type: 'whole',
-      operator: 'between',
-      allowBlank: true,
-      formulae: [min, max],
-      showErrorMessage: true,
-      errorStyle: 'warning',
-      error: `Entero esperado entre ${min} y ${max}`,
-    };
-  }
+  applyValidationToColumn(ws, col, {
+    type: 'whole',
+    operator: 'between',
+    allowBlank: true,
+    formulae: [min, max],
+    showErrorMessage: true,
+    errorStyle: 'warning',
+    error: `Entero esperado entre ${min} y ${max}`,
+  });
 }
 
 function applyListToColumn(ws: ExcelJS.Worksheet, colIdx: number, formula: string): void {
-  const validation: ExcelJS.DataValidation = {
+  applyValidationToColumn(ws, colIdx, {
     type: 'list',
     allowBlank: true,
     formulae: [formula],
-  };
-  for (let r = 2; r <= DATA_VALIDATION_ROWS + 1; r++) {
-    ws.getCell(r, colIdx).dataValidation = validation;
-  }
+  });
 }
 
 function buildLookupsSheet(wb: ExcelJS.Workbook): void {
@@ -510,7 +545,7 @@ function buildInstructionsSheet(wb: ExcelJS.Workbook): void {
     ['pagina_final', 'No', 'Página final (entero 1–9999; debe ser > pagina_inicial)', '15'],
     ['numero_autores', 'No', 'Cantidad de autores del artículo (entero 1–9999)', '3'],
     ['numero_pares_evaluadores', 'No', 'Cantidad de pares que evaluaron el artículo (entero 0–9999)', '2'],
-    ['proyecto', 'No', 'Nombre del proyecto de investigación asociado (máx. 2000 caracteres)', ''],
+    ['proyecto', 'No', 'Nombre del proyecto de investigación asociado (mín. 10, máx. 2000 caracteres)', ''],
     ['gran_area', 'Sí', 'Dropdown con las grandes áreas de conocimiento Minciencias', 'Ciencias Sociales'],
     ['area', 'Sí', 'Dropdown con las áreas hijas de la gran_area seleccionada (cascada)', 'Sociología'],
     ['subarea', 'No', 'Dropdown con las subáreas hijas del area seleccionada (cascada)', 'Sociología General'],
@@ -539,8 +574,8 @@ function buildInstructionsSheet(wb: ExcelJS.Workbook): void {
       'Título paralelo en inglés (mín. 10, máx. 255 caracteres)',
       'Title of the article in English',
     ],
-    ['fecha_recepcion', 'No', 'Fecha de recepción (formato YYYY-MM-DD)', '2026-01-15'],
-    ['fecha_aceptacion', 'No', 'Fecha de aceptación (YYYY-MM-DD; debe ser >= fecha_recepcion)', '2026-03-20'],
+    ['fecha_recepcion', 'No', 'Fecha de recepción (formato DD/MM/YYYY)', '15/01/2026'],
+    ['fecha_aceptacion', 'No', 'Fecha de aceptación (DD/MM/YYYY; debe ser >= fecha_recepcion)', '20/03/2026'],
     ['idioma', 'No', 'Dropdown con el idioma original del artículo', 'Español'],
     ['otro_idioma', 'No', 'Dropdown con otro idioma (no puede ser igual a idioma)', 'Inglés'],
     ['eval_interna', 'No', 'Evaluación por pares interna institucional: T=Sí, F=No', 'F'],

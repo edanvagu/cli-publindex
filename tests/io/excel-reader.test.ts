@@ -127,6 +127,22 @@ describe('readArticles - XLSX', () => {
     expect(result.articles[0].titulo).toBe('Con acento');
     expect(result.articles[0].url).toBe('https://x.com');
   });
+
+  it('convierte celdas Date (escritas como fecha por Excel) a strings YYYY-MM-DD', () => {
+    const filePath = path.join(tempDir, 'test-dates.xlsx');
+    const wb = XLSX.utils.book_new();
+    // Local-midnight Dates mirror how Excel itself stores dates: serial numbers without timezone, which SheetJS round-trips via the local-time convention. Using `Date.UTC` here would make the test depend on the runner's TZ.
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['titulo', 'url', 'fecha_recepcion', 'fecha_aceptacion'],
+      ['Art con fechas', 'https://x.com', new Date(2025, 3, 15), new Date(2025, 5, 20)],
+    ]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Hoja1');
+    XLSX.writeFile(wb, filePath);
+
+    const result = readArticles(filePath);
+    expect(result.articles[0].fecha_recepcion).toBe('2025-04-15');
+    expect(result.articles[0].fecha_aceptacion).toBe('2025-06-20');
+  });
 });
 
 describe('readArticles - errores', () => {

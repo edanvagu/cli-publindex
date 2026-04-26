@@ -4,10 +4,7 @@ export type FieldElement = HTMLInputElement | HTMLTextAreaElement;
 
 // Angular reactive forms listen on the `input` event; setting `.value` directly mutates the property but Angular's control value accessor only reacts to the dispatched event. Going through the prototype's native setter is necessary because Angular's compiler patches the property setter on some inputs.
 export function setNativeValue(el: FieldElement, value: string): void {
-  const proto =
-    el instanceof HTMLTextAreaElement
-      ? HTMLTextAreaElement.prototype
-      : HTMLInputElement.prototype;
+  const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   const desc = Object.getOwnPropertyDescriptor(proto, 'value');
   if (desc?.set) {
     desc.set.call(el, value);
@@ -98,10 +95,8 @@ async function pickPrimeNGOption(
   const inner = pd.querySelector('.ui-dropdown') as HTMLElement | null;
   if (!inner) return 'no-element';
 
-  const itemsBelong = () =>
-    pd.contains(document.querySelector('p-dropdownitem li.ui-dropdown-item'));
-  const anyOverlayOpen = () =>
-    !!document.querySelector('p-dropdownitem li.ui-dropdown-item');
+  const itemsBelong = () => pd.contains(document.querySelector('p-dropdownitem li.ui-dropdown-item'));
+  const anyOverlayOpen = () => !!document.querySelector('p-dropdownitem li.ui-dropdown-item');
 
   // PrimeNG only keeps one overlay open at a time. If another dropdown's overlay is still up, close it by clicking the body; otherwise our `inner.click()` can be interpreted as "click outside" and just dismiss the other overlay without opening ours.
   if (anyOverlayOpen() && !itemsBelong()) {
@@ -117,9 +112,7 @@ async function pickPrimeNGOption(
   if (!itemsBelong()) return 'overlay-timeout';
 
   const normalized = optionText.trim().toLowerCase();
-  const items = Array.from(
-    document.querySelectorAll('p-dropdownitem li.ui-dropdown-item'),
-  ) as HTMLElement[];
+  const items = Array.from(document.querySelectorAll('p-dropdownitem li.ui-dropdown-item')) as HTMLElement[];
   const target = items.find((i) => (i.textContent ?? '').trim().toLowerCase() === normalized);
   if (!target) {
     document.body.click();
@@ -130,19 +123,24 @@ async function pickPrimeNGOption(
   return 'ok';
 }
 
+// Defensive: if the Excel was generated before the numFmt change, fecha cells may still arrive as YYYY-MM-DD. PrimeNG's p-calendar (dateFormat="dd/mm/yy") cannot parse that, leaves its buffer empty, and onBlur clobbers the field. Convert here so old-format Excels still work.
+function toPublindexDateFormat(value: string): string {
+  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return value;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+// PrimeNG p-calendar commits the parsed date to the Angular model on the `input` event that setNativeValue dispatches. We deliberately do NOT dispatch blur — PrimeNG's onBlur reformats the field from its internal buffer and would clobber the value if PrimeNG hadn't synchronized it yet.
 async function fillDateField(pCalendarFormControlName: string, value: string): Promise<'ok' | 'no-element'> {
   const pc = document.querySelector(`p-calendar[formcontrolname="${pCalendarFormControlName}"]`);
   if (!pc) return 'no-element';
   const input = pc.querySelector('input') as HTMLInputElement | null;
   if (!input) return 'no-element';
-  setNativeValue(input, value);
-  input.dispatchEvent(new Event('blur', { bubbles: true }));
+  setNativeValue(input, toPublindexDateFormat(value));
   return 'ok';
 }
 
-export async function fillArticleForm(
-  row: StoredArticle,
-): Promise<FillResult> {
+export async function fillArticleForm(row: StoredArticle): Promise<FillResult> {
   const filled: string[] = [];
   const skipped: FillResult['skipped'] = [];
 
@@ -206,29 +204,38 @@ export async function fillArticleForm(
     tipoResumen: row.tipo_resumen,
     tipoEspecialista: row.tipo_especialista,
   };
-  for (const [key, formControlName] of ARTICLE_DROPDOWN_FIELDS) {
-    const value = dropdownValues[key] ?? '';
-    if (!value) {
-      skipped.push({ key, reason: 'empty-value' });
-      continue;
-    }
+  // Hide PrimeNG's dropdown overlay panels visually while we iterate. The selection logic (click .ui-dropdown → pick item) still needs the overlay in the DOM, but the user shouldn't see ~11 overlays open and close one-by-one. opacity:0 (rather than visibility:hidden) keeps the panel pointer-event-receiving so the programmatic click on `<li>` items still fires the PrimeNG handler. transition:none kills the fade-in animation so the panel doesn't briefly flash before opacity drops.
+  const overlayHider = document.createElement('style');
+  overlayHider.textContent = '.ui-dropdown-panel { opacity: 0 !important; transition: none !important; }';
+  document.head.appendChild(overlayHider);
 
-    // Cascade waits: if this key depends on a parent having been picked, wait for the element to mount first.
-    const parentChild = Object.entries(CASCADE_PARENTS).find(([, child]) => child === formControlName);
-    if (parentChild) {
-      const mounted = await waitForSelector(
-        `p-dropdown[formcontrolname="${formControlName}"]`,
-        CASCADE_MOUNT_TIMEOUT_MS,
-      );
-      if (!mounted) {
-        skipped.push({ key, reason: 'no-element' });
+  try {
+    for (const [key, formControlName] of ARTICLE_DROPDOWN_FIELDS) {
+      const value = dropdownValues[key] ?? '';
+      if (!value) {
+        skipped.push({ key, reason: 'empty-value' });
         continue;
       }
-    }
 
-    const status = await pickPrimeNGOption(formControlName, value, DROPDOWN_OVERLAY_TIMEOUT_MS);
-    if (status === 'ok') filled.push(key);
-    else skipped.push({ key, reason: status });
+      // Cascade waits: if this key depends on a parent having been picked, wait for the element to mount first.
+      const parentChild = Object.entries(CASCADE_PARENTS).find(([, child]) => child === formControlName);
+      if (parentChild) {
+        const mounted = await waitForSelector(
+          `p-dropdown[formcontrolname="${formControlName}"]`,
+          CASCADE_MOUNT_TIMEOUT_MS,
+        );
+        if (!mounted) {
+          skipped.push({ key, reason: 'no-element' });
+          continue;
+        }
+      }
+
+      const status = await pickPrimeNGOption(formControlName, value, DROPDOWN_OVERLAY_TIMEOUT_MS);
+      if (status === 'ok') filled.push(key);
+      else skipped.push({ key, reason: status });
+    }
+  } finally {
+    overlayHider.remove();
   }
 
   return { filled, skipped };
@@ -275,11 +282,7 @@ async function fillPersonSearchForm(fields: {
   }
 
   if (fields.nacionalidad) {
-    const status = await pickPrimeNGOption(
-      'tpoNacionalidad',
-      fields.nacionalidad,
-      DROPDOWN_OVERLAY_TIMEOUT_MS,
-    );
+    const status = await pickPrimeNGOption('tpoNacionalidad', fields.nacionalidad, DROPDOWN_OVERLAY_TIMEOUT_MS);
     if (status === 'ok') filled.push('nacionalidad');
     else skipped.push({ key: 'nacionalidad', reason: status });
   } else {

@@ -1,10 +1,21 @@
 import { ArticleRow } from '../entities/articles/types';
 import { normalizeHeader } from './excel-reader';
 
+// SheetJS with `cellDates: true` returns UTC-anchored Date objects for date-formatted cells. Use UTC getters so the local timezone (UTC-5 for Colombia) doesn't shift the day backwards.
+function cellToString(value: unknown): string {
+  if (value instanceof Date) {
+    const y = value.getUTCFullYear();
+    const m = String(value.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(value.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  return String(value ?? '').trim();
+}
+
 export function mapRawToArticleRow(raw: Record<string, unknown>, row: number): ArticleRow {
   const normalized: Record<string, string> = {};
   for (const [key, value] of Object.entries(raw)) {
-    normalized[normalizeHeader(key)] = String(value ?? '').trim();
+    normalized[normalizeHeader(key)] = cellToString(value);
   }
 
   return {

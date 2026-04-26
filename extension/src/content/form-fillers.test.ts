@@ -74,6 +74,47 @@ describe('setNativeValue', () => {
   });
 });
 
+describe('fillDateField', () => {
+  it('escribe dd/mm/yyyy tal cual en el input', async () => {
+    document.body.innerHTML = `
+      <p-calendar formcontrolname="fechaRecepcion">
+        <input type="text" />
+      </p-calendar>
+    `;
+    const article = buildArticle({ fecha_recepcion: '08/04/2026', fecha_aceptacion: undefined });
+    await fillArticleForm(article);
+    const input = document.querySelector('p-calendar[formcontrolname="fechaRecepcion"] input') as HTMLInputElement;
+    expect(input.value).toBe('08/04/2026');
+  });
+
+  it('convierte yyyy-mm-dd legacy a dd/mm/yyyy antes de tipear', async () => {
+    document.body.innerHTML = `
+      <p-calendar formcontrolname="fechaRecepcion">
+        <input type="text" />
+      </p-calendar>
+    `;
+    await fillArticleForm(buildArticle({ fecha_recepcion: '2026-04-08', fecha_aceptacion: undefined }));
+    const input = document.querySelector('p-calendar[formcontrolname="fechaRecepcion"] input') as HTMLInputElement;
+    expect(input.value).toBe('08/04/2026');
+  });
+
+  it('no dispara blur', async () => {
+    // PrimeNG's onBlur reformats the input from its internal buffer; if PrimeNG hasn't synchronized yet, the value gets clobbered to "".
+    document.body.innerHTML = `
+      <p-calendar formcontrolname="fechaRecepcion">
+        <input type="text" />
+      </p-calendar>
+    `;
+    const input = document.querySelector('p-calendar[formcontrolname="fechaRecepcion"] input') as HTMLInputElement;
+    let blurFired = false;
+    input.addEventListener('blur', () => {
+      blurFired = true;
+    });
+    await fillArticleForm(buildArticle({ fecha_recepcion: '08/04/2026', fecha_aceptacion: undefined }));
+    expect(blurFired).toBe(false);
+  });
+});
+
 describe('fillArticleForm — happy path text + PrimeNG dropdown', () => {
   beforeEach(() => {
     buildMiniForm();
@@ -81,17 +122,13 @@ describe('fillArticleForm — happy path text + PrimeNG dropdown', () => {
 
   it('rellena los inputs con formcontrolname y selecciona una opción de p-dropdown', async () => {
     const result = await fillArticleForm(buildArticle());
-    expect(
-      (document.querySelector('[formcontrolname="tituloArticulo"]') as HTMLTextAreaElement).value,
-    ).toBe('Artículo Ficticio');
-    expect((document.querySelector('[formcontrolname="doi"]') as HTMLInputElement).value).toBe(
-      '10.0000/fake.0001',
+    expect((document.querySelector('[formcontrolname="tituloArticulo"]') as HTMLTextAreaElement).value).toBe(
+      'Artículo Ficticio',
     );
-    expect(
-      document
-        .querySelector('p-dropdown[formcontrolname="tipoDocumento"] .ui-dropdown-label')!
-        .textContent,
-    ).toBe('Artículo de investigación científica y tecnológica');
+    expect((document.querySelector('[formcontrolname="doi"]') as HTMLInputElement).value).toBe('10.0000/fake.0001');
+    expect(document.querySelector('p-dropdown[formcontrolname="tipoDocumento"] .ui-dropdown-label')!.textContent).toBe(
+      'Artículo de investigación científica y tecnológica',
+    );
     expect(result.filled).toContain('titulo');
     expect(result.filled).toContain('doi');
     expect(result.filled).toContain('tipoDocumento');
@@ -101,9 +138,7 @@ describe('fillArticleForm — happy path text + PrimeNG dropdown', () => {
     const row = buildArticle();
     row.fecha_recepcion = undefined;
     const result = await fillArticleForm(row);
-    expect(result.skipped.some((s) => s.key === 'fechaRecepcion' && s.reason === 'empty-value')).toBe(
-      true,
-    );
+    expect(result.skipped.some((s) => s.key === 'fechaRecepcion' && s.reason === 'empty-value')).toBe(true);
   });
 
   it('reporta no-element para dropdowns que no existen en el DOM', async () => {
@@ -173,16 +208,14 @@ describe('fillAuthorForm', () => {
     buildPersonSearchModal();
     const result = await fillAuthorForm(buildAuthor());
     expect(
-      document
-        .querySelector('p-dropdown[formcontrolname="tpoNacionalidad"] .ui-dropdown-label')!
-        .textContent,
+      document.querySelector('p-dropdown[formcontrolname="tpoNacionalidad"] .ui-dropdown-label')!.textContent,
     ).toBe('Colombiana');
-    expect(
-      (document.querySelector('[formcontrolname="nroDocumentoIdent"]') as HTMLInputElement).value,
-    ).toBe('TEST-00001');
-    expect(
-      (document.querySelector('[formcontrolname="txtTotalNames"]') as HTMLInputElement).value,
-    ).toBe('Ana Prueba Uno');
+    expect((document.querySelector('[formcontrolname="nroDocumentoIdent"]') as HTMLInputElement).value).toBe(
+      'TEST-00001',
+    );
+    expect((document.querySelector('[formcontrolname="txtTotalNames"]') as HTMLInputElement).value).toBe(
+      'Ana Prueba Uno',
+    );
     expect(result.filled).toContain('nacionalidad');
     expect(result.filled).toContain('identificacion');
     expect(result.filled).toContain('nombreCompleto');
@@ -207,13 +240,11 @@ describe('fillReviewerForm', () => {
     buildPersonSearchModal('Colombiana');
     const result = await fillReviewerForm(buildReviewer());
     expect(
-      document
-        .querySelector('p-dropdown[formcontrolname="tpoNacionalidad"] .ui-dropdown-label')!
-        .textContent,
+      document.querySelector('p-dropdown[formcontrolname="tpoNacionalidad"] .ui-dropdown-label')!.textContent,
     ).toBe('Extranjera');
-    expect(
-      (document.querySelector('[formcontrolname="nroDocumentoIdent"]') as HTMLInputElement).value,
-    ).toBe('TEST-00002');
+    expect((document.querySelector('[formcontrolname="nroDocumentoIdent"]') as HTMLInputElement).value).toBe(
+      'TEST-00002',
+    );
     expect(result.filled).toContain('nacionalidad');
   });
 });
