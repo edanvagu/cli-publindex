@@ -46,7 +46,7 @@ export const FIELD_CONSTRAINTS: Readonly<Record<string, FieldConstraint>> = {
   url: { kind: 'text', max: 300 },
   palabras_clave: { kind: 'text', max: 2000 },
   palabras_clave_otro_idioma: { kind: 'text', max: 2000 },
-  proyecto: { kind: 'text', max: 2000 },
+  proyecto: { kind: 'text', min: 10, max: 2000 },
   pagina_inicial: { kind: 'integer', min: 1, max: 9999 },
   pagina_final: { kind: 'integer', min: 1, max: 9999 },
   numero_autores: { kind: 'integer', min: 1, max: 9999 },

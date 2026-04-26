@@ -3,6 +3,7 @@ import { ENDPOINTS, buildArticlesByFasciculoUrl } from '../../config/constants';
 import { Session } from '../auth/types';
 import { ArticlePayload } from './types';
 import { HttpError } from '../../utils/http-errors';
+import { assertValidArticlePayload } from './payload-schema';
 
 // GET /fasciculos/{id}/articulos returns objects keyed by `id` (not `idArticulo`) and title by `txtTituloArticulo`. The other fields are mostly nulled out in the list endpoint (only id/title/doi/pages are populated).
 export interface ServerArticle {
@@ -23,6 +24,7 @@ export async function listArticlesByFasciculo(session: Session, idFasciculo: num
 }
 
 export async function createArticle(session: Session, payload: ArticlePayload): Promise<number> {
+  assertValidArticlePayload(payload);
   const jsonStr = JSON.stringify(payload);
 
   // Built manually because the endpoint expects a single multipart field literally named `articulo` (Spanish — Publindex API contract) carrying the payload JSON.

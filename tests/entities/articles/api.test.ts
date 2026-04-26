@@ -21,14 +21,15 @@ vi.mock('../../../src/io/publindex-http', async (orig) => {
 
 const PAYLOAD: ArticlePayload = {
   idFasciculo: 100,
-  txtTituloArticulo: 'Test',
-  txtUrl: 'https://x/1',
+  txtTituloArticulo: 'Artículo de prueba con título suficientemente largo',
+  txtUrl: 'https://example.com/articulo-prueba',
   codGranArea: '4',
   codAreaConocimiento: '4A',
   tpoDocumento: '1',
-  txtPalabraClave: 'k',
-  txtTituloParalelo: 't',
-  txtResumen: 'r',
+  txtPalabraClave: 'palabra1; palabra2',
+  txtTituloParalelo: 'Test article with parallel title long enough',
+  txtResumen:
+    'Resumen ficticio del artículo de prueba con longitud suficiente para satisfacer los mínimos exigidos por el formulario.',
   txtDoi: null,
   nroPaginaInicial: null,
   nroPaginaFinal: null,

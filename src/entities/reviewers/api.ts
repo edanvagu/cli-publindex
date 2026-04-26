@@ -3,8 +3,10 @@ import { ENDPOINTS, buildReviewersByFasciculoUrl } from '../../config/constants'
 import { Session } from '../auth/types';
 import { PersonSearchResult } from '../persons/types';
 import { LinkReviewerPayload } from './types';
+import { assertValidLinkReviewerPayload } from './payload-schema';
 
 export async function linkReviewer(session: Session, payload: LinkReviewerPayload): Promise<void> {
+  assertValidLinkReviewerPayload(payload);
   const response = await authedRequest(session, ENDPOINTS.REVIEWERS, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
