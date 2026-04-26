@@ -160,8 +160,8 @@ function buildUploadOptions(progressTracker: ProgressTracker, isRetry: boolean) 
       warning('Token próximo a expirar. Los próximos requests podrían fallar.');
     },
     onWarning: warning,
-    onArticleCreated: (article: ArticleRow, articleId: number) => {
-      progressTracker.propagateArticleIdToAuthors(article.titulo, articleId, warning);
+    onArticleCreated: async (article: ArticleRow, articleId: number) => {
+      await progressTracker.propagateArticleIdToAuthors(article.titulo, articleId, warning);
     },
   };
 }

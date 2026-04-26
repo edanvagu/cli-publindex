@@ -37,14 +37,14 @@ function nationalityCode(label: string): 'C' | 'E' {
   return (entry?.[0] ?? 'E') as 'C' | 'E';
 }
 
-function writeError(
+async function writeError(
   tracker: ProgressTracker,
   reviewer: ReviewerRow,
   msg: string,
   requiredAction: string,
   onWarning: (msg: string) => void,
-) {
-  tracker.updateReviewer(
+): Promise<void> {
+  await tracker.updateReviewer(
     {
       row: reviewer._fila,
       uploadState: `${REVIEWER_STATES.ERROR}:${msg}`,
@@ -129,7 +129,7 @@ async function runReviewersPass(
       const person = await resolvePerson(session, reviewer, options);
       if (!person) {
         const msg = NOT_FOUND_ERROR;
-        writeError(
+        await writeError(
           options.progressTracker,
           reviewer,
           msg,
@@ -142,7 +142,7 @@ async function runReviewersPass(
       }
 
       if (alreadyLinked.has(person.codRh)) {
-        options.progressTracker.updateReviewer(
+        await options.progressTracker.updateReviewer(
           {
             row: reviewer._fila,
             uploadState: REVIEWER_STATES.UPLOADED,
@@ -164,7 +164,7 @@ async function runReviewersPass(
 
       if (reviewer.nacionalidad === NATIONALITIES.C && !hasCvlac) {
         const msg = 'Colombiano sin CvLAC';
-        options.progressTracker.updateReviewer(
+        await options.progressTracker.updateReviewer(
           {
             row: reviewer._fila,
             uploadState: `${REVIEWER_STATES.ERROR}:${msg}`,
@@ -196,7 +196,7 @@ async function runReviewersPass(
         ? ''
         : 'Registrar experiencia profesional en CvLAC — sin filiación vigente, el sistema asumirá automáticamente que la filiación es interna (de la institución editora de la revista)';
 
-      options.progressTracker.updateReviewer(
+      await options.progressTracker.updateReviewer(
         {
           row: reviewer._fila,
           uploadState: REVIEWER_STATES.UPLOADED,
@@ -216,7 +216,7 @@ async function runReviewersPass(
       options.onProgress(i + 1, reviewers.length, nombre, true, Date.now() - start);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      writeError(options.progressTracker, reviewer, errorMsg, 'Revisar error y reintentar', options.onWarning);
+      await writeError(options.progressTracker, reviewer, errorMsg, 'Revisar error y reintentar', options.onWarning);
       failed.push({ row: reviewer._fila, nombre, error: errorMsg });
       options.onProgress(i + 1, reviewers.length, nombre, false, Date.now() - start, errorMsg);
     }

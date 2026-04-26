@@ -34,14 +34,14 @@ function nationalityCode(label: string): 'C' | 'E' {
   return (entry?.[0] ?? 'E') as 'C' | 'E';
 }
 
-function writeError(
+async function writeError(
   tracker: ProgressTracker,
   author: AuthorRow,
   msg: string,
   requiredAction: string,
   onWarning: (msg: string) => void,
-) {
-  tracker.updateAuthor(
+): Promise<void> {
+  await tracker.updateAuthor(
     {
       row: author._fila,
       uploadState: `${AUTHOR_STATES.ERROR}:${msg}`,
@@ -136,7 +136,13 @@ async function runAuthorsPass(
       const person = await resolvePerson(session, author, options);
       if (!person) {
         const msg = NOT_FOUND_ERROR;
-        writeError(options.progressTracker, author, msg, 'Registrar autor manualmente en Publindex', options.onWarning);
+        await writeError(
+          options.progressTracker,
+          author,
+          msg,
+          'Registrar autor manualmente en Publindex',
+          options.onWarning,
+        );
         failed.push({ row: author._fila, nombre, error: msg });
         options.onProgress(i + 1, authors.length, nombre, false, Date.now() - start, msg);
         continue;
@@ -145,7 +151,7 @@ async function runAuthorsPass(
       const articleId = parseInt(author.id_articulo, 10);
       const alreadyLinked = await ensureLinkedAuthorsFor(session, articleId, linkedByArticle, options.onWarning);
       if (alreadyLinked.has(person.codRh)) {
-        options.progressTracker.updateAuthor(
+        await options.progressTracker.updateAuthor(
           {
             row: author._fila,
             uploadState: AUTHOR_STATES.UPLOADED,
@@ -167,7 +173,7 @@ async function runAuthorsPass(
 
       if (author.nacionalidad === NATIONALITIES.C && !hasCvlac) {
         const msg = 'Colombiano sin CvLAC';
-        options.progressTracker.updateAuthor(
+        await options.progressTracker.updateAuthor(
           {
             row: author._fila,
             uploadState: `${AUTHOR_STATES.ERROR}:${msg}`,
@@ -195,7 +201,7 @@ async function runAuthorsPass(
         ? ''
         : 'Registrar experiencia profesional en CvLAC — sin filiación vigente, el sistema asumirá automáticamente que la filiación es interna (de la institución editora de la revista)';
 
-      options.progressTracker.updateAuthor(
+      await options.progressTracker.updateAuthor(
         {
           row: author._fila,
           uploadState: AUTHOR_STATES.UPLOADED,
@@ -215,7 +221,7 @@ async function runAuthorsPass(
       options.onProgress(i + 1, authors.length, nombre, true, Date.now() - start);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      writeError(options.progressTracker, author, errorMsg, 'Revisar error y reintentar', options.onWarning);
+      await writeError(options.progressTracker, author, errorMsg, 'Revisar error y reintentar', options.onWarning);
       failed.push({ row: author._fila, nombre, error: errorMsg });
       options.onProgress(i + 1, authors.length, nombre, false, Date.now() - start, errorMsg);
     }

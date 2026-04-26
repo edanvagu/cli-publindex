@@ -87,7 +87,7 @@ export async function ensureTokenCoversEstimate(
 
 // Drives the sidecar → xlsx merge. When Excel is still locking the file, offers the editor an interactive retry loop — without this, a silent failure leaves the progress stranded in the JSON file until the next command run.
 export async function flushProgressInteractive(tracker: ProgressTracker): Promise<void> {
-  if (tracker.trySyncSidecar()) return;
+  if (await tracker.trySyncSidecar()) return;
 
   console.log('');
   warning('El progreso quedó en un archivo JSON temporal porque el Excel está abierto.');
@@ -109,7 +109,7 @@ export async function flushProgressInteractive(tracker: ProgressTracker): Promis
       );
       return;
     }
-    if (tracker.trySyncSidecar()) {
+    if (await tracker.trySyncSidecar()) {
       success('Progreso guardado en el Excel.');
       return;
     }

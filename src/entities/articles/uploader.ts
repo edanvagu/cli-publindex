@@ -17,7 +17,7 @@ export interface RunnerOptions {
   onRetry: (row: number, attempt: number, error: Error) => void;
   onTokenExpiring: () => void;
   onWarning: (msg: string) => void;
-  onArticleCreated?: (row: ArticleRow, articleId: number) => void;
+  onArticleCreated?: (row: ArticleRow, articleId: number) => void | Promise<void>;
   abortSignal?: AbortSignal;
 }
 
@@ -57,11 +57,11 @@ export async function runUpload(
     if (existingId !== undefined) {
       successful.push({ row: article._fila, titulo: article.titulo });
       options.onProgress(i + 1, articles.length, article.titulo, true, Date.now() - start);
-      options.progressTracker.update(
+      await options.progressTracker.update(
         { row: article._fila, state: ARTICLE_STATES.UPLOADED, articleId: existingId },
         options.onWarning,
       );
-      options.onArticleCreated?.(article, existingId);
+      await options.onArticleCreated?.(article, existingId);
       options.onWarning(`Fila ${article._fila}: ya existe en el servidor (id=${existingId}), saltando POST.`);
       continue;
     }
@@ -79,11 +79,11 @@ export async function runUpload(
       successful.push({ row: article._fila, titulo: article.titulo });
       options.onProgress(i + 1, articles.length, article.titulo, true, elapsed);
 
-      options.progressTracker.update(
+      await options.progressTracker.update(
         { row: article._fila, state: ARTICLE_STATES.UPLOADED, articleId },
         options.onWarning,
       );
-      options.onArticleCreated?.(article, articleId);
+      await options.onArticleCreated?.(article, articleId);
       alreadyOnServer.set(normalizeTitle(article.titulo), articleId);
     } catch (err) {
       const elapsed = Date.now() - start;
@@ -91,7 +91,7 @@ export async function runUpload(
       failed.push({ row: article._fila, titulo: article.titulo, error: errorMsg });
       options.onProgress(i + 1, articles.length, article.titulo, false, elapsed, errorMsg);
 
-      options.progressTracker.update(
+      await options.progressTracker.update(
         { row: article._fila, state: ARTICLE_STATES.ERROR, error: errorMsg },
         options.onWarning,
       );
