@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 
+// Inject the Windows root CA store into Node's TLS layer. Without this, Publindex's certificate chain ends in an issuer that Node's bundled CA list doesn't trust (typical when a corporate proxy injects an MITM cert), and login fails with UNABLE_TO_GET_ISSUER_CERT_LOCALLY even though the browser — which uses the OS trust store — works fine. Must run synchronously before any https.request, hence `win-ca/api` with `inject: '+'` (default require('win-ca') is async and races the first request).
+if (process.platform === 'win32') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('win-ca/api')({ inject: '+' });
+}
+
 import { Command } from 'commander';
 import { run } from '../src/cli/index';
 import { ExecutionMode } from '../src/entities/articles/types';
