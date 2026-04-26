@@ -22,7 +22,7 @@ export interface PersonSearchResult {
   codOrcid?: string | null;
   nroValorH5?: string | null;
   txtFuenteH5?: string | null;
-  staCertificado?: string | null;     // 'T' if the person has a CvLAC profile
+  staCertificado?: string | null; // 'T' if the person has a CvLAC profile
   txtEmail?: string | null;
   txtDireccion?: string | null;
   txtTelefono?: string | null;

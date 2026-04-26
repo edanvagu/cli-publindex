@@ -13,7 +13,7 @@ export async function promptCredentials(): Promise<{ username: string; password:
       type: 'input',
       name: 'username',
       message: 'Usuario de Publindex:',
-      validate: (v: string) => v.trim() ? true : 'El usuario es obligatorio',
+      validate: (v: string) => (v.trim() ? true : 'El usuario es obligatorio'),
     },
   ]);
 
@@ -23,7 +23,7 @@ export async function promptCredentials(): Promise<{ username: string; password:
       name: 'password',
       message: 'Contraseña:',
       mask: '•',
-      validate: (v: string) => v ? true : 'La contraseña es obligatoria',
+      validate: (v: string) => (v ? true : 'La contraseña es obligatoria'),
     },
   ]);
 
@@ -44,7 +44,7 @@ export async function promptCredentials(): Promise<{ username: string; password:
 }
 
 export async function selectIssue(issues: Issue[]): Promise<Issue> {
-  const choices = issues.map(f => ({
+  const choices = issues.map((f) => ({
     name: formatIssue(f),
     value: f,
   }));
@@ -147,9 +147,8 @@ function runOsascript(script: string): string | null {
 }
 
 function openFileDialog(extensions: string[], title: string): Promise<string> {
-  const result = process.platform === 'darwin'
-    ? openFileDialogMac(extensions, title)
-    : openFileDialogWindows(extensions, title);
+  const result =
+    process.platform === 'darwin' ? openFileDialogMac(extensions, title) : openFileDialogWindows(extensions, title);
 
   if (result && fs.existsSync(result)) {
     return Promise.resolve(result);
@@ -161,7 +160,7 @@ function openFileDialog(extensions: string[], title: string): Promise<string> {
 }
 
 function openFileDialogWindows(extensions: string[], title: string): string | null {
-  const filter = extensions.map(e => `*${e}`).join(';');
+  const filter = extensions.map((e) => `*${e}`).join(';');
   return runPowerShellDialog(`
 Add-Type -AssemblyName System.Windows.Forms
 $dialog = New-Object System.Windows.Forms.OpenFileDialog
@@ -173,7 +172,7 @@ if ($dialog.ShowDialog() -eq 'OK') { $dialog.FileName } else { '' }
 }
 
 function openFileDialogMac(extensions: string[], title: string): string | null {
-  const types = extensions.map(e => `"${e.replace(/^\./, '')}"`).join(', ');
+  const types = extensions.map((e) => `"${e.replace(/^\./, '')}"`).join(', ');
   return runOsascript(`POSIX path of (choose file with prompt "${title}" of type {${types}})`);
 }
 
@@ -199,7 +198,7 @@ function validateFilePath(v: string, extensions: string[]): string | true {
   const filePath = cleanPath(v);
   if (!filePath) return 'La ruta del archivo es obligatoria';
   const lower = filePath.toLowerCase();
-  if (!extensions.some(e => lower.endsWith(e))) {
+  if (!extensions.some((e) => lower.endsWith(e))) {
     return `El archivo debe ser ${extensions.join(' o ')}`;
   }
   if (!fs.existsSync(filePath)) {
@@ -250,7 +249,7 @@ export async function promptSavePath(defaultDir: string, defaultName: string): P
 function openSaveDialog(defaultDir: string, defaultName: string): string | null {
   if (process.platform === 'darwin') {
     return runOsascript(
-      `POSIX path of (choose file name with prompt "Guardar plantilla generada" default name "${defaultName}" default location (POSIX file "${defaultDir}"))`
+      `POSIX path of (choose file name with prompt "Guardar plantilla generada" default name "${defaultName}" default location (POSIX file "${defaultDir}"))`,
     );
   }
   return runPowerShellDialog(`
@@ -271,7 +270,7 @@ async function promptPathManual(defaultFull: string): Promise<string> {
       name: 'filePath',
       message: 'Ruta completa del archivo .xlsx:',
       default: defaultFull,
-      validate: (v: string) => v.trim().toLowerCase().endsWith('.xlsx') ? true : 'La ruta debe terminar en .xlsx',
+      validate: (v: string) => (v.trim().toLowerCase().endsWith('.xlsx') ? true : 'La ruta debe terminar en .xlsx'),
     },
   ]);
   return cleanPath(filePath);
@@ -282,7 +281,8 @@ export async function promptJournalBaseUrl(): Promise<string | null> {
     {
       type: 'input',
       name: 'base',
-      message: 'URL base de la revista en OJS (ej. https://revistas.ejemplo.edu.co/index.php/mi-revista). Deje vacío para omitir:',
+      message:
+        'URL base de la revista en OJS (ej. https://revistas.ejemplo.edu.co/index.php/mi-revista). Deje vacío para omitir:',
     },
   ]);
   const trimmed = (base ?? '').trim();
@@ -299,11 +299,7 @@ async function promptList<T extends string>(message: string, choices: Choice<T>[
 }
 
 const SEP = new inquirer.Separator();
-const BACK_EXIT: Choice<NavAction>[] = [
-  SEP,
-  { name: 'Volver', value: 'back' },
-  { name: 'Salir', value: 'exit' },
-];
+const BACK_EXIT: Choice<NavAction>[] = [SEP, { name: 'Volver', value: 'back' }, { name: 'Salir', value: 'exit' }];
 
 export async function promptUrlFailureAction(): Promise<'retry' | 'skip'> {
   return promptList<'retry' | 'skip'>('¿Qué desea hacer?', [
@@ -312,7 +308,10 @@ export async function promptUrlFailureAction(): Promise<'retry' | 'skip'> {
   ]);
 }
 
-type MainChoice = Extract<LeafAction, 'import-ojs' | 'help-ojs' | 'about'> | Extract<View, 'upload-channel'> | Extract<NavAction, 'exit'>;
+type MainChoice =
+  | Extract<LeafAction, 'import-ojs' | 'help-ojs' | 'about'>
+  | Extract<View, 'upload-channel'>
+  | Extract<NavAction, 'exit'>;
 
 export async function mainMenuPrompt(): Promise<MainChoice> {
   return promptList<MainChoice>('¿Qué desea hacer?', [
@@ -358,14 +357,11 @@ export async function extMenuPrompt(): Promise<ExtMenuChoice> {
 }
 
 export async function confirmOjsReady(): Promise<'ready' | 'show-help' | 'cancel'> {
-  return promptList<'ready' | 'show-help' | 'cancel'>(
-    '¿Ya exportó el XML (y opcionalmente el CSV) desde OJS?',
-    [
-      { name: 'Sí, continuar', value: 'ready' },
-      { name: 'No, mostrar los pasos', value: 'show-help' },
-      { name: 'Cancelar y volver al menú', value: 'cancel' },
-    ],
-  );
+  return promptList<'ready' | 'show-help' | 'cancel'>('¿Ya exportó el XML (y opcionalmente el CSV) desde OJS?', [
+    { name: 'Sí, continuar', value: 'ready' },
+    { name: 'No, mostrar los pasos', value: 'show-help' },
+    { name: 'Cancelar y volver al menú', value: 'cancel' },
+  ]);
 }
 
 export async function confirmResume(alreadyUploaded: number, pending: number): Promise<'skip' | 'all'> {
@@ -387,7 +383,9 @@ export async function confirmResume(alreadyUploaded: number, pending: number): P
 export async function confirmTimeEstimate(quantity: number, seconds: number): Promise<boolean> {
   const avg = quantity > 0 ? Math.round(seconds / quantity) : 0;
   console.log('');
-  console.log(`  ⏱  Tiempo estimado: ~${formatDuration(seconds)} (${quantity} artículos × ~${avg}s promedio, incluyendo pausas)`);
+  console.log(
+    `  ⏱  Tiempo estimado: ~${formatDuration(seconds)} (${quantity} artículos × ~${avg}s promedio, incluyendo pausas)`,
+  );
   console.log('');
 
   const { proceed } = await inquirer.prompt([
@@ -442,7 +440,7 @@ export function truncateTitle(titulo: string | undefined): string {
 }
 
 export async function promptArticlesToUpload(articles: ArticleRow[]): Promise<ArticleRow[]> {
-  const choices = articles.map(a => ({
+  const choices = articles.map((a) => ({
     name: `Fila ${a._fila} · ${truncateTitle(a.titulo)}`,
     value: a._fila,
     checked: true,
@@ -459,5 +457,5 @@ export async function promptArticlesToUpload(articles: ArticleRow[]): Promise<Ar
   ]);
 
   const picked = new Set(rows);
-  return articles.filter(a => picked.has(a._fila));
+  return articles.filter((a) => picked.has(a._fila));
 }

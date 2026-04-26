@@ -70,25 +70,20 @@ export async function runAuthorsUpload(
 
   const pass1 = await runAuthorsPass(session, authors, linkedByArticle, options);
 
-  const retryableRows = new Set(
-    pass1.failed.filter(f => f.error === NOT_FOUND_ERROR).map(f => f.row),
-  );
+  const retryableRows = new Set(pass1.failed.filter((f) => f.error === NOT_FOUND_ERROR).map((f) => f.row));
   if (retryableRows.size === 0) return pass1;
 
   options.onWarning(`Ronda 2: reintentando ${retryableRows.size} autor(es) con nacionalidad cruzada...`);
 
   const flipped: AuthorRow[] = authors
-    .filter(a => retryableRows.has(a._fila))
-    .map(a => ({ ...a, nacionalidad: flipNationality(a.nacionalidad) }));
+    .filter((a) => retryableRows.has(a._fila))
+    .map((a) => ({ ...a, nacionalidad: flipNationality(a.nacionalidad) }));
 
   const pass2 = await runAuthorsPass(session, flipped, linkedByArticle, options);
 
   return {
     successful: [...pass1.successful, ...pass2.successful],
-    failed: [
-      ...pass1.failed.filter(f => !retryableRows.has(f.row)),
-      ...pass2.failed,
-    ],
+    failed: [...pass1.failed.filter((f) => !retryableRows.has(f.row)), ...pass2.failed],
     totalTimeMs: pass1.totalTimeMs + pass2.totalTimeMs,
   };
 }
@@ -104,11 +99,13 @@ async function ensureLinkedAuthorsFor(
   if (cached) return cached;
   try {
     const linked = await listAuthorsByArticle(session, idArticulo);
-    const set = new Set(linked.map(a => a.codRh).filter(Boolean));
+    const set = new Set(linked.map((a) => a.codRh).filter(Boolean));
     cache.set(idArticulo, set);
     return set;
   } catch (err) {
-    onWarning(`No se pudo obtener la lista de autores ya vinculados al artículo ${idArticulo}: ${(err as Error).message}. Se continuará sin pre-filtro de duplicados para ese artículo.`);
+    onWarning(
+      `No se pudo obtener la lista de autores ya vinculados al artículo ${idArticulo}: ${(err as Error).message}. Se continuará sin pre-filtro de duplicados para ese artículo.`,
+    );
     const empty = new Set<string>();
     cache.set(idArticulo, empty);
     return empty;
@@ -162,10 +159,9 @@ async function runAuthorsPass(
       }
 
       await subcallPause(options.abortSignal);
-      const enriched = await withRetry(
-        () => getTrayectoria(session, person.codRh, options.anoFasciculo),
-        { onRetry: (attempt, error) => options.onRetry(author._fila, attempt, error) },
-      );
+      const enriched = await withRetry(() => getTrayectoria(session, person.codRh, options.anoFasciculo), {
+        onRetry: (attempt, error) => options.onRetry(author._fila, attempt, error),
+      });
 
       const hasCvlac = enriched.staCertificado === 'T';
 
@@ -210,7 +206,9 @@ async function runAuthorsPass(
       );
 
       if (!hasCurrentAffiliation) {
-        options.onWarning(`Fila ${author._fila} (${nombre}): vinculado, pero sin filiación vigente — el sistema lo asumirá como filiación interna. Registrar experiencia en CvLAC si corresponde a otra institución.`);
+        options.onWarning(
+          `Fila ${author._fila} (${nombre}): vinculado, pero sin filiación vigente — el sistema lo asumirá como filiación interna. Registrar experiencia en CvLAC si corresponde a otra institución.`,
+        );
       }
 
       successful.push({ row: author._fila, nombre });

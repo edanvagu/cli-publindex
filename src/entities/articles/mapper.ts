@@ -12,9 +12,7 @@ function codeForLabel(label: string | undefined, dict: Record<string, string>): 
 export function rowToPayload(row: ArticleRow, idFasciculo: number): ArticlePayload {
   const granAreaCode = getGranAreaCodeByName(row.gran_area) ?? row.gran_area;
   const areaCode = getAreaCodeByName(row.area, granAreaCode) ?? row.area;
-  const subareaCode = row.subarea
-    ? (getSubareaCodeByName(row.subarea, areaCode) ?? row.subarea)
-    : null;
+  const subareaCode = row.subarea ? (getSubareaCodeByName(row.subarea, areaCode) ?? row.subarea) : null;
 
   return {
     idFasciculo,
@@ -43,7 +41,8 @@ export function rowToPayload(row: ArticleRow, idFasciculo: number): ArticlePaylo
     staNacionalExternoInst: row.eval_nacional?.toUpperCase() || null,
     staInternacionalExternoInst: row.eval_internacional?.toUpperCase() || null,
     tpoResumen: codeForLabel(row.tipo_resumen, SUMMARY_TYPES) ?? row.tipo_resumen?.toUpperCase() ?? null,
-    tpoEspecialista: codeForLabel(row.tipo_especialista, SPECIALIST_TYPES) ?? row.tipo_especialista?.toUpperCase() ?? null,
+    tpoEspecialista:
+      codeForLabel(row.tipo_especialista, SPECIALIST_TYPES) ?? row.tipo_especialista?.toUpperCase() ?? null,
     txtAbstract: row.resumen_otro_idioma || null,
     txtResumenOtro: row.resumen_idioma_adicional || null,
   };

@@ -1,7 +1,4 @@
-import {
-  spinner, success, error, info, warning,
-  showProgress,
-} from '../logger';
+import { spinner, success, error, info, warning, showProgress } from '../logger';
 import { promptFilePath, confirmContinue, confirmAuthorsStart } from '../prompts';
 import { readAuthors, ReadAuthorsResult } from '../../io/authors-reader';
 import { runAuthorsUpload, estimateAuthorsTimeSeconds } from '../../entities/authors/uploader';
@@ -10,7 +7,13 @@ import { Session } from '../../entities/auth/types';
 import { Issue } from '../../entities/issues/types';
 import { AuthorRow, PersonSearchResult } from '../../entities/authors/types';
 import { buildPersonPicker } from '../pickers';
-import { loginOrThrow, fetchAndSelectIssue, ensureTokenCoversEstimate, extractYear, flushProgressInteractive } from './shared';
+import {
+  loginOrThrow,
+  fetchAndSelectIssue,
+  ensureTokenCoversEstimate,
+  extractYear,
+  flushProgressInteractive,
+} from './shared';
 import { uploadReviewersWithContext } from './upload-reviewers';
 
 export interface AuthorsContext {
@@ -44,18 +47,22 @@ async function uploadAuthorsCore(ctx: AuthorsContext): Promise<void> {
       error('Este flujo requiere un Excel generado por "Importar desde OJS" (tiene hoja Artículos + hoja Autores).');
       return;
     }
-    readSpinner.succeed(`${readResult.authors.length} autores leídos (${readResult.uploaded.length} ya subidos, ${readResult.errored.length} con error, ${readResult.pending.length} pendientes)`);
+    readSpinner.succeed(
+      `${readResult.authors.length} autores leídos (${readResult.uploaded.length} ya subidos, ${readResult.errored.length} con error, ${readResult.pending.length} pendientes)`,
+    );
   } catch (err) {
     readSpinner.fail('Error al leer archivo');
     error(err instanceof Error ? err.message : String(err));
     return;
   }
 
-  const withArticleId = [...readResult.pending, ...readResult.errored].filter(a => a.id_articulo.trim() !== '');
-  const withoutArticleId = [...readResult.pending, ...readResult.errored].filter(a => a.id_articulo.trim() === '');
+  const withArticleId = [...readResult.pending, ...readResult.errored].filter((a) => a.id_articulo.trim() !== '');
+  const withoutArticleId = [...readResult.pending, ...readResult.errored].filter((a) => a.id_articulo.trim() === '');
 
   if (withoutArticleId.length > 0) {
-    warning(`${withoutArticleId.length} autores sin id_articulo — probablemente el artículo asociado aún no se ha cargado. Se saltan.`);
+    warning(
+      `${withoutArticleId.length} autores sin id_articulo — probablemente el artículo asociado aún no se ha cargado. Se saltan.`,
+    );
   }
 
   if (withArticleId.length === 0) {
@@ -74,7 +81,7 @@ async function uploadAuthorsCore(ctx: AuthorsContext): Promise<void> {
   }
 
   // `identificacion` is optional: when missing, the uploader falls back to name search. Only rows without nacionalidad (required for the tpoNacionalidad query param) or without nombre_completo are excluded — both are needed to even attempt a search.
-  const toProcess = withArticleId.filter(a => a.nacionalidad.trim() !== '' && a.nombre_completo.trim() !== '');
+  const toProcess = withArticleId.filter((a) => a.nacionalidad.trim() !== '' && a.nombre_completo.trim() !== '');
 
   if (toProcess.length === 0) {
     error('Ninguna fila tiene nacionalidad + nombre_completo.');
@@ -126,7 +133,9 @@ async function uploadAuthorsCore(ctx: AuthorsContext): Promise<void> {
   }
   success('Proceso finalizado.');
 
-  const continueToReviewers = await confirmContinue('¿Continuar con la vinculación de evaluadores ahora (sin volver a pedir credenciales)?');
+  const continueToReviewers = await confirmContinue(
+    '¿Continuar con la vinculación de evaluadores ahora (sin volver a pedir credenciales)?',
+  );
   if (continueToReviewers) {
     console.log('');
     await uploadReviewersWithContext({ file, session, issue });

@@ -33,7 +33,9 @@ export async function showExtensionUsageHelp(): Promise<void> {
   info('     b. El widget muestra la lista de evaluadores del Excel.');
   info('     c. Clic en uno → se rellena la búsqueda; usted busca, selecciona y guarda.');
   console.log('');
-  warning('La extensión NO escribe al Excel. Las columnas estado / id_articulo / fecha_subida quedan vacías en esta ruta — es normal.');
+  warning(
+    'La extensión NO escribe al Excel. Las columnas estado / id_articulo / fecha_subida quedan vacías en esta ruta — es normal.',
+  );
   warning('Si el widget no aparece en un formulario, recargue la página (F5).');
   warning('Si minimiza el widget, use "Mostrar widget" en el popup para traerlo de vuelta.');
   console.log('');

@@ -93,9 +93,9 @@ describe('ProgressTracker - XLSX', () => {
 
     const data = readXlsx(file);
     expect(data[0].estado).toBe('error'); // row 2
-    expect(data[1].estado).toBe('');       // row 3, sin tocar
+    expect(data[1].estado).toBe(''); // row 3, sin tocar
     expect(data[2].estado).toBe('subido'); // row 4
-    expect(data[3].estado).toBe('');       // row 5
+    expect(data[3].estado).toBe(''); // row 5
     expect(data[4].estado).toBe('subido'); // row 6
   });
 
@@ -125,7 +125,7 @@ describe('ProgressTracker - fallback sidecar', () => {
     simulateLockedFile();
 
     const messages: string[] = [];
-    const ok = tracker.update({ row: 2, state: 'subido' }, msg => messages.push(msg));
+    const ok = tracker.update({ row: 2, state: 'subido' }, (msg) => messages.push(msg));
 
     expect(ok).toBe(false);
     expect(fs.existsSync(file + '.progreso.json')).toBe(true);
@@ -155,9 +155,9 @@ describe('ProgressTracker - fallback sidecar', () => {
     simulateLockedFile();
 
     const messages: string[] = [];
-    tracker.update({ row: 2, state: 'subido' }, msg => messages.push(msg));
-    tracker.update({ row: 3, state: 'subido' }, msg => messages.push(msg));
-    tracker.update({ row: 4, state: 'subido' }, msg => messages.push(msg));
+    tracker.update({ row: 2, state: 'subido' }, (msg) => messages.push(msg));
+    tracker.update({ row: 3, state: 'subido' }, (msg) => messages.push(msg));
+    tracker.update({ row: 4, state: 'subido' }, (msg) => messages.push(msg));
 
     expect(messages).toHaveLength(1);
   });

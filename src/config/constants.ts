@@ -70,8 +70,8 @@ export const REVIEWER_STATES = {
 } as const;
 
 export const NATIONALITIES: Record<string, string> = {
-  'C': 'Colombiana',
-  'E': 'Extranjera',
+  C: 'Colombiana',
+  E: 'Extranjera',
 };
 
 export const DOCUMENT_TYPES: Record<string, string> = {
@@ -90,25 +90,25 @@ export const DOCUMENT_TYPES: Record<string, string> = {
 };
 
 export const SUMMARY_TYPES: Record<string, string> = {
-  'A': 'Analítico',
-  'D': 'Descriptivo',
-  'S': 'Analítico sintético',
+  A: 'Analítico',
+  D: 'Descriptivo',
+  S: 'Analítico sintético',
 };
 
 export const SPECIALIST_TYPES: Record<string, string> = {
-  'A': 'Autor',
-  'E': 'Editor',
-  'B': 'Bibliotecólogo',
-  'S': 'Especialista en el área',
+  A: 'Autor',
+  E: 'Editor',
+  B: 'Bibliotecólogo',
+  S: 'Especialista en el área',
 };
 
 export const LANGUAGES: Record<string, string> = {
-  'ES': 'Español',
-  'EN': 'Inglés',
-  'PT': 'Portugués',
-  'FR': 'Francés',
-  'DE': 'Alemán',
-  'IT': 'Italiano',
+  ES: 'Español',
+  EN: 'Inglés',
+  PT: 'Portugués',
+  FR: 'Francés',
+  DE: 'Alemán',
+  IT: 'Italiano',
 };
 
 export const EXCEL_HEADERS = [

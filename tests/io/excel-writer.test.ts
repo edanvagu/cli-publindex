@@ -25,7 +25,7 @@ async function loadWorkbook(filePath: string): Promise<ExcelJS.Workbook> {
 
 function columnStrings(ws: ExcelJS.Worksheet, colIdx: number): string[] {
   const out: string[] = [];
-  ws.getColumn(colIdx).eachCell({ includeEmpty: false }, cell => {
+  ws.getColumn(colIdx).eachCell({ includeEmpty: false }, (cell) => {
     const v = cell.value;
     if (v === null || v === undefined) return;
     out.push(typeof v === 'string' ? v : String(v));
@@ -47,7 +47,7 @@ function findLookupColumn(ws: ExcelJS.Worksheet, name: string): string[] | undef
 
 function formulaeAsNumbers(dv: ExcelJS.DataValidation | undefined): number[] | undefined {
   if (!dv || !dv.formulae) return undefined;
-  return dv.formulae.map(f => (typeof f === 'number' ? f : parseFloat(String(f))));
+  return dv.formulae.map((f) => (typeof f === 'number' ? f : parseFloat(String(f))));
 }
 
 describe('generateTemplateWithData — validaciones dinámicas', () => {
@@ -131,14 +131,15 @@ describe('generateTemplateWithData — validaciones dinámicas', () => {
 
     const tipoCol = EXCEL_HEADERS.indexOf('tipo_documento') + 1;
     const letter = ws!.getColumn(tipoCol).letter;
-    const rules = (ws as unknown as { conditionalFormattings: Array<{ ref: string; rules: Array<{ formulae?: string[] }> }> })
-      .conditionalFormattings;
-    const matching = rules.filter(cf => cf.ref.startsWith(`${letter}2`));
+    const rules = (
+      ws as unknown as { conditionalFormattings: Array<{ ref: string; rules: Array<{ formulae?: string[] }> }> }
+    ).conditionalFormattings;
+    const matching = rules.filter((cf) => cf.ref.startsWith(`${letter}2`));
     expect(matching.length).toBeGreaterThan(0);
-    const formulae = matching.flatMap(cf => cf.rules.flatMap(r => r.formulae ?? []));
-    expect(formulae.some(f => f.includes('=""'))).toBe(true);
-    expect(formulae.some(f => f.includes('MATCH'))).toBe(false);
-    expect(formulae.some(f => f.includes('OR('))).toBe(true);
+    const formulae = matching.flatMap((cf) => cf.rules.flatMap((r) => r.formulae ?? []));
+    expect(formulae.some((f) => f.includes('=""'))).toBe(true);
+    expect(formulae.some((f) => f.includes('MATCH'))).toBe(false);
+    expect(formulae.some((f) => f.includes('OR('))).toBe(true);
   });
 
   it('amarillo de palabras_clave usa MATCH contra REQ_PALABRAS_CLAVE', async () => {
@@ -151,11 +152,12 @@ describe('generateTemplateWithData — validaciones dinámicas', () => {
 
     const pcCol = EXCEL_HEADERS.indexOf('palabras_clave') + 1;
     const letter = ws!.getColumn(pcCol).letter;
-    const rules = (ws as unknown as { conditionalFormattings: Array<{ ref: string; rules: Array<{ formulae?: string[] }> }> })
-      .conditionalFormattings;
-    const matching = rules.filter(cf => cf.ref.startsWith(`${letter}2`));
-    const formulae = matching.flatMap(cf => cf.rules.flatMap(r => r.formulae ?? []));
-    expect(formulae.some(f => f.includes('REQ_PALABRAS_CLAVE'))).toBe(true);
+    const rules = (
+      ws as unknown as { conditionalFormattings: Array<{ ref: string; rules: Array<{ formulae?: string[] }> }> }
+    ).conditionalFormattings;
+    const matching = rules.filter((cf) => cf.ref.startsWith(`${letter}2`));
+    const formulae = matching.flatMap((cf) => cf.rules.flatMap((r) => r.formulae ?? []));
+    expect(formulae.some((f) => f.includes('REQ_PALABRAS_CLAVE'))).toBe(true);
   });
 
   it('la hoja Instrucciones etiqueta las columnas Auto como "Auto (ruta automatizada)"', async () => {

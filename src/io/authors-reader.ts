@@ -31,9 +31,7 @@ export function readAuthors(filePath: string): ReadAuthorsResult {
   }
 
   const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
-  const authors = raw
-    .map((r, i) => mapRawToAuthorRow(r, i + 2))
-    .filter(a => !isEmptyAuthor(a));
+  const authors = raw.map((r, i) => mapRawToAuthorRow(r, i + 2)).filter((a) => !isEmptyAuthor(a));
 
   const pending: AuthorRow[] = [];
   const uploaded: AuthorRow[] = [];

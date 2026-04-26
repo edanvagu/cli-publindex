@@ -20,10 +20,7 @@ export async function linkAuthor(session: Session, payload: LinkAuthorPayload): 
   }
 }
 
-export async function listAuthorsByArticle(
-  session: Session,
-  idArticulo: number,
-): Promise<PersonSearchResult[]> {
+export async function listAuthorsByArticle(session: Session, idArticulo: number): Promise<PersonSearchResult[]> {
   const url = buildAuthorsByArticleUrl(idArticulo);
   const response = await authedRequest<PersonSearchResult[]>(session, url, {
     method: 'GET',

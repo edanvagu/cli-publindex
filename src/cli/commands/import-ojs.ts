@@ -1,6 +1,14 @@
 import * as path from 'path';
 import { spinner, error, info, warning } from '../logger';
-import { promptOjsFilePath, promptJournalBaseUrl, promptSavePath, promptUrlFailureAction, promptOptionalReviewsCsvPath, confirmContinue, confirmOjsReady } from '../prompts';
+import {
+  promptOjsFilePath,
+  promptJournalBaseUrl,
+  promptSavePath,
+  promptUrlFailureAction,
+  promptOptionalReviewsCsvPath,
+  confirmContinue,
+  confirmOjsReady,
+} from '../prompts';
 import { openInDefaultApp } from './shared';
 import { showOjsExportHelp } from './help-ojs-export';
 import { buildArticleUrl } from '../../utils/urls';
@@ -46,9 +54,7 @@ export async function importOjs(): Promise<void> {
   const urlWarnings: string[] = [];
 
   while (baseUrl) {
-    const withId = articles
-      .map((art, idx) => ({ art, idx }))
-      .filter(({ art }) => art.submissionId);
+    const withId = articles.map((art, idx) => ({ art, idx })).filter(({ art }) => art.submissionId);
 
     if (withId.length === 0) {
       warning('Ningún artículo tiene submissionId; no se construirán URLs.');
@@ -61,9 +67,9 @@ export async function importOjs(): Promise<void> {
         const url = buildArticleUrl(baseUrl!, art.submissionId!);
         const result = await probeUrl(url);
         return { idx, url, result };
-      })
+      }),
     );
-    const okCount = results.filter(r => r.result.ok).length;
+    const okCount = results.filter((r) => r.result.ok).length;
 
     if (okCount === results.length) {
       verifySpinner.succeed('Las URL de cada artículo se validaron exitosamente.');
@@ -85,7 +91,7 @@ export async function importOjs(): Promise<void> {
     for (const { idx, url, result } of results) {
       urlsByIndex.set(idx, url);
       if (!result.ok) {
-        const detail = result.status ? `status ${result.status}` : result.error ?? 'sin respuesta';
+        const detail = result.status ? `status ${result.status}` : (result.error ?? 'sin respuesta');
         urlWarnings.push(`Fila ${idx + 2}: URL ${url} no respondió 200 (${detail}).`);
       }
     }
@@ -141,9 +147,7 @@ function readReviewersForFasciculo(
   articles: OjsArticle[],
 ): { reviewerRows: ReviewerTemplateRow[]; csvWarnings: string[] } {
   const submissionIdSet = new Set(
-    articles
-      .map(a => a.submissionId)
-      .filter((id): id is string => typeof id === 'string' && id.length > 0),
+    articles.map((a) => a.submissionId).filter((id): id is string => typeof id === 'string' && id.length > 0),
   );
 
   const csvSpinner = spinner(`Leyendo CSV de revisiones (${path.basename(csvPath)})...`);
@@ -151,7 +155,7 @@ function readReviewersForFasciculo(
     const result = parseReviewsCsv(csvPath, submissionIdSet);
     csvSpinner.succeed(
       `${result.reviewers.length} evaluadores únicos extraídos del fascículo ` +
-      `(${result.matchedForFasciculo} filas del CSV emparejaron con ${submissionIdSet.size} submissionIds del XML)`
+        `(${result.matchedForFasciculo} filas del CSV emparejaron con ${submissionIdSet.size} submissionIds del XML)`,
     );
     return {
       reviewerRows: result.reviewers.map(reviewerToTemplateRow),

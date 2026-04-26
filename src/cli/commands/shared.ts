@@ -104,7 +104,9 @@ export async function flushProgressInteractive(tracker: ProgressTracker): Promis
       },
     ]);
     if (action === 'later') {
-      info('El progreso quedó en el archivo .progreso.json. La próxima vez que corra esta opción con el Excel cerrado se guardará automáticamente.');
+      info(
+        'El progreso quedó en el archivo .progreso.json. La próxima vez que corra esta opción con el Excel cerrado se guardará automáticamente.',
+      );
       return;
     }
     if (tracker.trySyncSidecar()) {

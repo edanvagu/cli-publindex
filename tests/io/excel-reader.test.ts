@@ -19,7 +19,7 @@ function createXlsx(rows: Record<string, string>[], headers?: string[]): string 
   const filePath = path.join(tempDir, 'test.xlsx');
   const wb = XLSX.utils.book_new();
   const hdrs = headers || (rows.length > 0 ? Object.keys(rows[0]) : []);
-  const data = [hdrs, ...rows.map(f => hdrs.map(h => f[h] ?? ''))];
+  const data = [hdrs, ...rows.map((f) => hdrs.map((h) => f[h] ?? ''))];
   const ws = XLSX.utils.aoa_to_sheet(data);
   XLSX.utils.book_append_sheet(wb, ws, 'Hoja1');
   XLSX.writeFile(wb, filePath);
@@ -72,14 +72,41 @@ describe('readArticles - XLSX', () => {
 
   it('lee múltiples filas', () => {
     const file = createXlsx([
-      { titulo: 'Art 1', url: 'https://a.com', gran_area: '1', area: '1A', tipo_documento: '1', palabras_clave: 'a', titulo_ingles: 'A', resumen: 'r' },
-      { titulo: 'Art 2', url: 'https://b.com', gran_area: '2', area: '2A', tipo_documento: '2', palabras_clave: 'b', titulo_ingles: 'B', resumen: 's' },
-      { titulo: 'Art 3', url: 'https://c.com', gran_area: '3', area: '3A', tipo_documento: '3', palabras_clave: 'c', titulo_ingles: 'C', resumen: 't' },
+      {
+        titulo: 'Art 1',
+        url: 'https://a.com',
+        gran_area: '1',
+        area: '1A',
+        tipo_documento: '1',
+        palabras_clave: 'a',
+        titulo_ingles: 'A',
+        resumen: 'r',
+      },
+      {
+        titulo: 'Art 2',
+        url: 'https://b.com',
+        gran_area: '2',
+        area: '2A',
+        tipo_documento: '2',
+        palabras_clave: 'b',
+        titulo_ingles: 'B',
+        resumen: 's',
+      },
+      {
+        titulo: 'Art 3',
+        url: 'https://c.com',
+        gran_area: '3',
+        area: '3A',
+        tipo_documento: '3',
+        palabras_clave: 'c',
+        titulo_ingles: 'C',
+        resumen: 't',
+      },
     ]);
 
     const result = readArticles(file);
     expect(result.articles).toHaveLength(3);
-    expect(result.articles.map(a => a._fila)).toEqual([2, 3, 4]);
+    expect(result.articles.map((a) => a._fila)).toEqual([2, 3, 4]);
   });
 
   it('filtra filas completamente vacías', () => {
@@ -94,9 +121,7 @@ describe('readArticles - XLSX', () => {
   });
 
   it('normaliza headers con acentos y mayúsculas', () => {
-    const file = createXlsx(
-      [{ Título: 'Con acento', URL: 'https://x.com', titulo_ingles: 'Title' }],
-    );
+    const file = createXlsx([{ Título: 'Con acento', URL: 'https://x.com', titulo_ingles: 'Title' }]);
 
     const result = readArticles(file);
     expect(result.articles[0].titulo).toBe('Con acento');
@@ -106,16 +131,14 @@ describe('readArticles - XLSX', () => {
 
 describe('readArticles - errores', () => {
   it('lanza error si el archivo no existe', () => {
-    expect(() => readArticles('/ruta/no/existe.xlsx'))
-      .toThrow('Archivo no encontrado');
+    expect(() => readArticles('/ruta/no/existe.xlsx')).toThrow('Archivo no encontrado');
   });
 
   it('lanza error si el formato no es soportado', () => {
     const file = path.join(tempDir, 'test.txt');
     fs.writeFileSync(file, 'contenido');
 
-    expect(() => readArticles(file))
-      .toThrow('Formato no soportado');
+    expect(() => readArticles(file)).toThrow('Formato no soportado');
   });
 });
 
@@ -146,9 +169,7 @@ describe('readArticles - clasificación por estado', () => {
   });
 
   it('reconoce estado en mayúsculas', () => {
-    const file = createXlsx([
-      { titulo: 'Art 1', url: 'https://a.com', estado: 'SUBIDO' },
-    ]);
+    const file = createXlsx([{ titulo: 'Art 1', url: 'https://a.com', estado: 'SUBIDO' }]);
 
     const result = readArticles(file);
     expect(result.alreadyUploaded).toHaveLength(1);
@@ -157,18 +178,14 @@ describe('readArticles - clasificación por estado', () => {
 
 describe('readArticles - headers desconocidos', () => {
   it('detecta columnas no reconocidas', () => {
-    const file = createXlsx([
-      { titulo: 'Art', url: 'https://a.com', columna_rara: 'X' },
-    ]);
+    const file = createXlsx([{ titulo: 'Art', url: 'https://a.com', columna_rara: 'X' }]);
 
     const result = readArticles(file);
     expect(result.unknownHeaders).toContain('columna_rara');
   });
 
   it('no reporta columnas de estado como desconocidas', () => {
-    const file = createXlsx([
-      { titulo: 'Art', url: 'https://a.com', estado: '', fecha_subida: '', ultimo_error: '' },
-    ]);
+    const file = createXlsx([{ titulo: 'Art', url: 'https://a.com', estado: '', fecha_subida: '', ultimo_error: '' }]);
 
     const result = readArticles(file);
     expect(result.unknownHeaders).not.toContain('estado');
@@ -177,9 +194,7 @@ describe('readArticles - headers desconocidos', () => {
   });
 
   it('retorna array vacío si todos los headers son conocidos', () => {
-    const file = createXlsx([
-      { titulo: 'Art', url: 'https://a.com' },
-    ]);
+    const file = createXlsx([{ titulo: 'Art', url: 'https://a.com' }]);
 
     const result = readArticles(file);
     expect(result.unknownHeaders).toEqual([]);

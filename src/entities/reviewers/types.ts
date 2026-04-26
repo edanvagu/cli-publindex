@@ -4,7 +4,7 @@ import { PersonSearchResult } from '../persons/types';
 export interface ReviewerRow {
   nombre_completo: string;
   identificacion: string;
-  nacionalidad: string;                   // "Colombiana" | "Extranjera"
+  nacionalidad: string; // "Colombiana" | "Extranjera"
   filiacion_institucional?: string;
   tiene_cvlac?: string;
   estado_carga?: string;
@@ -12,7 +12,7 @@ export interface ReviewerRow {
   _fila: number;
 }
 
-export type ReviewerState = typeof REVIEWER_STATES[keyof typeof REVIEWER_STATES];
+export type ReviewerState = (typeof REVIEWER_STATES)[keyof typeof REVIEWER_STATES];
 
 export type LinkReviewerPayload = PersonSearchResult & {
   idFasciculo: number;

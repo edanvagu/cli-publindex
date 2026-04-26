@@ -12,7 +12,7 @@ export function banner() {
     { text: 'Desarrollada por Edward Vásquez' },
     { text: 'Contacto: eavasquezgu@gmail.com' },
   ];
-  const innerWidth = Math.max(...lines.map(l => l.text.length));
+  const innerWidth = Math.max(...lines.map((l) => l.text.length));
   const border = '─'.repeat(innerWidth + 2);
 
   console.log('');
@@ -63,7 +63,7 @@ export function showValidation(result: ValidationResult) {
 
   if (result.errors.length > 0) {
     console.log('');
-    error(`${new Set(result.errors.map(e => e.row)).size} artículos con errores:`);
+    error(`${new Set(result.errors.map((e) => e.row)).size} artículos con errores:`);
     console.log('');
 
     const byRow = new Map<number, typeof result.errors>();
@@ -96,7 +96,14 @@ export function showValidation(result: ValidationResult) {
   console.log(chalk.bold('  ═══════════════════════════════════════════════'));
 }
 
-export function showProgress(current: number, total: number, title: string, ok: boolean, timeMs: number, errorMsg?: string) {
+export function showProgress(
+  current: number,
+  total: number,
+  title: string,
+  ok: boolean,
+  timeMs: number,
+  errorMsg?: string,
+) {
   const idx = `[${current}/${total}]`;
   const shortTitle = title.length > 55 ? title.substring(0, 52) + '...' : title;
   const time = `(${(timeMs / 1000).toFixed(1)}s)`;
@@ -104,7 +111,9 @@ export function showProgress(current: number, total: number, title: string, ok: 
   if (ok) {
     console.log(chalk.gray(`  ${idx} `) + chalk.white(`"${shortTitle}" `) + chalk.green('✓ ') + chalk.gray(time));
   } else {
-    console.log(chalk.gray(`  ${idx} `) + chalk.white(`"${shortTitle}" `) + chalk.red('✗ ') + chalk.red(errorMsg || 'Error'));
+    console.log(
+      chalk.gray(`  ${idx} `) + chalk.white(`"${shortTitle}" `) + chalk.red('✗ ') + chalk.red(errorMsg || 'Error'),
+    );
   }
 }
 
@@ -114,9 +123,12 @@ export function showPause(seconds: number) {
 
 export function showRemainingTime(seconds: number, processed: number, total: number) {
   const remainingCount = total - processed;
-  console.log(chalk.gray(`        ⏱  Tiempo restante estimado: ~${formatDuration(seconds)} (${remainingCount} artículos por procesar)`));
+  console.log(
+    chalk.gray(
+      `        ⏱  Tiempo restante estimado: ~${formatDuration(seconds)} (${remainingCount} artículos por procesar)`,
+    ),
+  );
 }
-
 
 interface AuthorReference {
   _fila: number;
@@ -133,14 +145,18 @@ interface CandidateRow {
   email: string;
 }
 
- //Shown BEFORE the interactive picker when document-based search misses
+//Shown BEFORE the interactive picker when document-based search misses
 export function showPickerReference(author: AuthorReference): void {
   console.log('');
   console.log(chalk.bold('  Referencia del autor (desde OJS):'));
   console.log(`    ${chalk.gray('Nombre:        ')}${author.nombre_completo}`);
-  console.log(`    ${chalk.gray('Filiación:     ')}${author.filiacion_institucional || chalk.gray('(sin filiación en OJS)')}`);
+  console.log(
+    `    ${chalk.gray('Filiación:     ')}${author.filiacion_institucional || chalk.gray('(sin filiación en OJS)')}`,
+  );
   console.log(`    ${chalk.gray('Nacionalidad:  ')}${author.nacionalidad}`);
-  console.log(`    ${chalk.gray('Identificación:')}${author.identificacion ? ' ' + author.identificacion : chalk.gray(' (no proporcionada)')}`);
+  console.log(
+    `    ${chalk.gray('Identificación:')}${author.identificacion ? ' ' + author.identificacion : chalk.gray(' (no proporcionada)')}`,
+  );
   console.log('');
 }
 
@@ -164,10 +180,10 @@ export function showCandidatesTable(candidates: CandidateRow[]): void {
   }));
 
   console.log(chalk.bold('  Candidatos encontrados en Publindex:'));
-  console.log('  ' + cols.map(c => chalk.bold(pad(c.header, c.width))).join(' │ '));
-  console.log('  ' + cols.map(c => '─'.repeat(c.width)).join('─┼─'));
+  console.log('  ' + cols.map((c) => chalk.bold(pad(c.header, c.width))).join(' │ '));
+  console.log('  ' + cols.map((c) => '─'.repeat(c.width)).join('─┼─'));
   for (const r of rows) {
-    console.log('  ' + cols.map(c => pad((r as Record<string, string>)[c.key], c.width)).join(' │ '));
+    console.log('  ' + cols.map((c) => pad((r as Record<string, string>)[c.key], c.width)).join(' │ '));
   }
   console.log('');
 }
@@ -182,7 +198,11 @@ export function showSummary(result: UploadResult) {
 
   console.log('');
   console.log(chalk.bold('  ═══════════════════════════════════════════════'));
-  console.log(chalk.green(`  Completados: ${result.successful.length}`) + chalk.gray(' | ') + chalk.red(`Fallidos: ${result.failed.length}`));
+  console.log(
+    chalk.green(`  Completados: ${result.successful.length}`) +
+      chalk.gray(' | ') +
+      chalk.red(`Fallidos: ${result.failed.length}`),
+  );
   console.log(chalk.gray(`  Tiempo total: ${timeSec}s`));
   console.log(chalk.bold('  ═══════════════════════════════════════════════'));
 

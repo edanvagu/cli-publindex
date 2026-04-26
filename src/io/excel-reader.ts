@@ -44,7 +44,7 @@ export function readArticles(filePath: string): ReadResult {
 
   const { articles, normalizedHeaders } = parseXlsx(absolutePath);
 
-  const unknownHeaders = normalizedHeaders.filter(h => h && !KNOWN_HEADERS.has(h));
+  const unknownHeaders = normalizedHeaders.filter((h) => h && !KNOWN_HEADERS.has(h));
 
   const alreadyUploaded: ArticleRow[] = [];
   const pending: ArticleRow[] = [];

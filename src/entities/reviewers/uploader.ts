@@ -73,39 +73,33 @@ export async function runReviewersUpload(
 
   const pass1 = await runReviewersPass(session, reviewers, alreadyLinked, options);
 
-  const retryableRows = new Set(
-    pass1.failed.filter(f => f.error === NOT_FOUND_ERROR).map(f => f.row),
-  );
+  const retryableRows = new Set(pass1.failed.filter((f) => f.error === NOT_FOUND_ERROR).map((f) => f.row));
   if (retryableRows.size === 0) return pass1;
 
   options.onWarning(`Ronda 2: reintentando ${retryableRows.size} evaluador(es) con nacionalidad cruzada...`);
 
   const flipped: ReviewerRow[] = reviewers
-    .filter(r => retryableRows.has(r._fila))
-    .map(r => ({ ...r, nacionalidad: flipNationality(r.nacionalidad) }));
+    .filter((r) => retryableRows.has(r._fila))
+    .map((r) => ({ ...r, nacionalidad: flipNationality(r.nacionalidad) }));
 
   const pass2 = await runReviewersPass(session, flipped, alreadyLinked, options);
 
   return {
     successful: [...pass1.successful, ...pass2.successful],
-    failed: [
-      ...pass1.failed.filter(f => !retryableRows.has(f.row)),
-      ...pass2.failed,
-    ],
+    failed: [...pass1.failed.filter((f) => !retryableRows.has(f.row)), ...pass2.failed],
     totalTimeMs: pass1.totalTimeMs + pass2.totalTimeMs,
   };
 }
 
 // Idempotency guard: if the editor already linked some reviewers from the UI, skip them without POST.
-async function fetchAlreadyLinked(
-  session: Session,
-  options: ReviewersUploadOptions,
-): Promise<Set<string>> {
+async function fetchAlreadyLinked(session: Session, options: ReviewersUploadOptions): Promise<Set<string>> {
   try {
     const linked = await listReviewersByFasciculo(session, options.idFasciculo);
-    return new Set(linked.map(r => r.codRh).filter(Boolean));
+    return new Set(linked.map((r) => r.codRh).filter(Boolean));
   } catch (err) {
-    options.onWarning(`No se pudo obtener la lista de evaluadores ya vinculados al fascículo: ${(err as Error).message}. Se continuará sin pre-filtro de duplicados.`);
+    options.onWarning(
+      `No se pudo obtener la lista de evaluadores ya vinculados al fascículo: ${(err as Error).message}. Se continuará sin pre-filtro de duplicados.`,
+    );
     return new Set();
   }
 }
@@ -135,7 +129,13 @@ async function runReviewersPass(
       const person = await resolvePerson(session, reviewer, options);
       if (!person) {
         const msg = NOT_FOUND_ERROR;
-        writeError(options.progressTracker, reviewer, msg, 'Registrar evaluador manualmente en Publindex', options.onWarning);
+        writeError(
+          options.progressTracker,
+          reviewer,
+          msg,
+          'Registrar evaluador manualmente en Publindex',
+          options.onWarning,
+        );
         failed.push({ row: reviewer._fila, nombre, error: msg });
         options.onProgress(i + 1, reviewers.length, nombre, false, Date.now() - start, msg);
         continue;
@@ -156,10 +156,9 @@ async function runReviewersPass(
       }
 
       await subcallPause(options.abortSignal);
-      const enriched = await withRetry(
-        () => getTrayectoria(session, person.codRh, options.anoFasciculo),
-        { onRetry: (attempt, error) => options.onRetry(reviewer._fila, attempt, error) },
-      );
+      const enriched = await withRetry(() => getTrayectoria(session, person.codRh, options.anoFasciculo), {
+        onRetry: (attempt, error) => options.onRetry(reviewer._fila, attempt, error),
+      });
 
       const hasCvlac = enriched.staCertificado === 'T';
 
@@ -181,11 +180,12 @@ async function runReviewersPass(
 
       await subcallPause(options.abortSignal);
       await withRetry(
-        () => linkReviewer(session, {
-          ...enriched,
-          idFasciculo: options.idFasciculo,
-          anoFasciculo: options.anoFasciculo,
-        }),
+        () =>
+          linkReviewer(session, {
+            ...enriched,
+            idFasciculo: options.idFasciculo,
+            anoFasciculo: options.anoFasciculo,
+          }),
         { onRetry: (attempt, error) => options.onRetry(reviewer._fila, attempt, error) },
       );
 
@@ -207,7 +207,9 @@ async function runReviewersPass(
       );
 
       if (!hasCurrentAffiliation) {
-        options.onWarning(`Fila ${reviewer._fila} (${nombre}): vinculado, pero sin filiación vigente — el sistema lo asumirá como filiación interna. Registrar experiencia en CvLAC si corresponde a otra institución.`);
+        options.onWarning(
+          `Fila ${reviewer._fila} (${nombre}): vinculado, pero sin filiación vigente — el sistema lo asumirá como filiación interna. Registrar experiencia en CvLAC si corresponde a otra institución.`,
+        );
       }
 
       successful.push({ row: reviewer._fila, nombre });

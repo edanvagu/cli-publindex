@@ -76,20 +76,14 @@ describe('rowToPayload - normalización', () => {
   });
 
   it('convierte eval_* a mayúsculas', () => {
-    const payload = rowToPayload(
-      baseRow({ eval_interna: 't', eval_nacional: 'f', eval_internacional: 'T' }),
-      38200
-    );
+    const payload = rowToPayload(baseRow({ eval_interna: 't', eval_nacional: 'f', eval_internacional: 'T' }), 38200);
     expect(payload.staInternoInstiTit).toBe('T');
     expect(payload.staNacionalExternoInst).toBe('F');
     expect(payload.staInternacionalExternoInst).toBe('T');
   });
 
   it('convierte tipo_resumen y tipo_especialista a mayúsculas', () => {
-    const payload = rowToPayload(
-      baseRow({ tipo_resumen: 'a', tipo_especialista: 's' }),
-      38200
-    );
+    const payload = rowToPayload(baseRow({ tipo_resumen: 'a', tipo_especialista: 's' }), 38200);
     expect(payload.tpoResumen).toBe('A');
     expect(payload.tpoEspecialista).toBe('S');
   });
@@ -129,10 +123,7 @@ describe('rowToPayload - textos opcionales', () => {
   });
 
   it('mapea palabras_clave_otro_idioma a txtPalabraClaveIdioma', () => {
-    const payload = rowToPayload(
-      baseRow({ palabras_clave_otro_idioma: 'history; culture' }),
-      38200
-    );
+    const payload = rowToPayload(baseRow({ palabras_clave_otro_idioma: 'history; culture' }), 38200);
     expect(payload.txtPalabraClaveIdioma).toBe('history; culture');
   });
 });

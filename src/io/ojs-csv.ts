@@ -4,9 +4,9 @@ import * as XLSX from 'xlsx';
 
 export interface ReviewerRow {
   nombre_completo: string;
-  nacionalidad: string;                    // "Colombiana" | "Extranjera"
+  nacionalidad: string; // "Colombiana" | "Extranjera"
   filiacion_institucional?: string;
-  username_ojs: string;                    // kept internally as dedup key; not written to the Excel
+  username_ojs: string; // kept internally as dedup key; not written to the Excel
 }
 
 export interface ParseReviewsResult {
@@ -97,7 +97,7 @@ export function parseReviewsCsv(filePath: string, submissionIdSet: Set<string>):
   if (countriesMissing.size > 0) {
     warnings.push(
       `${countriesMissing.size} reviewer(s) sin País en OJS — se asumieron como Extranjeros. ` +
-      `Revisar la columna nacionalidad antes de vincular.`
+        `Revisar la columna nacionalidad antes de vincular.`,
     );
   }
 

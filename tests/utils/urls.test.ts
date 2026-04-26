@@ -3,18 +3,17 @@ import { buildArticleUrl, normalizeBaseUrl } from '../../src/utils/urls';
 
 describe('buildArticleUrl', () => {
   it('concatena base + /article/view/ + id', () => {
-    expect(buildArticleUrl('https://revistas.example.com/index.php/fhistoria', '2953'))
-      .toBe('https://revistas.example.com/index.php/fhistoria/article/view/2953');
+    expect(buildArticleUrl('https://revistas.example.com/index.php/fhistoria', '2953')).toBe(
+      'https://revistas.example.com/index.php/fhistoria/article/view/2953',
+    );
   });
 
   it('tolera base con slash final', () => {
-    expect(buildArticleUrl('https://x.com/j/', '42'))
-      .toBe('https://x.com/j/article/view/42');
+    expect(buildArticleUrl('https://x.com/j/', '42')).toBe('https://x.com/j/article/view/42');
   });
 
   it('tolera múltiples slashes al final de la base', () => {
-    expect(buildArticleUrl('https://x.com/j///', '42'))
-      .toBe('https://x.com/j/article/view/42');
+    expect(buildArticleUrl('https://x.com/j///', '42')).toBe('https://x.com/j/article/view/42');
   });
 });
 

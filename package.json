@@ -7,12 +7,14 @@
     "publindex": "./dist/bin/publindex.js"
   },
   "scripts": {
-    "start": "tsx bin/publindex.ts",
+    "start": "npm run format && tsx bin/publindex.ts",
     "build": "tsc",
     "build:bundle": "esbuild bin/publindex.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist/publindex.js",
     "build:bin": "npm run ext:build && npm run embed:ext && npm run build:bundle && pkg dist/publindex.js --targets node20-win-x64 --out-path dist/",
     "embed:ext": "node scripts/embed-extension.mjs",
     "test": "vitest run",
+    "format": "prettier --write \"{bin,src,tests,scripts}/**/*.{ts,tsx,js,mjs,json}\" \"*.{ts,js,mjs,json,md}\"",
+    "format:check": "prettier --check \"{bin,src,tests,scripts}/**/*.{ts,tsx,js,mjs,json}\" \"*.{ts,js,mjs,json,md}\"",
     "ext:build": "npm run build --prefix extension",
     "ext:dev": "npm run dev --prefix extension",
     "ext:test": "npm test --prefix extension"
@@ -42,6 +44,7 @@
     "@types/node": "^25.6.0",
     "@yao-pkg/pkg": "^6.17.0",
     "esbuild": "^0.28.0",
+    "prettier": "^3.8.3",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3",
     "vitest": "^1.6.1"

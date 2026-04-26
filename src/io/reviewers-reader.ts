@@ -31,9 +31,7 @@ export function readReviewers(filePath: string): ReadReviewersResult {
   }
 
   const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
-  const reviewers = raw
-    .map((r, i) => mapRawToReviewerRow(r, i + 2))
-    .filter(r => !isEmptyReviewer(r));
+  const reviewers = raw.map((r, i) => mapRawToReviewerRow(r, i + 2)).filter((r) => !isEmptyReviewer(r));
 
   const pending: ReviewerRow[] = [];
   const uploaded: ReviewerRow[] = [];

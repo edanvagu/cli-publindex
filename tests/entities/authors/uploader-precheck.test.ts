@@ -104,15 +104,12 @@ describe('runAuthorsUpload — pre-check de autores ya vinculados al artículo',
 
     await runAuthorsUpload(
       mockSession(),
-      [
-        buildAuthor({ _fila: 2, id_articulo: '100' }),
-        buildAuthor({ _fila: 3, id_articulo: '200' }),
-      ],
+      [buildAuthor({ _fila: 2, id_articulo: '100' }), buildAuthor({ _fila: 3, id_articulo: '200' })],
       buildOptions(),
     );
 
     expect(api.listAuthorsByArticle).toHaveBeenCalledTimes(2);
-    expect(vi.mocked(api.listAuthorsByArticle).mock.calls.map(c => c[1])).toEqual([100, 200]);
+    expect(vi.mocked(api.listAuthorsByArticle).mock.calls.map((c) => c[1])).toEqual([100, 200]);
   });
 
   it('si el GET del pre-check falla, continúa sin pre-filtro para ese artículo', async () => {

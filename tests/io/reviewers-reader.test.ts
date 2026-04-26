@@ -25,9 +25,9 @@ describe('readReviewers', () => {
     const file = path.join(dir, 'test.xlsx');
     // nombre_completo, identificacion, nacionalidad, filiacion, tiene_cvlac, estado_carga, accion_requerida
     await buildWorkbook(file, [
-      ['Jane Doe',      '111', 'Colombiana', 'Univ A', 'Sí', 'subido',              ''],
-      ['John Ficticio', '222', 'Extranjera', '',       '',   'pendiente',           ''],
-      ['Mary Prueba',   '',    'Colombiana', '',       '',   'error:No encontrado', 'Revisar nombre'],
+      ['Jane Doe', '111', 'Colombiana', 'Univ A', 'Sí', 'subido', ''],
+      ['John Ficticio', '222', 'Extranjera', '', '', 'pendiente', ''],
+      ['Mary Prueba', '', 'Colombiana', '', '', 'error:No encontrado', 'Revisar nombre'],
     ]);
     const result = readReviewers(file);
 
@@ -57,8 +57,8 @@ describe('readReviewers', () => {
     const dir = tempDir();
     const file = path.join(dir, 'empty.xlsx');
     await buildWorkbook(file, [
-      ['Jane Doe',      '111', 'Colombiana', '', '', '', ''],
-      ['',              '',    '',           '', '', '', ''],
+      ['Jane Doe', '111', 'Colombiana', '', '', '', ''],
+      ['', '', '', '', '', '', ''],
       ['John Ficticio', '222', 'Extranjera', '', '', '', ''],
     ]);
     const result = readReviewers(file);

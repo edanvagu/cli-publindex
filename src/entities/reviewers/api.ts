@@ -18,10 +18,7 @@ export async function linkReviewer(session: Session, payload: LinkReviewerPayloa
   }
 }
 
-export async function listReviewersByFasciculo(
-  session: Session,
-  idFasciculo: number,
-): Promise<PersonSearchResult[]> {
+export async function listReviewersByFasciculo(session: Session, idFasciculo: number): Promise<PersonSearchResult[]> {
   const url = buildReviewersByFasciculoUrl(idFasciculo);
   const response = await authedRequest<PersonSearchResult[]>(session, url, {
     method: 'GET',

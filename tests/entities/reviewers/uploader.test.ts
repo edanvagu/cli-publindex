@@ -113,9 +113,7 @@ describe('runReviewersUpload', () => {
   });
 
   it('cae a búsqueda por nombre + picker cuando la cédula no encuentra', async () => {
-    vi.mocked(personsApi.searchPersons)
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([PERSON]);
+    vi.mocked(personsApi.searchPersons).mockResolvedValueOnce([]).mockResolvedValueOnce([PERSON]);
     vi.mocked(personsApi.getTrayectoria).mockResolvedValueOnce({ ...PERSON, instituciones: ['Univ X'] });
     vi.mocked(reviewersApi.linkReviewer).mockResolvedValueOnce();
 

@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { parsePublication, parseArticle, ojsArticleToRow, extractPublicationsXml, detectNonStandardPages, articlesToAuthorRows } from '../../src/io/ojs-xml';
+import {
+  parsePublication,
+  parseArticle,
+  ojsArticleToRow,
+  extractPublicationsXml,
+  detectNonStandardPages,
+  articlesToAuthorRows,
+} from '../../src/io/ojs-xml';
 
 const FULL_PUBLICATION = `<publication locale="es_ES" version="1" status="3" date_published="2026-01-15" section_ref="Artículos" seq="1">
   <id type="internal" advice="ignore">1001</id>
@@ -282,10 +289,7 @@ describe('detectNonStandardPages', () => {
   });
 
   it('retorna arreglo vacío cuando todas las páginas son rangos válidos', () => {
-    const articles = [
-      { titulo: 'A', paginaInicial: '1', paginaFinal: '10' },
-      { titulo: 'B' },
-    ];
+    const articles = [{ titulo: 'A', paginaInicial: '1', paginaFinal: '10' }, { titulo: 'B' }];
     expect(detectNonStandardPages(articles)).toEqual([]);
   });
 });

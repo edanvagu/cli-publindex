@@ -29,7 +29,7 @@ export async function runUpload(
   session: Session,
   articles: ArticleRow[],
   idFasciculo: number,
-  options: RunnerOptions
+  options: RunnerOptions,
 ): Promise<UploadResult> {
   const startTime = Date.now();
   const successful: UploadResult['successful'] = [];
@@ -37,7 +37,9 @@ export async function runUpload(
 
   const alreadyOnServer = await fetchAlreadyUploadedArticles(session, idFasciculo, options.onWarning);
   if (alreadyOnServer.size > 0) {
-    options.onWarning(`Pre-check: ${alreadyOnServer.size} artículo(s) ya están en el fascículo. Se saltarán si su título coincide.`);
+    options.onWarning(
+      `Pre-check: ${alreadyOnServer.size} artículo(s) ya están en el fascículo. Se saltarán si su título coincide.`,
+    );
   }
 
   for (let i = 0; i < articles.length; i++) {
@@ -67,14 +69,11 @@ export async function runUpload(
     const payload = rowToPayload(article, idFasciculo);
 
     try {
-      const articleId = await withRetry(
-        () => createArticle(session, payload),
-        {
-          onRetry: (attempt, error) => {
-            options.onRetry(article._fila, attempt, error);
-          },
-        }
-      );
+      const articleId = await withRetry(() => createArticle(session, payload), {
+        onRetry: (attempt, error) => {
+          options.onRetry(article._fila, attempt, error);
+        },
+      });
 
       const elapsed = Date.now() - start;
       successful.push({ row: article._fila, titulo: article.titulo });
@@ -82,7 +81,7 @@ export async function runUpload(
 
       options.progressTracker.update(
         { row: article._fila, state: ARTICLE_STATES.UPLOADED, articleId },
-        options.onWarning
+        options.onWarning,
       );
       options.onArticleCreated?.(article, articleId);
       alreadyOnServer.set(normalizeTitle(article.titulo), articleId);
@@ -94,7 +93,7 @@ export async function runUpload(
 
       options.progressTracker.update(
         { row: article._fila, state: ARTICLE_STATES.ERROR, error: errorMsg },
-        options.onWarning
+        options.onWarning,
       );
     }
 
@@ -134,7 +133,9 @@ async function fetchAlreadyUploadedArticles(
       map.set(normalizeTitle(a.txtTituloArticulo), a.id);
     }
   } catch (err) {
-    onWarning(`No se pudo obtener la lista de artículos ya cargados del fascículo: ${(err as Error).message}. Se continuará sin pre-filtro de duplicados.`);
+    onWarning(
+      `No se pudo obtener la lista de artículos ya cargados del fascículo: ${(err as Error).message}. Se continuará sin pre-filtro de duplicados.`,
+    );
   }
   return map;
 }
@@ -143,11 +144,7 @@ export function estimateTimeSeconds(count: number): number {
   return Math.round(count * DEFAULTS.ESTIMATED_SECONDS_PER_ARTICLE);
 }
 
-export function estimateRemainingTimeSeconds(
-  processed: number,
-  total: number,
-  elapsedMs: number,
-): number {
+export function estimateRemainingTimeSeconds(processed: number, total: number, elapsedMs: number): number {
   const remainingCount = total - processed;
   if (remainingCount <= 0) return 0;
   if (processed <= 0) return estimateTimeSeconds(remainingCount);

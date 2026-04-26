@@ -10,9 +10,7 @@ describe('withRetry', () => {
   });
 
   it('reintenta si la primera llamada falla', async () => {
-    const fn = vi.fn()
-      .mockRejectedValueOnce(new Error('fallo 1'))
-      .mockResolvedValue('ok');
+    const fn = vi.fn().mockRejectedValueOnce(new Error('fallo 1')).mockResolvedValue('ok');
 
     const result = await withRetry(fn, { delayMs: 10 });
     expect(result).toBe('ok');
@@ -20,7 +18,8 @@ describe('withRetry', () => {
   });
 
   it('reintenta hasta el máximo de intentos', async () => {
-    const fn = vi.fn()
+    const fn = vi
+      .fn()
       .mockRejectedValueOnce(new Error('fallo 1'))
       .mockRejectedValueOnce(new Error('fallo 2'))
       .mockResolvedValue('ok');
@@ -31,21 +30,19 @@ describe('withRetry', () => {
   });
 
   it('lanza el último error si todos los intentos fallan', async () => {
-    const fn = vi.fn()
+    const fn = vi
+      .fn()
       .mockRejectedValueOnce(new Error('fallo 1'))
       .mockRejectedValueOnce(new Error('fallo 2'))
       .mockRejectedValue(new Error('fallo final'));
 
-    await expect(withRetry(fn, { maxAttempts: 3, delayMs: 10 }))
-      .rejects.toThrow('fallo final');
+    await expect(withRetry(fn, { maxAttempts: 3, delayMs: 10 })).rejects.toThrow('fallo final');
     expect(fn).toHaveBeenCalledTimes(3);
   });
 
   it('invoca onRetry con intento y error', async () => {
     const onRetry = vi.fn();
-    const fn = vi.fn()
-      .mockRejectedValueOnce(new Error('primera'))
-      .mockResolvedValue('ok');
+    const fn = vi.fn().mockRejectedValueOnce(new Error('primera')).mockResolvedValue('ok');
 
     await withRetry(fn, { maxAttempts: 3, delayMs: 10, onRetry });
 
@@ -65,7 +62,8 @@ describe('withRetry', () => {
   it('aplica backoff exponencial entre intentos', async () => {
     const tiempos: number[] = [];
     let ultimo = Date.now();
-    const fn = vi.fn()
+    const fn = vi
+      .fn()
       .mockRejectedValueOnce(new Error('1'))
       .mockRejectedValueOnce(new Error('2'))
       .mockImplementation(() => {
@@ -84,14 +82,12 @@ describe('withRetry', () => {
 
   it('no reintenta si maxAttempts es 1', async () => {
     const fn = vi.fn().mockRejectedValue(new Error('fallo'));
-    await expect(withRetry(fn, { maxAttempts: 1, delayMs: 10 }))
-      .rejects.toThrow('fallo');
+    await expect(withRetry(fn, { maxAttempts: 1, delayMs: 10 })).rejects.toThrow('fallo');
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
   it('convierte errores no-Error a Error', async () => {
     const fn = vi.fn().mockRejectedValue('string error');
-    await expect(withRetry(fn, { maxAttempts: 1, delayMs: 10 }))
-      .rejects.toThrow('string error');
+    await expect(withRetry(fn, { maxAttempts: 1, delayMs: 10 })).rejects.toThrow('string error');
   });
 });

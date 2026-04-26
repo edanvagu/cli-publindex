@@ -1,5 +1,22 @@
-import { spinner, success, error, info, warning, showValidation, showProgress, showSummary, showPause, showRemainingTime } from '../logger';
-import { promptFilePath, confirmContinue, confirmResume, confirmTimeEstimate, promptArticlesToUpload } from '../prompts';
+import {
+  spinner,
+  success,
+  error,
+  info,
+  warning,
+  showValidation,
+  showProgress,
+  showSummary,
+  showPause,
+  showRemainingTime,
+} from '../logger';
+import {
+  promptFilePath,
+  confirmContinue,
+  confirmResume,
+  confirmTimeEstimate,
+  promptArticlesToUpload,
+} from '../prompts';
 import { formatIssue } from '../../entities/issues/api';
 import { readArticles, ReadResult } from '../../io/excel-reader';
 import { validateBatch } from '../../entities/articles/validator';
@@ -30,7 +47,10 @@ export async function uploadArticles(): Promise<void> {
 
   if (readResult.alreadyUploaded.length > 0) {
     info(`Se detectaron ${readResult.alreadyUploaded.length} artículos ya cargados previamente.`);
-    const action = await confirmResume(readResult.alreadyUploaded.length, readResult.pending.length + readResult.withError.length);
+    const action = await confirmResume(
+      readResult.alreadyUploaded.length,
+      readResult.pending.length + readResult.withError.length,
+    );
     if (action === 'skip') {
       articlesToProcess = [...readResult.pending, ...readResult.withError];
       info(`Se procesarán los ${articlesToProcess.length} artículos pendientes + con error.`);
@@ -60,9 +80,7 @@ export async function uploadArticles(): Promise<void> {
   }
 
   if (validation.errors.length > 0) {
-    const shouldContinue = await confirmContinue(
-      `¿Continuar con los ${validation.valid.length} artículos válidos?`
-    );
+    const shouldContinue = await confirmContinue(`¿Continuar con los ${validation.valid.length} artículos válidos?`);
     if (!shouldContinue) {
       info('Operación cancelada. Corrija los errores y vuelva a intentar.');
       return;
@@ -80,7 +98,11 @@ export async function uploadArticles(): Promise<void> {
     return;
   }
 
-  const refreshed = await ensureTokenCoversEstimate(session, estimatedTime, `cargar ${validation.valid.length} artículos`);
+  const refreshed = await ensureTokenCoversEstimate(
+    session,
+    estimatedTime,
+    `cargar ${validation.valid.length} artículos`,
+  );
   if (!refreshed) return;
   session = refreshed;
 
@@ -95,13 +117,18 @@ export async function uploadArticles(): Promise<void> {
   if (result.failed.length > 0) {
     const shouldRetry = await confirmContinue('¿Reintentar los artículos fallidos?');
     if (shouldRetry) {
-      const failedRows = new Set(result.failed.map(f => f.row));
-      const articlesToRetry = validation.valid.filter(a => failedRows.has(a._fila));
+      const failedRows = new Set(result.failed.map((f) => f.row));
+      const articlesToRetry = validation.valid.filter((a) => failedRows.has(a._fila));
 
       info(`Reintentando ${articlesToRetry.length} artículos...`);
       console.log('');
 
-      const retryResult = await runUpload(session, articlesToRetry, issue.id, buildUploadOptions(progressTracker, true));
+      const retryResult = await runUpload(
+        session,
+        articlesToRetry,
+        issue.id,
+        buildUploadOptions(progressTracker, true),
+      );
       showSummary(retryResult);
     }
   }
@@ -109,7 +136,9 @@ export async function uploadArticles(): Promise<void> {
   await flushProgressInteractive(progressTracker);
   success('Carga de artículos finalizada.');
 
-  const continueToAuthors = await confirmContinue('¿Continuar con la vinculación de autores ahora (sin volver a pedir credenciales)?');
+  const continueToAuthors = await confirmContinue(
+    '¿Continuar con la vinculación de autores ahora (sin volver a pedir credenciales)?',
+  );
   if (continueToAuthors) {
     console.log('');
     await uploadAuthorsWithContext({ file, session, issue });

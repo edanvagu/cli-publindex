@@ -81,15 +81,21 @@ describe('runAuthorsUpload', () => {
 
     expect(result.successful).toHaveLength(1);
     expect(result.failed).toHaveLength(0);
-    expect(api.searchPersons).toHaveBeenCalledWith(expect.objectContaining({ token: 'x' }), expect.objectContaining({
-      tpoNacionalidad: 'C',
-      nroDocumentoIdent: '99999999',
-    }));
-    expect(api.linkAuthor).toHaveBeenCalledWith(expect.objectContaining({ token: 'x' }), expect.objectContaining({
-      codRh: '0000000001',
-      idArticulo: 253026,
-      anoFasciculo: 2025,
-    }));
+    expect(api.searchPersons).toHaveBeenCalledWith(
+      expect.objectContaining({ token: 'x' }),
+      expect.objectContaining({
+        tpoNacionalidad: 'C',
+        nroDocumentoIdent: '99999999',
+      }),
+    );
+    expect(api.linkAuthor).toHaveBeenCalledWith(
+      expect.objectContaining({ token: 'x' }),
+      expect.objectContaining({
+        codRh: '0000000001',
+        idArticulo: 253026,
+        anoFasciculo: 2025,
+      }),
+    );
     expect(options.progressTracker.updateAuthor).toHaveBeenCalledWith(
       expect.objectContaining({ uploadState: 'subido', hasCvlac: 'Sí' }),
       expect.any(Function),
@@ -99,8 +105,8 @@ describe('runAuthorsUpload', () => {
   it('si no matchea por documento, pide al usuario escoger de la lista de nombre', async () => {
     const candidate = { ...PERSON, codRh: 'OTHER', nroDocumentoIdent: '99' };
     vi.mocked(api.searchPersons)
-      .mockResolvedValueOnce([])               // búsqueda por doc: vacía
-      .mockResolvedValueOnce([candidate]);     // búsqueda por nombre: 1 resultado
+      .mockResolvedValueOnce([]) // búsqueda por doc: vacía
+      .mockResolvedValueOnce([candidate]); // búsqueda por nombre: 1 resultado
     vi.mocked(api.getTrayectoria).mockResolvedValueOnce(candidate);
     vi.mocked(api.linkAuthor).mockResolvedValueOnce();
 
@@ -111,14 +117,14 @@ describe('runAuthorsUpload', () => {
 
     expect(onPickPerson).toHaveBeenCalled();
     expect(result.successful).toHaveLength(1);
-    expect(api.linkAuthor).toHaveBeenCalledWith(expect.objectContaining({ token: 'x' }), expect.objectContaining({ codRh: 'OTHER' }));
+    expect(api.linkAuthor).toHaveBeenCalledWith(
+      expect.objectContaining({ token: 'x' }),
+      expect.objectContaining({ codRh: 'OTHER' }),
+    );
   });
 
   it('marca error si el usuario escoge "Ninguno" en el picker', async () => {
-    vi.mocked(api.searchPersons)
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([PERSON])
-      .mockResolvedValue([]);
+    vi.mocked(api.searchPersons).mockResolvedValueOnce([]).mockResolvedValueOnce([PERSON]).mockResolvedValue([]);
 
     const onPickPerson = vi.fn().mockResolvedValue(null);
     const options = buildOptions({ onPickPerson });
@@ -154,15 +160,14 @@ describe('runAuthorsUpload', () => {
     vi.mocked(api.linkAuthor).mockResolvedValueOnce();
 
     const options = buildOptions();
-    await runAuthorsUpload(
-      mockSession(),
-      [buildAuthor({ nacionalidad: 'Extranjera' })],
-      options,
-    );
+    await runAuthorsUpload(mockSession(), [buildAuthor({ nacionalidad: 'Extranjera' })], options);
 
-    expect(api.searchPersons).toHaveBeenCalledWith(expect.objectContaining({ token: 'x' }), expect.objectContaining({
-      tpoNacionalidad: 'E',
-    }));
+    expect(api.searchPersons).toHaveBeenCalledWith(
+      expect.objectContaining({ token: 'x' }),
+      expect.objectContaining({
+        tpoNacionalidad: 'E',
+      }),
+    );
   });
 
   it('marca tiene_cvlac="No" cuando staCertificado no es "T"', async () => {
@@ -184,11 +189,7 @@ describe('runAuthorsUpload', () => {
     vi.mocked(api.getTrayectoria).mockResolvedValueOnce({ ...PERSON, staCertificado: 'F' });
 
     const options = buildOptions();
-    const result = await runAuthorsUpload(
-      mockSession(),
-      [buildAuthor({ nacionalidad: 'Colombiana' })],
-      options,
-    );
+    const result = await runAuthorsUpload(mockSession(), [buildAuthor({ nacionalidad: 'Colombiana' })], options);
 
     expect(result.failed).toHaveLength(1);
     expect(result.failed[0].error).toBe('Colombiano sin CvLAC');
@@ -270,11 +271,7 @@ describe('runAuthorsUpload', () => {
     vi.mocked(api.linkAuthor).mockResolvedValueOnce();
 
     const options = buildOptions();
-    const result = await runAuthorsUpload(
-      mockSession(),
-      [buildAuthor({ nacionalidad: 'Extranjera' })],
-      options,
-    );
+    const result = await runAuthorsUpload(mockSession(), [buildAuthor({ nacionalidad: 'Extranjera' })], options);
 
     expect(result.successful).toHaveLength(1);
     expect(api.linkAuthor).toHaveBeenCalled();
@@ -304,21 +301,16 @@ describe('fallback de nacionalidad (ronda 2)', () => {
   });
 
   it('rescata al autor flippeando la nacionalidad cuando ronda 1 devuelve vacío', async () => {
-    vi.mocked(api.searchPersons)
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([PERSON]);
+    vi.mocked(api.searchPersons).mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([PERSON]);
     vi.mocked(api.getTrayectoria).mockResolvedValueOnce({
-      ...PERSON, staCertificado: 'T', instituciones: ['UNIVERSIDAD X'],
+      ...PERSON,
+      staCertificado: 'T',
+      instituciones: ['UNIVERSIDAD X'],
     });
     vi.mocked(api.linkAuthor).mockResolvedValueOnce();
 
     const options = buildOptions();
-    const result = await runAuthorsUpload(
-      mockSession(),
-      [buildAuthor({ nacionalidad: 'Colombiana' })],
-      options,
-    );
+    const result = await runAuthorsUpload(mockSession(), [buildAuthor({ nacionalidad: 'Colombiana' })], options);
 
     expect(result.successful).toHaveLength(1);
     expect(result.failed).toHaveLength(0);
@@ -348,11 +340,7 @@ describe('fallback de nacionalidad (ronda 2)', () => {
     vi.mocked(api.getTrayectoria).mockResolvedValueOnce({ ...PERSON, staCertificado: 'F' });
 
     const options = buildOptions();
-    const result = await runAuthorsUpload(
-      mockSession(),
-      [buildAuthor({ nacionalidad: 'Colombiana' })],
-      options,
-    );
+    const result = await runAuthorsUpload(mockSession(), [buildAuthor({ nacionalidad: 'Colombiana' })], options);
 
     expect(result.failed).toHaveLength(1);
     expect(result.failed[0].error).toBe('Colombiano sin CvLAC');
@@ -363,7 +351,9 @@ describe('fallback de nacionalidad (ronda 2)', () => {
   it('NO dispara ronda 2 si ronda 1 es 100% exitosa', async () => {
     vi.mocked(api.searchPersons).mockResolvedValueOnce([PERSON]);
     vi.mocked(api.getTrayectoria).mockResolvedValueOnce({
-      ...PERSON, staCertificado: 'T', instituciones: ['UNIVERSIDAD X'],
+      ...PERSON,
+      staCertificado: 'T',
+      instituciones: ['UNIVERSIDAD X'],
     });
     vi.mocked(api.linkAuthor).mockResolvedValueOnce();
 

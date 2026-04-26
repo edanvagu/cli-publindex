@@ -42,8 +42,8 @@ describe('authors API', () => {
 
   it('linkAuthor propaga errores con mensaje extraído de la respuesta', async () => {
     vi.mocked(http.authedRequest).mockResolvedValue({ status: 500, data: { message: 'boom' } } as any);
-    await expect(
-      linkAuthor(fakeSession(), { codRh: 'X', idArticulo: 1, anoFasciculo: 2025 } as any),
-    ).rejects.toThrow(/HTTP 500.*boom/);
+    await expect(linkAuthor(fakeSession(), { codRh: 'X', idArticulo: 1, anoFasciculo: 2025 } as any)).rejects.toThrow(
+      /HTTP 500.*boom/,
+    );
   });
 });

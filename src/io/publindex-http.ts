@@ -12,19 +12,20 @@ export interface HttpResponse<T = unknown> {
 }
 
 export const BROWSER_HEADERS: Readonly<Record<string, string>> = Object.freeze({
-  'Accept': 'application/json, text/plain, */*',
+  Accept: 'application/json, text/plain, */*',
   'Accept-Language': 'es-CO,es;q=0.9',
   'Accept-Encoding': 'gzip, deflate, br',
-  'Origin': 'https://scienti.minciencias.gov.co',
-  'Referer': 'https://scienti.minciencias.gov.co/publindex/',
-  'DNT': '1',
+  Origin: 'https://scienti.minciencias.gov.co',
+  Referer: 'https://scienti.minciencias.gov.co/publindex/',
+  DNT: '1',
   'Sec-Fetch-Dest': 'empty',
   'Sec-Fetch-Mode': 'cors',
   'Sec-Fetch-Site': 'same-origin',
   'sec-ch-ua': '"Microsoft Edge";v="147", "Not.A/Brand";v="8", "Chromium";v="147"',
   'sec-ch-ua-mobile': '?0',
   'sec-ch-ua-platform': '"Windows"',
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0',
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0',
 });
 
 export function httpRequest<T = unknown>(
@@ -34,7 +35,7 @@ export function httpRequest<T = unknown>(
     headers?: Record<string, string>;
     body?: string | Buffer;
     timeout?: number;
-  }
+  },
 ): Promise<HttpResponse<T>> {
   return new Promise((resolve, reject) => {
     const parsedUrl = new URL(url);
@@ -71,7 +72,7 @@ export function httpRequest<T = unknown>(
             })
             .catch(reject);
         });
-      }
+      },
     );
 
     req.on('error', reject);
@@ -107,7 +108,7 @@ function decodeBody(buf: Buffer, encoding: string | string[] | undefined): Promi
 export function buildAuthHeaders(session: Session): Record<string, string> {
   const headers: Record<string, string> = {
     ...BROWSER_HEADERS,
-    'Authorization': `Bearer ${session.token}`,
+    Authorization: `Bearer ${session.token}`,
   };
   const cookie = formatCookieHeader(session.cookies);
   if (cookie) headers['Cookie'] = cookie;
@@ -132,10 +133,7 @@ export async function authedRequest<T = unknown>(
   return response;
 }
 
-export function updateCookiesFromResponse(
-  session: Session,
-  response: HttpResponse<unknown>
-): void {
+export function updateCookiesFromResponse(session: Session, response: HttpResponse<unknown>): void {
   const setCookie = response.headers?.['set-cookie'];
   if (!setCookie) return;
   const list = Array.isArray(setCookie) ? setCookie : [setCookie];

@@ -5,7 +5,7 @@ import { cleanHtml } from '../utils/text';
 
 export interface OjsAuthor {
   nombre_completo: string;
-  nacionalidad: string;              // "Colombiana" | "Extranjera"
+  nacionalidad: string; // "Colombiana" | "Extranjera"
   filiacion_institucional?: string;
 }
 
@@ -44,12 +44,25 @@ export interface OjsAuthorRow {
 
 // OJS locale → user-facing language label. The Excel template stores labels; the article mapper translates label → Publindex code when building the payload.
 const LOCALE_TO_LANGUAGE: Record<string, string> = {
-  es_ES: 'Español', en_US: 'Inglés', pt_BR: 'Portugués', fr_FR: 'Francés', de_DE: 'Alemán', it_IT: 'Italiano',
+  es_ES: 'Español',
+  en_US: 'Inglés',
+  pt_BR: 'Portugués',
+  fr_FR: 'Francés',
+  de_DE: 'Alemán',
+  it_IT: 'Italiano',
 };
 
 const ARRAY_TAGS = new Set([
-  'title', 'abstract', 'keywords', 'keyword', 'author', 'citation', 'id',
-  'givenname', 'familyname', 'affiliation',
+  'title',
+  'abstract',
+  'keywords',
+  'keyword',
+  'author',
+  'citation',
+  'id',
+  'givenname',
+  'familyname',
+  'affiliation',
 ]);
 
 const parser = new XMLParser({
@@ -245,8 +258,9 @@ export async function importFromOjs(file: string): Promise<ImportOjsResult> {
   const articles = blocks.map(parseArticle);
 
   const nonStandard = detectNonStandardPages(articles);
-  const warnings = nonStandard.map(({ index, value }) =>
-    `Fila ${index + 2}: <pages>="${value}" no es un rango estándar (posible e-locator de publicación continua). Revisar manualmente.`
+  const warnings = nonStandard.map(
+    ({ index, value }) =>
+      `Fila ${index + 2}: <pages>="${value}" no es un rango estándar (posible e-locator de publicación continua). Revisar manualmente.`,
   );
 
   return { articles, warnings };
@@ -308,9 +322,7 @@ function pickLocalized(node: any, locale: string): string | undefined {
   return undefined;
 }
 
-export function detectNonStandardPages(
-  articles: Pick<OjsArticle, 'paginasRaw'>[]
-): { index: number; value: string }[] {
+export function detectNonStandardPages(articles: Pick<OjsArticle, 'paginasRaw'>[]): { index: number; value: string }[] {
   const result: { index: number; value: string }[] = [];
   articles.forEach((art, index) => {
     if (art.paginasRaw) result.push({ index, value: art.paginasRaw });
@@ -328,7 +340,7 @@ function findLocalizedNode(arr: any, predicate: (locale: string) => boolean): an
 
 function nodeText(node: any): string | undefined {
   if (!node) return undefined;
-  const value = typeof node === 'object' ? node['#text'] ?? '' : String(node);
+  const value = typeof node === 'object' ? (node['#text'] ?? '') : String(node);
   return value ? String(value) : undefined;
 }
 
@@ -344,7 +356,11 @@ function extractDoi(ids: any): string | undefined {
   if (!doiNode) return undefined;
   const value = typeof doiNode === 'object' ? doiNode['#text'] : doiNode;
   if (!value) return undefined;
-  return String(value).replace(/^https?:\/\/(dx\.)?doi\.org\//i, '').trim() || undefined;
+  return (
+    String(value)
+      .replace(/^https?:\/\/(dx\.)?doi\.org\//i, '')
+      .trim() || undefined
+  );
 }
 
 function extractInternalId(ids: any): string | undefined {
@@ -381,4 +397,3 @@ function inferOtherLanguage(pub: any, primaryLocale: string): string | undefined
   }
   return undefined;
 }
-

@@ -11,10 +11,7 @@ export interface ServerArticle {
   [key: string]: unknown;
 }
 
-export async function listArticlesByFasciculo(
-  session: Session,
-  idFasciculo: number,
-): Promise<ServerArticle[]> {
+export async function listArticlesByFasciculo(session: Session, idFasciculo: number): Promise<ServerArticle[]> {
   const url = buildArticlesByFasciculoUrl(idFasciculo);
   const response = await authedRequest<ServerArticle[]>(session, url, {
     method: 'GET',
@@ -22,9 +19,10 @@ export async function listArticlesByFasciculo(
   });
 
   if (response.status < 200 || response.status >= 300) {
-    const msg = typeof response.data === 'string'
-      ? response.data
-      : (response.data as any)?.mensaje || (response.data as any)?.message || JSON.stringify(response.data);
+    const msg =
+      typeof response.data === 'string'
+        ? response.data
+        : (response.data as any)?.mensaje || (response.data as any)?.message || JSON.stringify(response.data);
     throw new Error(`HTTP ${response.status} al listar artículos del fascículo ${idFasciculo}: ${msg}`);
   }
 
@@ -52,9 +50,10 @@ export async function createArticle(session: Session, payload: ArticlePayload): 
   });
 
   if (response.status < 200 || response.status >= 300) {
-    const msg = typeof response.data === 'string'
-      ? response.data
-      : (response.data as any)?.mensaje || (response.data as any)?.message || JSON.stringify(response.data);
+    const msg =
+      typeof response.data === 'string'
+        ? response.data
+        : (response.data as any)?.mensaje || (response.data as any)?.message || JSON.stringify(response.data);
     throw new Error(`HTTP ${response.status}: ${msg}`);
   }
 

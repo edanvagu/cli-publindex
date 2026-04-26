@@ -25,9 +25,9 @@ describe('readAuthors', () => {
     const file = path.join(dir, 'test.xlsx');
     await buildWorkbook(file, [
       // titulo_articulo, id_articulo, nombre_completo, identificacion, nacionalidad, filiacion, tiene_cvlac, estado_carga, accion_requerida
-      ['Art 1', '100', 'Autor Uno',   '111', 'Colombiana', 'Univ A', 'Sí', 'subido', ''],
-      ['Art 1', '100', 'Autor Dos',   '222', 'Colombiana', '',       '',  'pendiente', ''],
-      ['Art 2', '',   'Autor Tres',  '333', 'Extranjera', '',       '',  'error:No encontrado', 'Registrar'],
+      ['Art 1', '100', 'Autor Uno', '111', 'Colombiana', 'Univ A', 'Sí', 'subido', ''],
+      ['Art 1', '100', 'Autor Dos', '222', 'Colombiana', '', '', 'pendiente', ''],
+      ['Art 2', '', 'Autor Tres', '333', 'Extranjera', '', '', 'error:No encontrado', 'Registrar'],
     ]);
     const result = readAuthors(file);
 

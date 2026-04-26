@@ -82,7 +82,7 @@ describe('getGranAreas', () => {
 
   it('incluye Humanidades con código 6', () => {
     const granAreas = getGranAreas();
-    const humanidades = granAreas.find(g => g.code === '6');
+    const humanidades = granAreas.find((g) => g.code === '6');
     expect(humanidades).toBeDefined();
     expect(humanidades?.name).toBe('Humanidades');
   });
@@ -99,7 +99,7 @@ describe('getChildAreas', () => {
   it('retorna las áreas de Humanidades', () => {
     const areas = getChildAreas('6');
     expect(areas.length).toBeGreaterThan(0);
-    const codes =areas.map(a => a.code);
+    const codes = areas.map((a) => a.code);
     expect(codes).toContain('6A');
     expect(codes).toContain('6B');
   });
@@ -119,7 +119,7 @@ describe('getChildAreas', () => {
 describe('getChildSubareas', () => {
   it('retorna las subáreas de 6A (Historia y Arqueología)', () => {
     const subareas = getChildSubareas('6A');
-    const codes =subareas.map(s => s.code);
+    const codes = subareas.map((s) => s.code);
     expect(codes).toContain('6A01');
     expect(codes).toContain('6A02');
     expect(codes).toContain('6A03');

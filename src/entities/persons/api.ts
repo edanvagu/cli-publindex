@@ -3,10 +3,7 @@ import { ENDPOINTS, buildTrayectoriaUrl } from '../../config/constants';
 import { Session } from '../auth/types';
 import { PersonSearchCriteria, PersonSearchResult } from './types';
 
-export async function searchPersons(
-  session: Session,
-  criteria: PersonSearchCriteria,
-): Promise<PersonSearchResult[]> {
+export async function searchPersons(session: Session, criteria: PersonSearchCriteria): Promise<PersonSearchResult[]> {
   const response = await authedRequest<PersonSearchResult[]>(session, ENDPOINTS.PERSONS_SEARCH, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

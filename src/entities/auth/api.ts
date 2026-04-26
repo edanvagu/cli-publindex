@@ -18,9 +18,10 @@ export async function login(username: string, password: string): Promise<Session
   });
 
   if (response.status !== 200 || !response.data?.token) {
-    const msg = typeof response.data === 'string'
-      ? response.data
-      : (response.data as any)?.mensaje || (response.data as any)?.message || `Error HTTP ${response.status}`;
+    const msg =
+      typeof response.data === 'string'
+        ? response.data
+        : (response.data as any)?.mensaje || (response.data as any)?.message || `Error HTTP ${response.status}`;
     throw new Error(`Login fallido: ${msg}`);
   }
 

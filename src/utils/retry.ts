@@ -8,10 +8,7 @@ export interface RetryOptions {
   onRetry?: (attempt: number, error: Error) => void;
 }
 
-export async function withRetry<T>(
-  fn: () => Promise<T>,
-  options: RetryOptions = {}
-): Promise<T> {
+export async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
   const {
     maxAttempts = DEFAULTS.RETRY_ATTEMPTS,
     delayMs = DEFAULTS.RETRY_DELAY_MS,

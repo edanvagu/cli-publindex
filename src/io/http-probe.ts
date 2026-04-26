@@ -19,7 +19,12 @@ export async function probeUrl(url: string, timeoutMs: number = TIMEOUT_MS): Pro
   return res;
 }
 
-function doRequest(url: string, method: 'HEAD' | 'GET', timeoutMs: number, redirectCount: number): Promise<ProbeResult> {
+function doRequest(
+  url: string,
+  method: 'HEAD' | 'GET',
+  timeoutMs: number,
+  redirectCount: number,
+): Promise<ProbeResult> {
   return new Promise((resolve) => {
     let parsed: URL;
     try {
@@ -51,7 +56,7 @@ function doRequest(url: string, method: 'HEAD' | 'GET', timeoutMs: number, redir
 
         response.resume();
         resolve({ ok: status >= 200 && status < 300, status });
-      }
+      },
     );
 
     req.on('timeout', () => {

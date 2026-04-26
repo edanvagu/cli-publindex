@@ -1,6 +1,4 @@
-import {
-  spinner, success, error, info, warning, showProgress,
-} from '../logger';
+import { spinner, success, error, info, warning, showProgress } from '../logger';
 import { promptFilePath, confirmContinue, confirmReviewersStart } from '../prompts';
 import { readReviewers, ReadReviewersResult } from '../../io/reviewers-reader';
 import { runReviewersUpload, estimateReviewersTimeSeconds } from '../../entities/reviewers/uploader';
@@ -10,7 +8,13 @@ import { Issue } from '../../entities/issues/types';
 import { ReviewerRow } from '../../entities/reviewers/types';
 import { PersonSearchResult } from '../../entities/persons/types';
 import { buildPersonPicker } from '../pickers';
-import { loginOrThrow, fetchAndSelectIssue, ensureTokenCoversEstimate, extractYear, flushProgressInteractive } from './shared';
+import {
+  loginOrThrow,
+  fetchAndSelectIssue,
+  ensureTokenCoversEstimate,
+  extractYear,
+  flushProgressInteractive,
+} from './shared';
 
 export interface ReviewersContext {
   file: string;
@@ -40,10 +44,14 @@ async function uploadReviewersCore(ctx: ReviewersContext): Promise<void> {
     readResult = readReviewers(file);
     if (readResult.missingSheet) {
       readSpinner.fail('El archivo no tiene hoja "Evaluadores"');
-      error('Este flujo requiere un Excel generado por "Importar desde OJS" (con hoja Evaluadores) o uno con esa hoja agregada manualmente.');
+      error(
+        'Este flujo requiere un Excel generado por "Importar desde OJS" (con hoja Evaluadores) o uno con esa hoja agregada manualmente.',
+      );
       return;
     }
-    readSpinner.succeed(`${readResult.reviewers.length} evaluadores leídos (${readResult.uploaded.length} ya vinculados, ${readResult.errored.length} con error, ${readResult.pending.length} pendientes)`);
+    readSpinner.succeed(
+      `${readResult.reviewers.length} evaluadores leídos (${readResult.uploaded.length} ya vinculados, ${readResult.errored.length} con error, ${readResult.pending.length} pendientes)`,
+    );
   } catch (err) {
     readSpinner.fail('Error al leer archivo');
     error(err instanceof Error ? err.message : String(err));
@@ -68,7 +76,7 @@ async function uploadReviewersCore(ctx: ReviewersContext): Promise<void> {
   }
 
   // Both nacionalidad (for tpoNacionalidad) and nombre_completo (to even attempt a search) are required. identificacion is optional — uploader falls back to name search.
-  const toProcess = candidates.filter(r => r.nacionalidad.trim() !== '' && r.nombre_completo.trim() !== '');
+  const toProcess = candidates.filter((r) => r.nacionalidad.trim() !== '' && r.nombre_completo.trim() !== '');
 
   if (toProcess.length === 0) {
     error('Ninguna fila tiene nacionalidad + nombre_completo.');

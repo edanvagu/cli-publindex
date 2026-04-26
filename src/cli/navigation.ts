@@ -1,21 +1,21 @@
 const VIEW_LABELS = {
-  'main':           'Menú principal',
+  main: 'Menú principal',
   'upload-channel': 'Cargar a Publindex',
-  'auto-menu':      'Ruta automatizada',
-  'ext-menu':       'Ruta con extensión',
+  'auto-menu': 'Ruta automatizada',
+  'ext-menu': 'Ruta con extensión',
 } as const;
 
 export type View = keyof typeof VIEW_LABELS;
 
 // `upload-channel` has an empty set on purpose: it only branches into sub-views (auto-menu / ext-menu) and has no leaf action of its own. A missing key would also work but an explicit empty set keeps the table exhaustive.
 const LEAVES_BY_VIEW = {
-  'main':           ['import-ojs', 'help-ojs', 'about'],
+  main: ['import-ojs', 'help-ojs', 'about'],
   'upload-channel': [],
-  'auto-menu':      ['upload-articles', 'upload-authors', 'upload-reviewers'],
-  'ext-menu':       ['install-extension', 'open-publindex', 'help-extension'],
+  'auto-menu': ['upload-articles', 'upload-authors', 'upload-reviewers'],
+  'ext-menu': ['install-extension', 'open-publindex', 'help-extension'],
 } as const;
 
-export type LeafAction = typeof LEAVES_BY_VIEW[View][number];
+export type LeafAction = (typeof LEAVES_BY_VIEW)[View][number];
 
 export type NavAction = 'back' | 'exit';
 
@@ -43,5 +43,5 @@ export function dispatch(view: View, selection: MenuSelection): DispatchResult {
 }
 
 export function breadcrumb(stack: readonly View[]): string {
-  return stack.map(v => VIEW_LABELS[v]).join(' · ');
+  return stack.map((v) => VIEW_LABELS[v]).join(' · ');
 }

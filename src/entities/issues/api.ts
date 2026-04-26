@@ -21,9 +21,7 @@ export async function listIssues(session: Session): Promise<Issue[]> {
 }
 
 export function formatIssue(f: Issue): string {
-  const fecha = f.dtaPublicacion
-    ? new Date(f.dtaPublicacion).toLocaleDateString('es-CO')
-    : 'Sin fecha';
+  const fecha = f.dtaPublicacion ? new Date(f.dtaPublicacion).toLocaleDateString('es-CO') : 'Sin fecha';
   const titulo = f.txtTituloEspecial ? ` - ${f.txtTituloEspecial}` : '';
   return `Vol. ${f.nroVolumen} No. ${f.nroNumero} (${fecha})${titulo}`;
 }

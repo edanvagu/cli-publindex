@@ -1,14 +1,26 @@
 import ExcelJS from 'exceljs';
 import {
-  EXCEL_HEADERS, DOCUMENT_TYPES, SUMMARY_TYPES, SPECIALIST_TYPES, LANGUAGES, STATE_COLUMNS,
-  AUTHORS_SHEET_HEADERS, AUTHORS_SHEET_NAME, ARTICLES_SHEET_NAME, ARTICLE_ID_COLUMN, NATIONALITIES,
-  REVIEWERS_SHEET_HEADERS, REVIEWERS_SHEET_NAME,
+  EXCEL_HEADERS,
+  DOCUMENT_TYPES,
+  SUMMARY_TYPES,
+  SPECIALIST_TYPES,
+  LANGUAGES,
+  STATE_COLUMNS,
+  AUTHORS_SHEET_HEADERS,
+  AUTHORS_SHEET_NAME,
+  ARTICLES_SHEET_NAME,
+  ARTICLE_ID_COLUMN,
+  NATIONALITIES,
+  REVIEWERS_SHEET_HEADERS,
+  REVIEWERS_SHEET_NAME,
 } from '../config/constants';
 import { AREAS_TREE } from '../entities/areas/tree';
 import { ArticleRow } from '../entities/articles/types';
 import {
-  FIELD_CONSTRAINTS, docTypeLabelsRequiring,
-  alwaysRequiredFields, conditionallyRequiredFields,
+  FIELD_CONSTRAINTS,
+  docTypeLabelsRequiring,
+  alwaysRequiredFields,
+  conditionallyRequiredFields,
 } from '../config/article-form-rules';
 
 const ALERT_FILL: ExcelJS.FillPattern = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEB9C' } };
@@ -23,19 +35,27 @@ const ALERT_FILL_CF: ExcelJS.FillPattern = {
 
 // A solid fill hides Excel's default gridline underneath. Re-drawing a matching thin grey border on the CF style keeps the cell visually aligned with its neighbors.
 const ALERT_BORDER_CF: Partial<ExcelJS.Borders> = {
-  top:    { style: 'thin', color: { argb: 'FFD9D9D9' } },
-  left:   { style: 'thin', color: { argb: 'FFD9D9D9' } },
+  top: { style: 'thin', color: { argb: 'FFD9D9D9' } },
+  left: { style: 'thin', color: { argb: 'FFD9D9D9' } },
   bottom: { style: 'thin', color: { argb: 'FFD9D9D9' } },
-  right:  { style: 'thin', color: { argb: 'FFD9D9D9' } },
+  right: { style: 'thin', color: { argb: 'FFD9D9D9' } },
 };
 
 const DATA_VALIDATION_ROWS = 500;
 
 // Fields that already receive a list validation (dropdown). Skipping them in the text/integer constraint loop prevents ExcelJS from overwriting the dropdown with a length/range rule.
 const LIST_VALIDATED_FIELDS = new Set([
-  'tipo_documento', 'idioma', 'otro_idioma', 'tipo_resumen', 'tipo_especialista',
-  'eval_interna', 'eval_nacional', 'eval_internacional',
-  'gran_area', 'area', 'subarea',
+  'tipo_documento',
+  'idioma',
+  'otro_idioma',
+  'tipo_resumen',
+  'tipo_especialista',
+  'eval_interna',
+  'eval_nacional',
+  'eval_internacional',
+  'gran_area',
+  'area',
+  'subarea',
 ]);
 
 // Integer-only strings are written as numbers so Excel does not flag the cells with "Number stored as text" in pagina_inicial, pagina_final, numero_autores, etc. DOIs and dates do not match this regex and stay as strings.
@@ -79,7 +99,9 @@ function buildArticlesSheet(wb: ExcelJS.Workbook, articles: Partial<ArticleRow>[
   const ws = wb.addWorksheet(ARTICLES_SHEET_NAME);
   const headers = [
     ...EXCEL_HEADERS,
-    STATE_COLUMNS.STATE, STATE_COLUMNS.UPLOAD_DATE, STATE_COLUMNS.LAST_ERROR,
+    STATE_COLUMNS.STATE,
+    STATE_COLUMNS.UPLOAD_DATE,
+    STATE_COLUMNS.LAST_ERROR,
     ARTICLE_ID_COLUMN,
   ];
 
@@ -87,10 +109,10 @@ function buildArticlesSheet(wb: ExcelJS.Workbook, articles: Partial<ArticleRow>[
   ws.getRow(1).font = { bold: true };
 
   for (const art of articles) {
-    ws.addRow(headers.map(h => coerceCellValue((art as Record<string, unknown>)[h] ?? '')));
+    ws.addRow(headers.map((h) => coerceCellValue((art as Record<string, unknown>)[h] ?? '')));
   }
 
-  ws.columns = headers.map(h => ({ width: Math.max(h.length + 2, 18) }));
+  ws.columns = headers.map((h) => ({ width: Math.max(h.length + 2, 18) }));
 
   addDataValidations(ws, headers);
   addDynamicRequiredHighlighting(ws, headers);
@@ -108,10 +130,10 @@ function buildAuthorsSheet(wb: ExcelJS.Workbook, authors: AuthorTemplateRow[]): 
   ws.getRow(1).font = { bold: true };
 
   for (const a of authors) {
-    ws.addRow(headers.map(h => (a as unknown as Record<string, unknown>)[h] ?? ''));
+    ws.addRow(headers.map((h) => (a as unknown as Record<string, unknown>)[h] ?? ''));
   }
 
-  ws.columns = headers.map(h => ({ width: Math.max(h.length + 2, 22) }));
+  ws.columns = headers.map((h) => ({ width: Math.max(h.length + 2, 22) }));
 
   authors.forEach((a, rowIdx) => {
     for (let colIdx = 0; colIdx < headers.length; colIdx++) {
@@ -140,10 +162,10 @@ function buildReviewersSheet(wb: ExcelJS.Workbook, reviewers: ReviewerTemplateRo
   ws.getRow(1).font = { bold: true };
 
   for (const e of reviewers) {
-    ws.addRow(headers.map(h => (e as unknown as Record<string, unknown>)[h] ?? ''));
+    ws.addRow(headers.map((h) => (e as unknown as Record<string, unknown>)[h] ?? ''));
   }
 
-  ws.columns = headers.map(h => ({ width: Math.max(h.length + 2, 22) }));
+  ws.columns = headers.map((h) => ({ width: Math.max(h.length + 2, 22) }));
 
   reviewers.forEach((e, rowIdx) => {
     for (let colIdx = 0; colIdx < headers.length; colIdx++) {
@@ -183,12 +205,14 @@ function addDynamicRequiredHighlighting(ws: ExcelJS.Worksheet, headers: string[]
     const fCol = numberToColLetter(fIdx);
     ws.addConditionalFormatting({
       ref: `${fCol}2:${fCol}${DATA_VALIDATION_ROWS + 1}`,
-      rules: [{
-        type: 'expression',
-        formulae: [`AND($${fCol}2="", ${rowIsActive})`],
-        style: { fill: ALERT_FILL_CF, border: ALERT_BORDER_CF },
-        priority: 1,
-      }],
+      rules: [
+        {
+          type: 'expression',
+          formulae: [`AND($${fCol}2="", ${rowIsActive})`],
+          style: { fill: ALERT_FILL_CF, border: ALERT_BORDER_CF },
+          priority: 1,
+        },
+      ],
     });
   }
 
@@ -200,12 +224,14 @@ function addDynamicRequiredHighlighting(ws: ExcelJS.Worksheet, headers: string[]
     // The MATCH against REQ_* already requires `tipo_documento` to be populated, which by definition makes the row active — no extra guard needed here.
     ws.addConditionalFormatting({
       ref: `${fCol}2:${fCol}${DATA_VALIDATION_ROWS + 1}`,
-      rules: [{
-        type: 'expression',
-        formulae: [`AND($${fCol}2="", NOT(ISNA(MATCH($${tipoCol}2, ${rangeName}, 0))))`],
-        style: { fill: ALERT_FILL_CF, border: ALERT_BORDER_CF },
-        priority: 1,
-      }],
+      rules: [
+        {
+          type: 'expression',
+          formulae: [`AND($${fCol}2="", NOT(ISNA(MATCH($${tipoCol}2, ${rangeName}, 0))))`],
+          style: { fill: ALERT_FILL_CF, border: ALERT_BORDER_CF },
+          priority: 1,
+        },
+      ],
     });
   }
 }
@@ -218,12 +244,14 @@ function addCrossFieldHighlighting(ws: ExcelJS.Worksheet, headers: string[]): vo
     const pFinCol = numberToColLetter(pFinIdx);
     ws.addConditionalFormatting({
       ref: `${pFinCol}2:${pFinCol}${DATA_VALIDATION_ROWS + 1}`,
-      rules: [{
-        type: 'expression',
-        formulae: [`AND($${pIniCol}2<>"", $${pFinCol}2<>"", $${pFinCol}2<=$${pIniCol}2)`],
-        style: { fill: ALERT_FILL_CF, border: ALERT_BORDER_CF },
-        priority: 1,
-      }],
+      rules: [
+        {
+          type: 'expression',
+          formulae: [`AND($${pIniCol}2<>"", $${pFinCol}2<>"", $${pFinCol}2<=$${pIniCol}2)`],
+          style: { fill: ALERT_FILL_CF, border: ALERT_BORDER_CF },
+          priority: 1,
+        },
+      ],
     });
   }
 
@@ -234,12 +262,14 @@ function addCrossFieldHighlighting(ws: ExcelJS.Worksheet, headers: string[]): vo
     const fAccCol = numberToColLetter(fAccIdx);
     ws.addConditionalFormatting({
       ref: `${fAccCol}2:${fAccCol}${DATA_VALIDATION_ROWS + 1}`,
-      rules: [{
-        type: 'expression',
-        formulae: [`AND($${fRecCol}2<>"", $${fAccCol}2<>"", $${fAccCol}2<$${fRecCol}2)`],
-        style: { fill: ALERT_FILL_CF, border: ALERT_BORDER_CF },
-        priority: 1,
-      }],
+      rules: [
+        {
+          type: 'expression',
+          formulae: [`AND($${fRecCol}2<>"", $${fAccCol}2<>"", $${fAccCol}2<$${fRecCol}2)`],
+          style: { fill: ALERT_FILL_CF, border: ALERT_BORDER_CF },
+          priority: 1,
+        },
+      ],
     });
   }
 }
@@ -353,8 +383,8 @@ function applyListToColumn(ws: ExcelJS.Worksheet, colIdx: number, formula: strin
 function buildLookupsSheet(wb: ExcelJS.Workbook): void {
   const ws = wb.addWorksheet('_lookups', { state: 'hidden' });
 
-  const granAreaLabels = AREAS_TREE.map(g => g.txtNmeArea);
-  const granAreaCodes = AREAS_TREE.map(g => g.codAreaConocimiento);
+  const granAreaLabels = AREAS_TREE.map((g) => g.txtNmeArea);
+  const granAreaCodes = AREAS_TREE.map((g) => g.codAreaConocimiento);
   ws.getColumn(1).values = ['GRAN_AREAS', ...granAreaLabels];
   ws.getColumn(2).values = ['GRAN_CODES', ...granAreaCodes];
   defineRange(wb, ws.name, 'GRAN_AREAS', 1, 1, granAreaLabels.length);
@@ -375,7 +405,7 @@ function buildLookupsSheet(wb: ExcelJS.Workbook): void {
 
   let col = 5;
   for (const gran of AREAS_TREE) {
-    const labels = (gran.areasHijas ?? []).map(a => a.txtNmeArea);
+    const labels = (gran.areasHijas ?? []).map((a) => a.txtNmeArea);
     if (labels.length === 0) continue;
     const name = `AREAS_${gran.codAreaConocimiento}`;
     ws.getColumn(col).values = [name, ...labels];
@@ -385,7 +415,7 @@ function buildLookupsSheet(wb: ExcelJS.Workbook): void {
 
   for (const gran of AREAS_TREE) {
     for (const area of gran.areasHijas ?? []) {
-      const labels = (area.areasHijas ?? []).map(s => s.txtNmeArea);
+      const labels = (area.areasHijas ?? []).map((s) => s.txtNmeArea);
       if (labels.length === 0) continue;
       const name = `SUB_${area.codAreaConocimiento}`;
       ws.getColumn(col).values = [name, ...labels];
@@ -405,13 +435,28 @@ function buildLookupsSheet(wb: ExcelJS.Workbook): void {
   }
 }
 
-function defineRange(wb: ExcelJS.Workbook, sheetName: string, name: string, colIdx: number, _endCol: number, count: number): void {
+function defineRange(
+  wb: ExcelJS.Workbook,
+  sheetName: string,
+  name: string,
+  colIdx: number,
+  _endCol: number,
+  count: number,
+): void {
   const letter = numberToColLetter(colIdx);
   const ref = `'${sheetName}'!$${letter}$2:$${letter}$${count + 1}`;
   wb.definedNames.add(ref, name);
 }
 
-function defineMultiColRange(wb: ExcelJS.Workbook, sheetName: string, name: string, startCol: number, endCol: number, _placeholder: number, count: number): void {
+function defineMultiColRange(
+  wb: ExcelJS.Workbook,
+  sheetName: string,
+  name: string,
+  startCol: number,
+  endCol: number,
+  _placeholder: number,
+  count: number,
+): void {
   const startLetter = numberToColLetter(startCol);
   const endLetter = numberToColLetter(endCol);
   const ref = `'${sheetName}'!$${startLetter}$2:$${endLetter}$${count + 1}`;
@@ -433,7 +478,8 @@ function buildInstructionsSheet(wb: ExcelJS.Workbook): void {
 
   ws.mergeCells('A1:D1');
   const note = ws.getCell('A1');
-  note.value = 'Nota: las celdas amarillas son campos obligatorios vacíos según el tipo_documento de esa fila, o violan longitud/rango. Cambie tipo_documento y el amarillo se vuelve a evaluar automáticamente.';
+  note.value =
+    'Nota: las celdas amarillas son campos obligatorios vacíos según el tipo_documento de esa fila, o violan longitud/rango. Cambie tipo_documento y el amarillo se vuelve a evaluar automáticamente.';
   note.alignment = { wrapText: true, vertical: 'middle' };
   note.font = { italic: true };
   ws.getRow(1).height = 40;
@@ -442,9 +488,24 @@ function buildInstructionsSheet(wb: ExcelJS.Workbook): void {
     ['', '', '', ''],
     ['Campo', 'Obligatorio', 'Descripción', 'Ejemplo'],
     ['Hoja "Artículos"', '', '', ''],
-    ['titulo', 'Sí', 'Título del artículo (mín. 10, máx. 255 caracteres)', 'Título del artículo de ejemplo para Publindex'],
-    ['doi', 'No', 'DOI sin URL (formato 10.xxxx/yyyy, máx. 300 caracteres). NO use https://doi.org/...', '10.0000/fake.0001'],
-    ['url', 'Sí', 'URL del artículo con http:// o https:// (máx. 300 caracteres)', 'https://revistas.ejemplo.edu.co/article/1'],
+    [
+      'titulo',
+      'Sí',
+      'Título del artículo (mín. 10, máx. 255 caracteres)',
+      'Título del artículo de ejemplo para Publindex',
+    ],
+    [
+      'doi',
+      'No',
+      'DOI sin URL (formato 10.xxxx/yyyy, máx. 300 caracteres). NO use https://doi.org/...',
+      '10.0000/fake.0001',
+    ],
+    [
+      'url',
+      'Sí',
+      'URL del artículo con http:// o https:// (máx. 300 caracteres)',
+      'https://revistas.ejemplo.edu.co/article/1',
+    ],
     ['pagina_inicial', 'No', 'Página inicial (entero 1–9999)', '1'],
     ['pagina_final', 'No', 'Página final (entero 1–9999; debe ser > pagina_inicial)', '15'],
     ['numero_autores', 'No', 'Cantidad de autores del artículo (entero 1–9999)', '3'],
@@ -454,10 +515,30 @@ function buildInstructionsSheet(wb: ExcelJS.Workbook): void {
     ['area', 'Sí', 'Dropdown con las áreas hijas de la gran_area seleccionada (cascada)', 'Sociología'],
     ['subarea', 'No', 'Dropdown con las subáreas hijas del area seleccionada (cascada)', 'Sociología General'],
     ['numero_referencias', 'No', 'Cantidad de referencias bibliográficas (entero 0–9999)', '30'],
-    ['tipo_documento', 'Sí', 'Dropdown con los 12 tipos de documento Publindex', 'Artículo de investigación científica y tecnológica'],
-    ['palabras_clave', 'Sí (tipos 1–6)', 'Palabras clave separadas por punto y coma (;) (máx. 2000 caracteres)', 'sociología; cultura'],
-    ['palabras_clave_otro_idioma', 'No', 'Palabras clave en otro idioma, separadas por ; (máx. 2000 caracteres)', 'sociology; culture'],
-    ['titulo_ingles', 'Sí (tipos 1–6)', 'Título paralelo en inglés (mín. 10, máx. 255 caracteres)', 'Title of the article in English'],
+    [
+      'tipo_documento',
+      'Sí',
+      'Dropdown con los 12 tipos de documento Publindex',
+      'Artículo de investigación científica y tecnológica',
+    ],
+    [
+      'palabras_clave',
+      'Sí (tipos 1–6)',
+      'Palabras clave separadas por punto y coma (;) (máx. 2000 caracteres)',
+      'sociología; cultura',
+    ],
+    [
+      'palabras_clave_otro_idioma',
+      'No',
+      'Palabras clave en otro idioma, separadas por ; (máx. 2000 caracteres)',
+      'sociology; culture',
+    ],
+    [
+      'titulo_ingles',
+      'Sí (tipos 1–6)',
+      'Título paralelo en inglés (mín. 10, máx. 255 caracteres)',
+      'Title of the article in English',
+    ],
     ['fecha_recepcion', 'No', 'Fecha de recepción (formato YYYY-MM-DD)', '2026-01-15'],
     ['fecha_aceptacion', 'No', 'Fecha de aceptación (YYYY-MM-DD; debe ser >= fecha_recepcion)', '2026-03-20'],
     ['idioma', 'No', 'Dropdown con el idioma original del artículo', 'Español'],
@@ -466,19 +547,39 @@ function buildInstructionsSheet(wb: ExcelJS.Workbook): void {
     ['eval_nacional', 'No', 'Evaluación por pares externos nacionales: T=Sí, F=No', 'T'],
     ['eval_internacional', 'No', 'Evaluación por pares externos internacionales: T=Sí, F=No', 'T'],
     ['tipo_resumen', 'No', 'Dropdown: Analítico / Descriptivo / Analítico sintético', 'Analítico'],
-    ['tipo_especialista', 'No', 'Dropdown: Autor / Editor / Bibliotecólogo / Especialista en el área', 'Especialista en el área'],
+    [
+      'tipo_especialista',
+      'No',
+      'Dropdown: Autor / Editor / Bibliotecólogo / Especialista en el área',
+      'Especialista en el área',
+    ],
     ['resumen', 'Sí (tipos 1–6)', 'Resumen del artículo (mín. 10, máx. 4000 caracteres)', 'Resumen del artículo...'],
     ['resumen_otro_idioma', 'No', 'Resumen en otro idioma (máx. 4000 caracteres)', 'Abstract of the article...'],
     ['resumen_idioma_adicional', 'No', 'Resumen en idioma adicional (máx. 4000 caracteres)', ''],
     ['', '', '', ''],
-    ['Columnas de estado de Artículos (solo se rellenan si usa la ruta automatizada; con la extensión quedan vacías)', '', '', ''],
+    [
+      'Columnas de estado de Artículos (solo se rellenan si usa la ruta automatizada; con la extensión quedan vacías)',
+      '',
+      '',
+      '',
+    ],
     ['estado', 'Auto (ruta automatizada)', 'pendiente / subido / error', 'subido'],
-    ['fecha_subida', 'Auto (ruta automatizada)', 'Fecha/hora ISO en que el artículo se cargó exitosamente', '2026-04-19T10:30:00Z'],
+    [
+      'fecha_subida',
+      'Auto (ruta automatizada)',
+      'Fecha/hora ISO en que el artículo se cargó exitosamente',
+      '2026-04-19T10:30:00Z',
+    ],
     ['ultimo_error', 'Auto (ruta automatizada)', 'Mensaje de error si la carga falló', ''],
     ['id_articulo', 'Auto (ruta automatizada)', 'ID asignado por Publindex tras la carga exitosa', '123456'],
     ['', '', '', ''],
     ['Hoja "Autores" (autores por artículo; las filas Auto solo se rellenan con la ruta automatizada)', '', '', ''],
-    ['titulo_articulo', 'Sí', 'Debe coincidir exactamente con el titulo de un artículo', 'Título del artículo de ejemplo para Publindex'],
+    [
+      'titulo_articulo',
+      'Sí',
+      'Debe coincidir exactamente con el titulo de un artículo',
+      'Título del artículo de ejemplo para Publindex',
+    ],
     ['id_articulo', 'Auto (ruta automatizada)', 'Se completa al cargar artículos por la ruta automatizada', '123456'],
     ['nombre_completo', 'Sí', 'Nombre completo del autor', 'Jane Doe Ficticio'],
     ['identificacion', 'No', 'Cédula/doc. Si está vacío se busca por nombre con picker interactivo', '00000000'],
@@ -498,7 +599,7 @@ function buildInstructionsSheet(wb: ExcelJS.Workbook): void {
     ['accion_requerida', 'Auto (ruta automatizada)', 'Mensaje de acción en caso de error o advertencia', ''],
   ];
 
-  rows.forEach(r => ws.addRow(r));
+  rows.forEach((r) => ws.addRow(r));
   ws.columns = [{ width: 30 }, { width: 16 }, { width: 75 }, { width: 55 }];
 
   for (let r = 2; r <= ws.rowCount; r++) {

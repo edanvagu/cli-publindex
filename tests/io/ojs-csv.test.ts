@@ -8,41 +8,85 @@ function tempCsv(rows: string[][]): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'publindex-csv-'));
   const file = path.join(dir, 'reviews.csv');
   const csv = rows
-    .map(r => r.map(cell => /[",\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell).join(','))
+    .map((r) => r.map((cell) => (/[",\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell)).join(','))
     .join('\n');
   fs.writeFileSync(file, csv, 'utf-8');
   return file;
 }
 
 const HEADERS = [
-  'Fase', 'Ronda', 'Título del envío', 'ID del envío',
-  'Revisor/a', 'Nombre', 'Apellidos', 'Identificador ORCID',
-  'País', 'Afiliación', 'Correo electrónico', 'Intereses de revisión',
-  'Fecha asignada', 'Fecha notificada', 'Fecha confirmada',
-  'Fecha completada', 'Fecha confirmada 2', 'Sin considerar',
-  'Fecha recordatorio', 'Fecha límite de la contestación',
-  'Días de vencimiento de la respuesta', 'Fecha límite de la revisión',
-  'Días de vencimiento de la revisión', 'Rechazado', 'Cancelado',
-  'Recomendación', 'Comentarios sobre el envío',
+  'Fase',
+  'Ronda',
+  'Título del envío',
+  'ID del envío',
+  'Revisor/a',
+  'Nombre',
+  'Apellidos',
+  'Identificador ORCID',
+  'País',
+  'Afiliación',
+  'Correo electrónico',
+  'Intereses de revisión',
+  'Fecha asignada',
+  'Fecha notificada',
+  'Fecha confirmada',
+  'Fecha completada',
+  'Fecha confirmada 2',
+  'Sin considerar',
+  'Fecha recordatorio',
+  'Fecha límite de la contestación',
+  'Días de vencimiento de la respuesta',
+  'Fecha límite de la revisión',
+  'Días de vencimiento de la revisión',
+  'Rechazado',
+  'Cancelado',
+  'Recomendación',
+  'Comentarios sobre el envío',
 ];
 
 function row(opts: {
-  phase?: string; submissionId: string; username: string;
-  firstName?: string; lastName?: string; country?: string;
-  affiliation?: string; email?: string; orcid?: string;
-  dateCompleted?: string; excluded?: string;
-  rejected?: string; canceled?: string;
+  phase?: string;
+  submissionId: string;
+  username: string;
+  firstName?: string;
+  lastName?: string;
+  country?: string;
+  affiliation?: string;
+  email?: string;
+  orcid?: string;
+  dateCompleted?: string;
+  excluded?: string;
+  rejected?: string;
+  canceled?: string;
 }): string[] {
   return [
-    opts.phase ?? 'Revisión', '1', 'Título Ficticio', opts.submissionId,
-    opts.username, opts.firstName ?? 'Jane', opts.lastName ?? 'Doe', opts.orcid ?? '',
-    opts.country ?? '', opts.affiliation ?? '', opts.email ?? '', '',
-    '', '', '',
-    opts.dateCompleted ?? '2025-09-01 12:00:00', '', opts.excluded ?? '',
-    '', '',
-    '', '',
-    '', opts.rejected ?? 'Núm.', opts.canceled ?? 'Núm.',
-    'Publicable con modificaciones', '',
+    opts.phase ?? 'Revisión',
+    '1',
+    'Título Ficticio',
+    opts.submissionId,
+    opts.username,
+    opts.firstName ?? 'Jane',
+    opts.lastName ?? 'Doe',
+    opts.orcid ?? '',
+    opts.country ?? '',
+    opts.affiliation ?? '',
+    opts.email ?? '',
+    '',
+    '',
+    '',
+    '',
+    opts.dateCompleted ?? '2025-09-01 12:00:00',
+    '',
+    opts.excluded ?? '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    opts.rejected ?? 'Núm.',
+    opts.canceled ?? 'Núm.',
+    'Publicable con modificaciones',
+    '',
   ];
 }
 
@@ -51,7 +95,7 @@ describe('parseReviewsCsv', () => {
     const file = tempCsv([
       HEADERS,
       row({ submissionId: '1001', username: 'janedoe', country: 'CO' }),
-      row({ submissionId: '2000', username: 'other',   country: 'US' }),  // submissionId fuera del set
+      row({ submissionId: '2000', username: 'other', country: 'US' }), // submissionId fuera del set
     ]);
     const result = parseReviewsCsv(file, new Set(['1001']));
     expect(result.reviewers).toHaveLength(1);
@@ -67,24 +111,24 @@ describe('parseReviewsCsv', () => {
       row({ submissionId: '1001', username: 'no_country', country: '' }),
     ]);
     const result = parseReviewsCsv(file, new Set(['1001']));
-    const byUser = Object.fromEntries(result.reviewers.map(r => [r.username_ojs, r]));
+    const byUser = Object.fromEntries(result.reviewers.map((r) => [r.username_ojs, r]));
     expect(byUser['co_user'].nacionalidad).toBe('Colombiana');
     expect(byUser['mx_user'].nacionalidad).toBe('Extranjera');
     expect(byUser['no_country'].nacionalidad).toBe('Extranjera');
-    expect(result.warnings.some(w => /sin País/.test(w))).toBe(true);
+    expect(result.warnings.some((w) => /sin País/.test(w))).toBe(true);
   });
 
   it('excluye reviewers con Fecha completada vacía, Cancelado=Sí, Rechazado=Sí o Sin considerar=Sí', () => {
     const file = tempCsv([
       HEADERS,
-      row({ submissionId: '1001', username: 'ok_user',       country: 'CO' }),
+      row({ submissionId: '1001', username: 'ok_user', country: 'CO' }),
       row({ submissionId: '1001', username: 'not_completed', country: 'CO', dateCompleted: '' }),
-      row({ submissionId: '1001', username: 'canceled',      country: 'CO', canceled: 'Sí' }),
-      row({ submissionId: '1001', username: 'rejected',      country: 'CO', rejected: 'Sí' }),
-      row({ submissionId: '1001', username: 'excluded',      country: 'CO', excluded: 'Sí' }),
+      row({ submissionId: '1001', username: 'canceled', country: 'CO', canceled: 'Sí' }),
+      row({ submissionId: '1001', username: 'rejected', country: 'CO', rejected: 'Sí' }),
+      row({ submissionId: '1001', username: 'excluded', country: 'CO', excluded: 'Sí' }),
     ]);
     const result = parseReviewsCsv(file, new Set(['1001']));
-    const usernames = result.reviewers.map(r => r.username_ojs).sort();
+    const usernames = result.reviewers.map((r) => r.username_ojs).sort();
     expect(usernames).toEqual(['ok_user']);
   });
 
@@ -92,8 +136,8 @@ describe('parseReviewsCsv', () => {
     const file = tempCsv([
       HEADERS,
       row({ submissionId: '1001', username: 'repeat_user', country: 'CO' }),
-      row({ submissionId: '1001', username: 'repeat_user', country: 'CO' }),  // dup exacto
-      row({ submissionId: '1002', username: 'repeat_user', country: 'CO' }),  // mismo user, otro envío
+      row({ submissionId: '1001', username: 'repeat_user', country: 'CO' }), // dup exacto
+      row({ submissionId: '1002', username: 'repeat_user', country: 'CO' }), // mismo user, otro envío
     ]);
     const result = parseReviewsCsv(file, new Set(['1001', '1002']));
     expect(result.reviewers).toHaveLength(1);
@@ -107,7 +151,7 @@ describe('parseReviewsCsv', () => {
       row({ submissionId: '1001', username: 'other_phase', country: 'CO', phase: 'Envío' }),
     ]);
     const result = parseReviewsCsv(file, new Set(['1001']));
-    expect(result.reviewers.map(r => r.username_ojs)).toEqual(['jane']);
+    expect(result.reviewers.map((r) => r.username_ojs)).toEqual(['jane']);
   });
 
   it('reporta matchedForFasciculo y totalRowsInCsv', () => {

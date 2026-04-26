@@ -21,7 +21,9 @@ export function buildPersonPicker(): PersonPicker {
     const reason = reference.identificacion
       ? `el documento "${reference.identificacion}" no encontró coincidencia`
       : 'no se proporcionó identificación';
-    warning(`Fila ${reference._fila}: ${reason}. Se buscó por nombre "${reference.nombre_completo}" y hay ${candidates.length} resultado(s).`);
+    warning(
+      `Fila ${reference._fila}: ${reason}. Se buscó por nombre "${reference.nombre_completo}" y hay ${candidates.length} resultado(s).`,
+    );
 
     showPickerReference({
       _fila: reference._fila,
@@ -31,12 +33,14 @@ export function buildPersonPicker(): PersonPicker {
       identificacion: reference.identificacion,
     });
 
-    showCandidatesTable(candidates.map(c => ({
-      nombre: fullName(c),
-      documento: c.nroDocumentoIdent || '—',
-      pais: c.nmePaisNacim || '—',
-      email: c.txtEmail || '—',
-    })));
+    showCandidatesTable(
+      candidates.map((c) => ({
+        nombre: fullName(c),
+        documento: c.nroDocumentoIdent || '—',
+        pais: c.nmePaisNacim || '—',
+        email: c.txtEmail || '—',
+      })),
+    );
 
     const choices = candidates.map((c, i) => ({
       name: `${i + 1}. ${fullName(c)}${c.nmePaisNacim ? ' — ' + c.nmePaisNacim : ''}`,
@@ -58,7 +62,5 @@ export function buildPersonPicker(): PersonPicker {
 }
 
 function fullName(c: PersonSearchResult): string {
-  return c.txtTotalNames
-    || [c.txtNamesRh, c.txtPrimApell, c.txtSegApell].filter(Boolean).join(' ')
-    || '(sin nombre)';
+  return c.txtTotalNames || [c.txtNamesRh, c.txtPrimApell, c.txtSegApell].filter(Boolean).join(' ') || '(sin nombre)';
 }

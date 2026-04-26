@@ -80,9 +80,7 @@ describe('runUpload — pre-check de artículos ya en el servidor', () => {
   });
 
   it('postea normalmente si no hay match', async () => {
-    vi.mocked(api.listArticlesByFasciculo).mockResolvedValue([
-      { id: 100, txtTituloArticulo: 'Otro artículo' },
-    ]);
+    vi.mocked(api.listArticlesByFasciculo).mockResolvedValue([{ id: 100, txtTituloArticulo: 'Otro artículo' }]);
     vi.mocked(api.createArticle).mockResolvedValue(12345);
 
     const result = await runUpload(mockSession(), [buildArticle()], 37574, buildOptions());

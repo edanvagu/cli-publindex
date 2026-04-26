@@ -3,9 +3,16 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ArticleRow, ArticleState } from '../entities/articles/types';
 import {
-  STATE_COLUMNS, ARTICLE_STATES, ARTICLES_SHEET_NAME, AUTHORS_SHEET_NAME, REVIEWERS_SHEET_NAME,
-  ARTICLE_ID_COLUMN, AUTHORS_SHEET_HEADERS, AUTHOR_COLUMNS,
-  REVIEWERS_SHEET_HEADERS, REVIEWER_COLUMNS,
+  STATE_COLUMNS,
+  ARTICLE_STATES,
+  ARTICLES_SHEET_NAME,
+  AUTHORS_SHEET_NAME,
+  REVIEWERS_SHEET_NAME,
+  ARTICLE_ID_COLUMN,
+  AUTHORS_SHEET_HEADERS,
+  AUTHOR_COLUMNS,
+  REVIEWERS_SHEET_HEADERS,
+  REVIEWER_COLUMNS,
 } from '../config/constants';
 import { normalizeHeader } from './excel-reader';
 
@@ -74,7 +81,7 @@ interface XlsxCache {
   dirty: Set<string>;
 }
 
- //Persists upload state into the original Excel file. If the file is locked (because Excel has it open), writes go to a JSON sidecar instead and get merged back into the workbook on the next `trySyncSidecar` call.
+//Persists upload state into the original Excel file. If the file is locked (because Excel has it open), writes go to a JSON sidecar instead and get merged back into the workbook on the next `trySyncSidecar` call.
 export class ProgressTracker {
   private filePath: string;
   private sidecarPath: string;
@@ -104,11 +111,7 @@ export class ProgressTracker {
   }
 
   // After an article is created, writes its `articleId` to every row in the Autores sheet whose `titulo_articulo` matches. No-op when the workbook has no Autores sheet (older templates without the second sheet). When the tracker already fell back to sidecar mode, defer: trySyncSidecar() will fan the ID out to the Autores rows when it merges the article records, so attempting an xlsx write here would only surface a misleading EBUSY warning.
-  propagateArticleIdToAuthors(
-    articleTitle: string,
-    articleId: number,
-    onWarning?: (msg: string) => void,
-  ): number {
+  propagateArticleIdToAuthors(articleTitle: string, articleId: number, onWarning?: (msg: string) => void): number {
     if (this.useSidecar) return 0;
     try {
       const cache = this.ensureXlsxCache();
@@ -259,7 +262,8 @@ export class ProgressTracker {
             const row = reviewersCache.data[index];
             if (rec.uploadState !== undefined) row[resolveCol(REVIEWER_COLUMNS.ESTADO_CARGA)] = rec.uploadState;
             if (rec.hasCvlac !== undefined) row[resolveCol(REVIEWER_COLUMNS.TIENE_CVLAC)] = rec.hasCvlac;
-            if (rec.requiredAction !== undefined) row[resolveCol(REVIEWER_COLUMNS.ACCION_REQUERIDA)] = rec.requiredAction;
+            if (rec.requiredAction !== undefined)
+              row[resolveCol(REVIEWER_COLUMNS.ACCION_REQUERIDA)] = rec.requiredAction;
           }
         }
         cache.dirty.add(cache.reviewersSheetName);
@@ -333,8 +337,8 @@ export class ProgressTracker {
     this.xlsxCache = null;
     onWarning?.(
       `No se puede escribir al archivo original (probablemente está abierto en Excel). ` +
-      `Guardando progreso en ${path.basename(this.sidecarPath)}. ` +
-      `Cierre el archivo Excel para que el progreso se guarde ahí directamente.`
+        `Guardando progreso en ${path.basename(this.sidecarPath)}. ` +
+        `Cierre el archivo Excel para que el progreso se guarde ahí directamente.`,
     );
   }
 
@@ -345,15 +349,15 @@ export class ProgressTracker {
     const sheets = new Map<string, SheetCache>();
 
     // The first sheet is always the articles sheet — fallback for older templates generated before sheet names were standardized. Match by explicit name first.
-    const articlesSheetName = workbook.SheetNames.find(n => n === ARTICLES_SHEET_NAME) ?? workbook.SheetNames[0];
-    const authorsSheetName: string | null = workbook.SheetNames.find(n => n === AUTHORS_SHEET_NAME) ?? null;
-    const reviewersSheetName: string | null = workbook.SheetNames.find(n => n === REVIEWERS_SHEET_NAME) ?? null;
+    const articlesSheetName = workbook.SheetNames.find((n) => n === ARTICLES_SHEET_NAME) ?? workbook.SheetNames[0];
+    const authorsSheetName: string | null = workbook.SheetNames.find((n) => n === AUTHORS_SHEET_NAME) ?? null;
+    const reviewersSheetName: string | null = workbook.SheetNames.find((n) => n === REVIEWERS_SHEET_NAME) ?? null;
 
     for (const name of workbook.SheetNames) {
       const sheet = workbook.Sheets[name];
       const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
       const headerRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1 });
-      const headers = headerRows.length > 0 ? (headerRows[0] as string[]).map(h => String(h)) : [];
+      const headers = headerRows.length > 0 ? (headerRows[0] as string[]).map((h) => String(h)) : [];
 
       if (name === articlesSheetName) {
         const normalized = headers.map(normalizeHeader);
@@ -434,7 +438,7 @@ export class ProgressTracker {
       articleId: update.articleId,
     };
 
-    const idx = sidecar.records.findIndex(r => r.row === update.row);
+    const idx = sidecar.records.findIndex((r) => r.row === update.row);
     if (idx >= 0) sidecar.records[idx] = rec;
     else sidecar.records.push(rec);
     sidecar.lastUpdated = new Date().toISOString();
@@ -446,7 +450,7 @@ export class ProgressTracker {
     const sidecar = this.readSidecar();
     sidecar.authors = sidecar.authors ?? [];
 
-    const idx = sidecar.authors.findIndex(r => r.row === update.row);
+    const idx = sidecar.authors.findIndex((r) => r.row === update.row);
     const rec: AuthorSidecarRecord = {
       row: update.row,
       uploadState: update.uploadState,
@@ -465,7 +469,7 @@ export class ProgressTracker {
     const sidecar = this.readSidecar();
     sidecar.reviewers = sidecar.reviewers ?? [];
 
-    const idx = sidecar.reviewers.findIndex(r => r.row === update.row);
+    const idx = sidecar.reviewers.findIndex((r) => r.row === update.row);
     const rec: ReviewerSidecarRecord = {
       row: update.row,
       uploadState: update.uploadState,
