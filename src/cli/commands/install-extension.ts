@@ -4,6 +4,7 @@ import * as os from 'os';
 import { EXTENSION_FILES, EXTENSION_FILE_COUNT } from '../generated/extension-bundle';
 import { success, info, warning, error } from '../logger';
 import { openInDefaultApp } from './shared';
+import { EXTENSION_VERSION } from '../../config/version';
 
 const PUBLINDEX_HOME =
   process.platform === 'darwin'
@@ -29,7 +30,7 @@ export async function installExtension(): Promise<void> {
     fs.writeFileSync(full, Buffer.from(b64, 'base64'));
   }
 
-  success('Extensión lista.');
+  success(`Extensión lista (v${EXTENSION_VERSION}).`);
 
   openInDefaultApp(PUBLINDEX_HOME);
 

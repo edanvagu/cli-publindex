@@ -9,21 +9,40 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            script: build:bin:win
+            artifact: publindex-windows-x64.exe
+            zip: false
+          - os: macos-14
+            script: build:bin:mac-arm64
+            artifact: publindex-macos-arm64
+            zip: true
+          - os: macos-13
+            script: build:bin:mac-x64
+            artifact: publindex-macos-x64
+            zip: true
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
       - run: npm ci
       - run: npm test
-      - run: npm run build:bundle
-      - name: Package binary
-        run: npx pkg dist/publindex.js --targets node20-win-x64 --output dist/publindex-windows-x64.exe
+      - run: npm run ${{ matrix.script }}
+      - if: matrix.zip
+        shell: bash
+        run: |
+          chmod +x "dist/${{ matrix.artifact }}"
+          cd dist && zip "${{ matrix.artifact }}.zip" "${{ matrix.artifact }}"
       - uses: actions/upload-artifact@v4
         with:
-          name: publindex-windows-x64.exe
-          path: dist/publindex-windows-x64.exe
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}${{ matrix.zip && '.zip' || '' }}
 
   release:
     needs: build

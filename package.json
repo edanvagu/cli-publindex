@@ -1,6 +1,6 @@
 {
   "name": "publindex-cli",
-  "version": "1.1.0",
+  "version": "1.2.1",
   "description": "Carga masiva de artículos en Publindex (Minciencias)",
   "main": "dist/bin/publindex.js",
   "bin": {
@@ -11,7 +11,10 @@
     "start:install": "npm run ext:build && npm run embed:ext && tsx bin/publindex.ts --instalar",
     "build": "tsc",
     "build:bundle": "esbuild bin/publindex.ts --bundle --platform=node --target=node20 --format=cjs --external:win-ca --outfile=dist/publindex.js",
-    "build:bin": "npm run ext:build && npm run embed:ext && npm run build:bundle && pkg dist/publindex.js --targets node20-win-x64 --out-path dist/",
+    "build:bin": "npm run build:bin:win",
+    "build:bin:win": "npm run ext:build && npm run embed:ext && npm run build:bundle && pkg dist/publindex.js --targets node20-win-x64 --output dist/publindex-windows-x64.exe",
+    "build:bin:mac-arm64": "npm run ext:build && npm run embed:ext && npm run build:bundle && pkg dist/publindex.js --targets node20-macos-arm64 --output dist/publindex-macos-arm64",
+    "build:bin:mac-x64": "npm run ext:build && npm run embed:ext && npm run build:bundle && pkg dist/publindex.js --targets node20-macos-x64 --output dist/publindex-macos-x64",
     "embed:ext": "node scripts/embed-extension.mjs",
     "test": "vitest run",
     "format": "prettier --write \"{bin,src,tests,scripts}/**/*.{ts,tsx,js,mjs,json}\" \"*.{ts,js,mjs,json,md}\"",

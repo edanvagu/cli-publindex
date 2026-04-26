@@ -1,6 +1,6 @@
 {
   "name": "publindex-extension",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Chromium extension that autofills Publindex forms from a CLI-generated Excel",
   "type": "module",
