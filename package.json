@@ -39,7 +39,6 @@
     "ora": "^5.4.1",
     "win-ca": "^3.5.1",
     "xlsx": "^0.18.5",
-    "xlsx-js-style": "^1.2.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
