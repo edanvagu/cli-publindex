@@ -1,6 +1,6 @@
 {
   "name": "publindex-cli",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Carga masiva de artículos en Publindex (Minciencias)",
   "main": "dist/bin/publindex.js",
   "bin": {
@@ -14,7 +14,6 @@
     "build:bin": "npm run build:bin:win",
     "build:bin:win": "npm run ext:build && npm run embed:ext && npm run build:bundle && pkg dist/publindex.js --targets node20-win-x64 --output dist/publindex-windows-x64.exe",
     "build:bin:mac-arm64": "npm run ext:build && npm run embed:ext && npm run build:bundle && pkg dist/publindex.js --targets node20-macos-arm64 --output dist/publindex-macos-arm64",
-    "build:bin:mac-x64": "npm run ext:build && npm run embed:ext && npm run build:bundle && pkg dist/publindex.js --targets node20-macos-x64 --output dist/publindex-macos-x64",
     "embed:ext": "node scripts/embed-extension.mjs",
     "test": "vitest run",
     "format": "prettier --write \"{bin,src,tests,scripts}/**/*.{ts,tsx,js,mjs,json}\" \"*.{ts,js,mjs,json,md}\"",

@@ -21,10 +21,6 @@ jobs:
             script: build:bin:mac-arm64
             artifact: publindex-macos-arm64
             zip: true
-          - os: macos-13
-            script: build:bin:mac-x64
-            artifact: publindex-macos-x64
-            zip: true
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

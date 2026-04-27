@@ -14,9 +14,8 @@ En la [página de releases](../../releases/latest) descargue el archivo correspo
 
 - **Windows 10/11 (64-bit)**: `publindex-windows-x64.exe`
 - **Mac con chip Apple (M1/M2/M3/M4)**: `publindex-macos-arm64.zip`
-- **Mac con procesador Intel**: `publindex-macos-x64.zip`
 
-> ¿Mi Mac es Apple Silicon o Intel? Click en el menú Apple (esquina superior izquierda) → "Acerca de este Mac". Si dice "Chip M1/M2/M3/M4" es Apple Silicon. Si dice "Procesador Intel" es Intel.
+> Macs con procesador Intel no tienen binario empacado. Si está en un Mac Intel, corra desde código fuente con Node.js 20.19+ (`npm install && npm start`).
 
 ### 2. Primera ejecución
 
@@ -69,7 +68,6 @@ npm run build:bundle      # produce dist/publindex.js (~5 MB) — paso intermedi
 npm run build:bin         # alias de build:bin:win, para el dev workflow local
 npm run build:bin:win     # produce dist/publindex-windows-x64.exe
 npm run build:bin:mac-arm64  # produce dist/publindex-macos-arm64
-npm run build:bin:mac-x64    # produce dist/publindex-macos-x64
 ```
 
 ### Arquitectura
@@ -88,11 +86,11 @@ cli/   →   entities/   →   io/   →   utils/
 ### Release
 
 ```bash
-git tag v1.2.1
-git push origin v1.2.1
+git tag v1.2.2
+git push origin v1.2.2
 ```
 
-El workflow en `.github/workflows/release.yml` corre una matriz de tres jobs en paralelo (`windows-latest`, `macos-14` para Apple Silicon, `macos-13` para Intel), cada uno produce su binario, y un job final publica los tres en una release de GitHub con las notas tomadas de `RELEASE_NOTES.md`.
+El workflow en `.github/workflows/release.yml` corre una matriz de dos jobs en paralelo (`windows-latest`, `macos-14` para Apple Silicon), cada uno produce su binario, y un job final publica los dos en una release de GitHub con las notas tomadas de `RELEASE_NOTES.md`.
 
 ---
 
