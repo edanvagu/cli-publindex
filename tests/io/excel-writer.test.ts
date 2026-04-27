@@ -190,6 +190,21 @@ describe('generateTemplateWithData — validaciones dinámicas', () => {
     expect(ws.getCell(50, fRecCol).numFmt).toBe('dd/mm/yyyy');
   });
 
+  it('ninguna data validation usa una lista inline (Excel para Mac rechaza inline >255 chars)', async () => {
+    const out = path.join(tempDir, 'test.xlsx');
+    await generateTemplateWithData([fictitiousArticle], out);
+
+    const wb = await loadWorkbook(out);
+    const ws = wb.getWorksheet(ARTICLES_SHEET_NAME)!;
+    const dvs = (ws as unknown as { dataValidations: { model: Record<string, ExcelJS.DataValidation> } })
+      .dataValidations.model;
+    for (const [range, dv] of Object.entries(dvs)) {
+      if (dv.type !== 'list') continue;
+      const formula = String(dv.formulae?.[0] ?? '');
+      expect(formula.startsWith('"'), `lista inline en ${range}: ${formula}`).toBe(false);
+    }
+  });
+
   it('la hoja Instrucciones etiqueta las columnas Auto como "Auto (ruta automatizada)"', async () => {
     const out = path.join(tempDir, 'test.xlsx');
     await generateTemplateWithData([fictitiousArticle], out);

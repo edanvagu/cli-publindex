@@ -158,8 +158,7 @@ function buildAuthorsSheet(wb: ExcelJS.Workbook, authors: AuthorTemplateRow[]): 
 
   const nacionalidadCol = headers.indexOf('nacionalidad') + 1;
   if (nacionalidadCol > 0) {
-    const values = Object.values(NATIONALITIES);
-    applyListToColumn(ws, nacionalidadCol, `"${values.join(',')}"`);
+    applyListToColumn(ws, nacionalidadCol, 'NACIONALIDADES');
   }
 }
 
@@ -190,8 +189,7 @@ function buildReviewersSheet(wb: ExcelJS.Workbook, reviewers: ReviewerTemplateRo
 
   const nacionalidadCol = headers.indexOf('nacionalidad') + 1;
   if (nacionalidadCol > 0) {
-    const values = Object.values(NATIONALITIES);
-    applyListToColumn(ws, nacionalidadCol, `"${values.join(',')}"`);
+    applyListToColumn(ws, nacionalidadCol, 'NACIONALIDADES');
   }
 }
 
@@ -288,22 +286,22 @@ function addCrossFieldHighlighting(ws: ExcelJS.Worksheet, headers: string[]): vo
 function addDataValidations(ws: ExcelJS.Worksheet, headers: string[]): void {
   const colIdx = (h: string) => headers.indexOf(h) + 1;
 
-  // Dropdowns store user-facing LABELS. The validator/mapper translates label → code before sending the payload to Publindex.
-  const simpleLists: [string, string[]][] = [
-    ['tipo_documento', Object.values(DOCUMENT_TYPES)],
-    ['tipo_resumen', Object.values(SUMMARY_TYPES)],
-    ['tipo_especialista', Object.values(SPECIALIST_TYPES)],
-    ['idioma', Object.values(LANGUAGES)],
-    ['otro_idioma', Object.values(LANGUAGES)],
-    ['eval_interna', ['T', 'F']],
-    ['eval_nacional', ['T', 'F']],
-    ['eval_internacional', ['T', 'F']],
+  // Dropdowns store user-facing LABELS (validator translates label → code before payload). All lists reference named ranges defined in `_lookups` because Excel for Mac caps inline list strings at 255 chars and rejects the whole worksheet's data validations on overflow — TIPOS_DOCUMENTO alone is 260 chars and silently broke the template until v1.2.2.
+  const simpleLists: [string, string][] = [
+    ['tipo_documento', 'TIPOS_DOCUMENTO'],
+    ['tipo_resumen', 'TIPOS_RESUMEN'],
+    ['tipo_especialista', 'TIPOS_ESPECIALISTA'],
+    ['idioma', 'IDIOMAS'],
+    ['otro_idioma', 'IDIOMAS'],
+    ['eval_interna', 'BOOL_TF'],
+    ['eval_nacional', 'BOOL_TF'],
+    ['eval_internacional', 'BOOL_TF'],
   ];
 
-  for (const [header, values] of simpleLists) {
+  for (const [header, rangeName] of simpleLists) {
     const i = colIdx(header);
     if (i === 0) continue;
-    applyListToColumn(ws, i, `"${values.join(',')}"`);
+    applyListToColumn(ws, i, rangeName);
   }
 
   // Cascading dropdowns gran_area → area → subarea. Named ranges are keyed on the Minciencias CODE (ASCII-safe — labels contain accented chars Excel rejects in names) and the formula translates label → code via VLOOKUP on the _lookups sheet.
@@ -466,6 +464,21 @@ function buildLookupsSheet(wb: ExcelJS.Workbook): void {
     const name = `REQ_${field.toUpperCase()}`;
     ws.getColumn(col).values = [name, ...labels];
     defineRange(wb, ws.name, name, col, col, labels.length);
+    col++;
+  }
+
+  // Dropdown sources for the article/author/reviewer sheets. Defined here (not inline as `"a,b,c"`) because Excel caps inline list strings at 255 chars and rejects the entire worksheet's <dataValidations> block on overflow — TIPOS_DOCUMENTO is 260 chars.
+  const simpleLists: [string, string[]][] = [
+    ['TIPOS_DOCUMENTO', Object.values(DOCUMENT_TYPES)],
+    ['TIPOS_RESUMEN', Object.values(SUMMARY_TYPES)],
+    ['TIPOS_ESPECIALISTA', Object.values(SPECIALIST_TYPES)],
+    ['IDIOMAS', Object.values(LANGUAGES)],
+    ['BOOL_TF', ['T', 'F']],
+    ['NACIONALIDADES', Object.values(NATIONALITIES)],
+  ];
+  for (const [name, values] of simpleLists) {
+    ws.getColumn(col).values = [name, ...values];
+    defineRange(wb, ws.name, name, col, col, values.length);
     col++;
   }
 }
